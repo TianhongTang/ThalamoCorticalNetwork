@@ -85,6 +85,11 @@ for control_idx = 1:3
 
                 % task trials
                 subsession_types = {'Pre', 'Post'};
+
+                if strcmp(control, 'SimRec') && (strcmp(state, 'RestOpen') || strcmp(state, 'RestClose'))
+                    % SimRec does not have RestOpen and RestClose sessions
+                    continue;
+                end
                 
                 % simrec have different taskIDs than other two
                 if strcmp(control, 'SimRec')
@@ -373,7 +378,6 @@ for control_idx = 1:3
                     fprintf('max length: %d, min length: %d\n\n', ceil(max_duration/dt), ceil(min_duration/dt));
                     
                     % output
-                    n_trial = trial_num;
                     % if isnan(n_trial)
                     %     trial_len = NaN;
                     % else
@@ -381,13 +385,13 @@ for control_idx = 1:3
                     % end
 
                     % save
-                    session_name_save = [control, subsession, state, '_', area];
+                    session_name_save = [control, subsession, state, area];
                     save_name = sprintf('raster_%s_%d.mat', session_name_save, session_idx);
                     save_folder = fullfile(root, 'Data', 'Working', 'raster');
                     check_path(save_folder);
                     save_path = fullfile(save_folder, save_name);
                     save(save_path,...
-                        "rasters", "spikes", "firing_rates", "n_trial", "trial_len", ...
+                        "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...
                         "session_name_full", "N", "cuetype", "cell_id", "channel", 'dt');
                 end
             % todo: load resting state
