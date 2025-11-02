@@ -19,179 +19,194 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-clear
-% task_names = {'MuscimolPre_cortex', 'MuscimolPost_cortex', 'MuscimolPre_full'};
-task_names = {...
-
-    };
+clear;
 force_rebuild = false;
 force_retrain = false;
 debug = true;
-total_training = 0;
-skipped = 0;
-failed= 0;
-success = 0;
 
-failed_list = {};
+% register tasks
+% controls = {'Muscimol', 'Saline'};
+controls = {'Muscimol'};
+session_idxs_all = {1:10, 1:5}; % session indices for each control
+% area_types = {'Full', 'Cortex'};
+area_types = {'Cortex'};
+prepost_types = {'Pre', 'Post'};
+states = {'RestOpen', 'RestClose', 'Task'};
+alignments = {'Last'};
 
-% task_names = {'MuscimolPreDecision_full', 'SalinePreDecision_full', 'SimRecPreDecision_full'};
-% task_names = {'MuscimolPostDecision_full', 'SalinePostDecision_full'};
-% trial_names = {'100B', '50BI', '50BN', '100S', '0'};
-total_time = 0;
-for task_idx=1:length(task_names)
-    % for cuetype=1:5
-    % % compare if is Muscimol sessions
-    % if strcmp(task_names{task_idx}(1:8), 'Muscimol')
-    %     session_idxs = [6,7,8,9,10,1,4,5,2,3];
-    % else
-    %     session_idxs = [1,4,5,2,3];
-    % end
-    session_idxs = 1:10;
+kernel = 'DeltaPure';
+reg = struct();
+reg.l1=0;
+reg.l2=2;
+reg.name='L2=2';
 
-    for session_idx = session_idxs
-        for trial_idx = 1:1
-            try
-                % if task_idx==1 && session_idx<10
-                %     continue;
-                % end
-                % session_idx = session*100+cuetype;
-                % fprintf("Main: session%d, cue%d\n", session, cuetype);
+tasks = {};
+for control_idx = 1:length(controls)
+    control = controls{control_idx};
+    sessions = session_idxs_all{control_idx};
+    for session_idx = sessions
+        for area_idx = 1:length(area_types)
+            area_type = area_types{area_idx};
+            prepost_states = {};
+            for prepost_idx = 1:length(prepost_types)
+                prepost = prepost_types{prepost_idx};
+                if strcmp(area_type, 'Full') && strcmp(prepost, 'Post')
+                    % All thalamus data in post sessions are not available
+                    continue;
+                end
+                for align_idx = 1:length(alignments)
+                    alignment = alignments{align_idx};
+                    for state_idx = 1:length(states)
+                        state = states{state_idx};
 
-                % dataset_name = [task_names{task_idx}, '_', trial_names{trial_idx}];
-                tick_session = tic;
-                dataset_name = task_names{task_idx};
-                fprintf("Main: %s, session%d\n", dataset_name, session_idx);
-                total_training = total_training + 1;
-                skip_flag = true;
-
-                %% parameters
-                % dataset_name = 'generated';
-                % % session = 0;
-                % kernel_name = 'expDecay10';
-                
-                % dataset_name = 'taskCue';
-                % % session = 1;
-                % kernel_name = 'expDecay10';
-                
-                % task
-                % session = 1;
-                % kernel_name = 'expDecay10';
-                % kernel_name = 'expMulti200';
-                kernel_name = 'DeltaPure';
-                % kernel_name = 'DoublePure';
-                
-                % reg.l1=5;
-                % reg.l2=0;
-                % reg.name='L1=5';    
-                
-                reg.l1=0;
-                reg.l2=2;
-                reg.name='L2=2';
-                
-                % reg.l1=2;
-                % reg.l2=0;
-                % reg.name='L1=2';
-                
-                % reg.l1=0;
-                % reg.l2=0;
-                % reg.name='NoReg';
-                
-                shuffle_size=0;
-                max_epoch=2500;
-                
-                
-                %% generate shuffled raster
-                fprintf("Shuffle rasters\n");
-                tic;
-                for shuffle_seed=1:shuffle_size
-                    % skip if already exists
-                    target_path = ['../GLM_data/', dataset_name, '/raster_', ...
-                        dataset_name, '_', int2str(session_idx),  '_', int2str(shuffle_seed), '.mat'];
-                    if isfile(target_path) && ~force_rebuild
-                        fprintf("Skip %d. \n", shuffle_seed);
-                        continue;
+                        task = struct();
+                        task.control = control;
+                        task.area_type = area_type;
+                        task.prepost = prepost;
+                        task.state = state;
+                        task.alignment = alignment;
+                        task.name = [control, prepost, state, area_type, 'Align', alignment];
+                        task.session_idx = session_idx;
+                        task.kernel = kernel;
+                        task.reg = reg;
+                        task.shuffle_size = 0; % number of shuffles
+                        task.epoch = 2500;
+                        tasks{end+1} = task;
                     end
-
-                    skip_flag = false;
-                    shuffle_across_trial=(shuffle_seed<2);
-                    shuffle(dataset_name, session_idx, shuffle_seed, shuffle_across_trial);
-                end
-                toc;
-
-                %% convolve predj and combine trials
-                fprintf("Convolution\n");
-                tic;
-                for shuffle_seed=0:shuffle_size % seed=0: original data (no shuffle)
-                    % skip if already exists
-                    target_path = ['../GLM_data/', dataset_name, '/GLMdata_', dataset_name,...
-                        '_', int2str(session_idx), '_', kernel_name,  '_', int2str(shuffle_seed), '.mat'];
-                    if isfile(target_path) && ~force_rebuild
-                        fprintf("Skip %d. \n", shuffle_seed);
-                        continue;
-                    end
-
-                    skip_flag = false;
-                    convolution(dataset_name, session_idx, kernel_name, shuffle_seed);
-                end
-                toc;
-                %% GLM inference
-                for shuffle_seed=0:shuffle_size
-                    fprintf("Training %d\n", shuffle_seed);
-
-                    % skip if already exists
-                    foldername = ['../GLM_model/', dataset_name];
-                    target_path = [foldername, '/GLM_', dataset_name, '_', ...
-                    int2str(session_idx), '_', kernel_name, '_', int2str(shuffle_seed), '_', ...
-                    reg.name, '_', int2str(max_epoch)];
-                    if isfile([target_path, '.mat']) && ~force_retrain
-                        fprintf("Skip. \n");
-                        continue;
-                    end
-
-                    skip_flag = false;
-                    tic;
-                    GLM_multi_kernel_err(dataset_name, session_idx, kernel_name, shuffle_seed, max_epoch, reg, 1, 5e-3);
-                    toc;
-                end
-
-                %% plot
-                % plot_GLM(dataset_name, session_idx, kernel_name, max_epoch, reg, shuffle_size);
-                % type_file = ['../GLM_data/', dataset_name, '/celltype_', dataset_name, '_', int2str(session_idx), ...
-                % '.mat'];
-                % load(type_file, "cell_type");
-
-                fprintf("Plotting\n");
-                tic;
-                channel_file = ['../GLM_data/', dataset_name, '/raster_', dataset_name, '_', int2str(session_idx), ...
-                '_0.mat'];
-                load(channel_file, "channel");
-                plot_GLM_sorted(dataset_name, session_idx, kernel_name, max_epoch, reg, shuffle_size, "idx", channel);
-                toc;
-                % 
-                % %% plot gen
-                % % plot_generated(dataset_name)
-                % session_time = toc(tick_session);
-                % fprintf("Session time: %f\n", session_time);
-                % total_time = total_time + session_time;
-                % fprintf("Total time: %f\n", total_time);
-
-                if skip_flag
-                    skipped = skipped + 1;
-                else
-                    success = success + 1;
-                end
-
-            catch ME
-                fprintf("Failed: %s\n", ME.message);
-                failed = failed + 1;
-                failed_list{end+1} = {dataset_name, int2str(session_idx), ME.message};
-                if debug
-                    throw(ME);
                 end
             end
         end
     end
-    % plot_rest(session_idx, kernel_name, max_epoch, reg, shuffle_size);
+end
+
+
+% run tasks
+failed_list = {};
+skipped = 0;
+failed= 0;
+success = 0;
+
+total_time = 0;
+task_num = length(tasks);
+for task_idx=1:task_num
+    task = tasks{task_idx};
+    % try
+        tick_session = tic;
+        fprintf("Task %d/%d: %s, session%d\n", task_idx, task_num, task.name, task.session_idx);
+        skip_flag = true;
+        dataset_name = task.name;
+        session_idx = task.session_idx;
+        kernel_name = task.kernel;
+        reg = task.reg;
+        shuffle_size=task.shuffle_size;
+        max_epoch=task.epoch;
+        
+        %% generate shuffled raster
+        fprintf("Shuffle rasters\n");
+        tic;
+        for shuffle_id=0:shuffle_size
+            % skip if already exists
+            % TODO: Fix path for skip checking
+            target_path = ['../GLM_data/', dataset_name, '/raster_', ...
+                dataset_name, '_', int2str(session_idx),  '_', int2str(shuffle_id), '.mat'];
+            if isfile(target_path) && ~force_rebuild
+                fprintf("Skip %d. \n", shuffle_id);
+                continue;
+            end
+
+            skip_flag = false;
+            if shuffle_id==0
+                % original data
+                shuffle_type = "None";
+            else
+                shuffle_type = "Across trial";
+            end
+            shuffle(dataset_name, session_idx, shuffle_id, shuffle_id, shuffle_type);
+        end
+        toc;
+
+        %% split cross validation folds
+        fprintf("Cross-validation split\n");
+        tic;
+        for shuffle_id=0:shuffle_size % seed=0: original data (no shuffle)
+            % skip if already exists
+            target_path = ['../GLM_data/', dataset_name, '/crossval_split_', ...
+                dataset_name, '_', int2str(session_idx), '_', int2str(shuffle_id), '.mat'];
+            if isfile(target_path) && ~force_rebuild
+                fprintf("Skip %d. \n", shuffle_id);
+                continue;
+            end
+
+            skip_flag = false;
+            if strcmp(task.state, 'Task')
+                split_type = 'Trial';
+            else
+                split_type = 'Time';
+            end
+            crossval_split(dataset_name, session_idx, shuffle_id, 3, split_type);
+        end
+
+        %% convolve predj and combine trials
+        fprintf("Convolution\n");
+        tic;
+        for shuffle_id=0:shuffle_size % seed=0: original data (no shuffle)
+            % skip if already exists
+            target_path = ['../GLM_data/', dataset_name, '/GLMdata_', dataset_name,...
+                '_', int2str(session_idx), '_', kernel_name,  '_', int2str(shuffle_id), '.mat'];
+            if isfile(target_path) && ~force_rebuild
+                fprintf("Skip %d. \n", shuffle_id);
+                continue;
+            end
+            skip_flag = false;
+            convolution(dataset_name, session_idx, shuffle_id, kernel_name);
+        end
+        toc;
+
+        %% GLM inference
+        for shuffle_seed=0:shuffle_size
+            fprintf("Training %d\n", shuffle_seed);
+
+            % skip if already exists
+            foldername = ['../GLM_model/', dataset_name];
+            target_path = [foldername, '/GLM_', dataset_name, '_', ...
+            int2str(session_idx), '_', kernel_name, '_', int2str(shuffle_seed), '_', ...
+            reg.name, '_', int2str(max_epoch)];
+            if isfile([target_path, '.mat']) && ~force_retrain
+                fprintf("Skip. \n");
+                continue;
+            end
+
+            skip_flag = false;
+            tic;
+            for fold_idx = 1:3
+                GLM_multi_kernel_crossval(dataset_name, session_idx, kernel_name, shuffle_id, max_epoch, reg, 1, 5e-3, fold_idx);
+            end
+            toc;
+        end
+
+        %% plot
+        % fprintf("Plotting\n");
+        % tic;
+        % channel_file = ['../GLM_data/', dataset_name, '/raster_', dataset_name, '_', int2str(session_idx), ...
+        % '_0.mat'];
+        % load(channel_file, "channel");
+        % plot_GLM_sorted(dataset_name, session_idx, kernel_name, max_epoch, reg, shuffle_size, "idx", channel);
+        % toc;
+
+        if skip_flag
+            skipped = skipped + 1;
+        else
+            success = success + 1;
+        end
+
+    % catch ME
+    %     fprintf("Failed: %s\n", ME.message);
+    %     failed = failed + 1;
+    %     failed_list{end+1} = {dataset_name, int2str(session_idx), ME.message};
+    %     if debug
+    %         throw(ME);
+    %     end
+    % end
 end
 
 fprintf("Total: %d, Success: %d, Skipped: %d, Failed: %d\n", total_training, success, skipped, failed);

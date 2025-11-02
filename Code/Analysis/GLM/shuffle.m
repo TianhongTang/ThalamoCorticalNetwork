@@ -18,7 +18,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 file_folder = fullfile(root, 'Data', 'Working', 'raster');
 file_name = sprintf('raster_%s_%d.mat', dataset_name, session);
 raster_file = fullfile(file_folder, file_name);
-load(raster_file, "rasters", "n_trial", "trial_len", "firing_rates");
+load(raster_file, "N", "rasters", "trial_num", "trial_len", "firing_rates");
 n_raster = length(rasters);
 
 rasters_shuffle = cell(1, n_raster);
@@ -64,5 +64,5 @@ save_folder = fullfile(root, 'Data', 'Working', 'raster');
 save_name = sprintf('shuffled_%s_%d_%d.mat', dataset_name, session, shuffle_id);
 raster_file_shuffle = fullfile(save_folder, save_name);
 rasters = rasters_shuffle;
-save(raster_file_shuffle, "N", "n_trial", "trial_len", "rasters", "firing_rates", "shuffle_type", "shuffle_seed", '-v7.3');
+save(raster_file_shuffle, "N", "trial_num", "trial_len", "rasters", "firing_rates", "shuffle_type", "shuffle_seed", '-v7.3');
 end

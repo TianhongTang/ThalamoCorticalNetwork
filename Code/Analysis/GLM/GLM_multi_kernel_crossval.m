@@ -40,7 +40,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 folder_name= fullfile(root, 'Data', 'Working', 'GLM_data');
 file_name = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session, shuffle_id, kernel_name);
 file_path = fullfile(folder_name, file_name);
-load(file_path, "N", "B", "fold_num", "folds", "kernel");
+load(file_path, "N", "fold_num", "folds", "kernel");
 conn_kernels = kernel.conn_kernels;
 PS_kernels = kernel.PS_kernels;
 n_conn_kernel = kernel.n_conn_kernel;
@@ -51,6 +51,7 @@ kernel_len = kernel.kernel_len;
 raster = [];
 predjs_conn = [];
 predjs_PS = [];
+B_train = 0;
 for fold_id = 1:fold_num
     if fold_id == test_fold
         continue
@@ -58,12 +59,14 @@ for fold_id = 1:fold_num
     raster = cat(2, raster, folds{fold_id}.raster);
     predjs_conn = cat(2, predjs_conn, folds{fold_id}.predjs_conn);
     predjs_PS = cat(2, predjs_PS, folds{fold_id}.predjs_PS);
+    B_train = B_train + folds{fold_id}.B;
 end
 
 % test set
 raster_test = folds{test_fold}.raster;
 predjs_conn_test = folds{test_fold}.predjs_conn;
 predjs_PS_test = folds{test_fold}.predjs_PS;
+B_test = folds{test_fold}.B;
 
 % todo: edit below
 % filter: ignore 0 firing rate neurons in inference
@@ -84,7 +87,7 @@ par0=zeros(N_filtered, 1 + n_PS_kernel + N_filtered*n_conn_kernel);
 % Adam solver
 beta1 = 0.9;
 beta2 = 0.999;
-lr = lr * sqrt(B/16); % large batch payoff
+lr = lr * sqrt(B_train/16); % large batch payoff
 e = 1e-8;
 
 m = zeros(size(par0));
@@ -107,12 +110,12 @@ beta2_t = 1;
 fprintf("Ready\n");
 for epoch=1:max_epoch
     if (mod(epoch, 100)==0 && log_level==1)||log_level==2
-        [loss, grad, err] = minuslogL_grad_hess_fun(par,B,N_filtered, ...
+        [loss, grad, err] = minuslogL_grad_hess_fun(par,B_train,N_filtered, ...
             n_PS_kernel,n_conn_kernel,raster,predjs_PS,predjs_conn,logfacts,reg); 
-        loss_test = minuslogL_fun(par,B,N_filtered, ...
+        loss_test = minuslogL_grad_hess_fun(par,B_test,N_filtered, ...
             n_PS_kernel,n_conn_kernel,raster_test,predjs_PS_test,predjs_conn_test,logfacts,reg);
     else
-        [loss, grad] = minuslogL_grad_hess_fun(par,B,N_filtered, ...
+        [loss, grad] = minuslogL_grad_hess_fun(par,B_train,N_filtered, ...
             n_PS_kernel,n_conn_kernel,raster,predjs_PS,predjs_conn,logfacts,reg); 
         loss_test = NaN;
     end

@@ -23,8 +23,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 folder_name = fullfile(root, 'Data', 'Working', 'crossval_split');
 file_name = sprintf('crossval_%s_%d_%d.mat', dataset_name, session, shuffle_id);
 raster_path = fullfile(folder_name, file_name);
-folder_name = fullfile(root, 'Data', 'Working', 'kernels');
-file_name = sprintf('kernels_%s.mat', kernel_name);
+folder_name = fullfile(root, 'Data', 'Working', 'kernel');
+file_name = sprintf('kernel_%s.mat', kernel_name);
 kernel_path = fullfile(folder_name, file_name);
 load(raster_path, "N", "fold_num", "fold_rasters", "fold_trial_lens");
 load(kernel_path, "conn_kernels", "PS_kernels", ...
@@ -34,7 +34,7 @@ folds = cell(1, fold_num);
 for fold_id = 1:fold_num
     fold = struct();
     rasters = fold_rasters{fold_id};
-    n_trial = length(rasters);
+    trial_num = length(rasters);
     trial_len = fold_trial_lens{fold_id};
 
     valid_trial = trial_len>kernel_len;
@@ -43,7 +43,7 @@ for fold_id = 1:fold_num
     % clip valid raster parts and concatenate
     raster = zeros(N, B);
     pointer = 1;
-    for t = 1:n_trial
+    for t = 1:trial_num
         if ~valid_trial(t)
             continue
         end
@@ -62,7 +62,7 @@ for fold_id = 1:fold_num
         kernel = conn_kernels{k};
         predj = zeros(N, B);
         pointer = 1;
-        for t = 1:n_trial
+        for t = 1:trial_num
             if ~valid_trial(t)
                 continue
             end
@@ -82,7 +82,7 @@ for fold_id = 1:fold_num
         kernel = PS_kernels{k};
         predj = zeros(N, B);
         pointer = 1;
-        for t = 1:n_trial
+        for t = 1:trial_num
             if ~valid_trial(t)
                 continue
             end
@@ -97,6 +97,7 @@ for fold_id = 1:fold_num
     end
 
     fold.raster = raster;
+    fold.B = B;
     fold.predjs_conn = predjs_conn;
     fold.predjs_PS = predjs_PS;
     folds{fold_id} = fold;  
@@ -116,6 +117,6 @@ save_folder = fullfile(root, 'Data', 'Working', 'GLM_data');
 check_path(save_folder);
 save_name = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session, shuffle_id, kernel_name);
 save_path = fullfile(save_folder, save_name);
-save(save_path,"N", "B", "fold_num", "folds", "kernel", '-v7.3');
+save(save_path, "N", "fold_num", "folds", "kernel", '-v7.3');
 
 end

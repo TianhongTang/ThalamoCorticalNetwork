@@ -42,11 +42,11 @@ file_path = fullfile(folder_name, file_name);
 if ~exist(file_path, 'file')
     error('crossval_split:FileNotFound', 'Shuffled raster file not found: %s', file_path);
 end
-load(file_path, "N", "n_trial", "rasters");
+load(file_path, "N", "trial_num", "rasters");
 
 % Basic validation
-if ~iscell(rasters) || numel(rasters) < n_trial
-    error('crossval_split:InvalidRasters', 'Loaded ''rasters'' must be a cell array with at least n_trial elements.');
+if ~iscell(rasters) || numel(rasters) < trial_num
+    error('crossval_split:InvalidRasters', 'Loaded ''rasters'' must be a cell array with at least trial_num elements.');
 end
 
 fold_rasters = cell(1, fold_num);
@@ -58,7 +58,7 @@ for i = 1:fold_num
 end
 
 assignments = {};
-for i = 1:n_trial
+for i = 1:trial_num
     switch lower(split_type)
         case 'trial'
             % use the whole trial as one segment
@@ -83,7 +83,7 @@ for i = 1:n_trial
         shortest_fold = find(fold_total_lens == min(fold_total_lens), 1);
         fold_rasters{shortest_fold}{end+1} = trial_rasters{j};
         fold_total_lens(shortest_fold) = fold_total_lens(shortest_fold) + size(trial_rasters{j}, 2);
-        fold_trial_lens{shortest_fold}{end+1} = size(trial_rasters{j}, 2);
+        fold_trial_lens{shortest_fold}(end+1) = size(trial_rasters{j}, 2);
         assignment = struct();
         assignment.trial_index = i;
         assignment.segment_index = j;

@@ -21,6 +21,14 @@ prepost_types = {'Pre', 'Post'};
 states = {'RestOpen', 'RestClose', 'Task'};
 kernel = 'DeltaPure';
 
+% load kernel length
+folder_name = fullfile(root, 'Data', 'Working', 'kernel');
+file_name = sprintf('kernel_%s.mat', kernel);
+file_path = fullfile(folder_name, file_name);
+load(file_path, 'kernel_len');
+align_kernel_name = kernel;
+align_kernel_len = kernel_len;
+
 tasks = {};
 % register tasks
 for control_idx = 1:length(controls)
@@ -60,6 +68,7 @@ for task_idx = 1:task_num
     session_idx = task.session_idx;
     area_type = task.area_type;
     prepost_states = task.prepost_states;
+    fprintf('----------------------------------------\n');
     fprintf('Task %d/%d: %s Session %d Area %s with %d prepost_states\n', ...
         task_idx, task_num, control, session_idx, area_type, length(prepost_states));
     
@@ -68,105 +77,103 @@ for task_idx = 1:task_num
     for ps_idx = 1:length(prepost_states)
         prepost = prepost_states{ps_idx}.prepost;
         state = prepost_states{ps_idx}.state;
+
+        % load length info
         folder_name = fullfile(root, 'Data', 'Working', 'raster');
-    end
-end
+        file_name = sprintf('raster_%s_%d.mat', [control, prepost, state, area_type], session_idx);
+        raster_path = fullfile(folder_name, file_name);
+        load(raster_path, 'trial_num', 'trial_len', 'N');
 
-% check data size
-for session = sessions
-    min_duration = 10000000;
-    for task_idx = 1:length(tasks)
-        task = tasks{task_idx};
-
-        file_path = ['../GLM_data/', control, task, '/GLMdata_', control, task, '_', int2str(session), '_', kernel, '_0.mat'];
-        load(file_path, 'N', 'B');
-        file_path = ['../GLM_data/', control, task, '/raster_', control, task, '_', int2str(session), '_0.mat'];
-        load(file_path, 'n_trial');
+        B = sum(trial_len - align_kernel_len + 1); % effective length
 
         min_duration = min(min_duration, B);
-        
-        fprintf('Session %d, task %s, N = %d, B = %d, n_trial = %d\n', session, task, N, B, n_trial);
+        fprintf('%s%s Session %d, N = %d, B = %d, trial_num = %d\n', control, area_type, session_idx, N, B, trial_num);
     end
     seconds = floor(min_duration/1000);
-    fprintf('Session %d, min_duration = %d, %d:%d\n', session, min_duration, floor(seconds/60), mod(seconds, 60));
+    fprintf('%s%s Session %d, min_duration = %d (%d:%d)\n', control, area_type, session_idx, min_duration, floor(seconds/60), mod(seconds, 60));
 
     % align data to min_duration
-    % modes = {'First', 'Last', 'Random'};
-    modes = {'Last'};
-    for task_idx = 1:length(tasks)
-        task = tasks{task_idx};
-        fprintf('Aligning %s %s\n', control, task);
-        fprintf('Loading...');
-        file_path = ['../GLM_data/', control, task, '/GLMdata_', control, task, '_', int2str(session), '_', kernel, '_0.mat'];
-        load(file_path, 'N', 'B', 'PS_kernels', 'conn_kernels', 'kernel_len', 'n_PS_kernel',...
-            'n_conn_kernel', 'predjs_PS', 'predjs_conn', 'raster');
-        raster_full = raster;
-        predjs_PS_full = predjs_PS;
-        predjs_conn_full = predjs_conn;
-        B_full = B;
-
-        % raster and border file 
-        file_path = ['../GLM_data/', control, task, '/raster_', control, task, '_', int2str(session), '_0.mat'];
-        load(file_path, 'n_trial', 'cell_id', 'cell_area', 'channel', 'session_name_full');
-        file_path = ['../GLM_data/', control, task, '/borders_', control, task, '_', int2str(session), '.mat'];
-        load(file_path, 'borders');
-        fprintf('Done\n');
+    modes = {'First', 'Last'};
+    for ps_idx = 1:length(prepost_states)
+        prepost = prepost_states{ps_idx}.prepost;
+        state = prepost_states{ps_idx}.state;
+        fprintf('Aligning %s ...\n', [prepost, state]);
 
         for mode_idx = 1:length(modes)
+            % raster file and border file
+            fprintf('Loading...');
+            folder_name = fullfile(root, 'Data', 'Working', 'raster');
+            file_name = sprintf('raster_%s_%d.mat', [control, prepost, state, area_type], session_idx);
+            raster_path = fullfile(folder_name, file_name);
+            load(raster_path, 'trial_num', 'cell_id', 'cell_area', 'channel', 'session_name', 'trial_len', 'rasters');
+            % folder_name = fullfile(root, 'Data', 'Working', 'border');
+            % file_name = sprintf('borders_%s_%d.mat', [control, prepost, area_type], session_idx);
+            % raster_path = fullfile(folder_name, file_name);
+            % load(raster_path, 'borders');
+            fprintf('Done\n');
+
             mode = modes{mode_idx};
             fprintf('Mode: %s\n', mode);
+
+            raster_aligned = cell(1, 0);
+            trial_len_aligned = zeros(1, 0);
+            current_eff_dur = 0;
+
             switch mode
                 case 'First'
-                    selected = 1:min_duration;
-                    % fprintf('First\n');
+                    for trial = 1:trial_num
+                        trial_eff_dur = trial_len(trial) - kernel_len + 1;
+                        if current_eff_dur + trial_eff_dur >= min_duration
+                            cut_len = min_duration - current_eff_dur + kernel_len - 1;
+                            raster_aligned{end+1} = rasters{trial}(:, 1:cut_len);
+                            trial_len_aligned(end+1) = cut_len;
+                            break;
+                        else
+                            raster_aligned{end+1} = rasters{trial};
+                            current_eff_dur = current_eff_dur + trial_eff_dur;
+                            trial_len_aligned(end+1) = trial_eff_dur + kernel_len - 1;
+                        end
+                    end
                 case 'Last'
-                    selected = (B_full-min_duration+1):B_full;
-                    % fprintf('Last\n');
-                case 'Random'
-                    selected = randperm(B_full, min_duration);
-                    % fprintf('Random\n');
+                    for trial = trial_num:-1:1
+                        trial_eff_dur = trial_len(trial) - kernel_len + 1;
+                        if current_eff_dur + trial_eff_dur >= min_duration
+                            cut_len = min_duration - current_eff_dur + kernel_len - 1;
+                            raster_aligned{end+1} = rasters{trial}(:, end-cut_len+1:end);
+                            trial_len_aligned(end+1) = cut_len;
+                            break;
+                        else
+                            raster_aligned{end+1} = rasters{trial};
+                            current_eff_dur = current_eff_dur + trial_eff_dur;
+                            trial_len_aligned(end+1) = trial_eff_dur + kernel_len - 1;
+                        end
+                    end
             end
-            % if strcmp(mode, 'First')
-            %     selected = 1:min_duration;
-            %     fprintf('First\n');
-            % elseif strcmp(mode, 'Last')
-            %     selected = (B-min_duration+1):B;
-            %     fprintf('Last\n');
-            % elseif strcmp(mode, 'Random')
-            %     selected = randperm(B, min_duration);
-            %     fprintf('Random\n');
-            % end
 
-            raster = raster_full(:, selected);
-            predjs_PS = predjs_PS_full(:, selected, :);
-            predjs_conn = predjs_conn_full(:, selected, :);
-            % if n_PS_kernel > 0
-            %     predjs_PS = predjs_PS_full(:, selected, :);
-            % else
-            %     predjs_PS = [];
-            % end
-            % if n_conn_kernel > 0
-            %     predjs_conn = predjs_conn_full(:, selected, :);
-            % else
-            %     predjs_conn = [];
-            % end
-            B = min_duration;
+            if strcmp(mode, 'Last')
+                raster_aligned = fliplr(raster_aligned);
+                trial_len_aligned = fliplr(trial_len_aligned);
+            end
 
-            full_name = [control, task, '_Align', mode];
+            rasters = raster_aligned;
+            trial_len = trial_len_aligned;
+            trial_num = length(rasters);
+
+            firing_rates = cell(1, trial_num);
+            for i = 1:trial_num
+                firing_rates{i} = mean(rasters{i}, 2);
+            end
+
+            full_name = [control, prepost, state, area_type, 'Align', mode];
             fprintf('Saving...');
-            file_path = ['../GLM_data/', full_name, '/GLMdata_', full_name, '_', int2str(session), '_', kernel, '_0.mat'];
-            check_path(['../GLM_data/', full_name]);
-            save(file_path, 'N', 'B', 'PS_kernels', 'conn_kernels', 'kernel_len', 'n_PS_kernel',...
-                'n_conn_kernel', 'predjs_PS', 'predjs_conn', 'raster');
-
-            % raster file and border file
-            file_path = ['../GLM_data/', full_name, '/raster_', full_name, '_', int2str(session), '_0.mat'];
-            save(file_path, 'n_trial', 'cell_id', 'cell_area', 'channel', 'session_name_full');
-            file_path = ['../GLM_data/', full_name, '/borders_', full_name, '_', int2str(session), '.mat'];
-            save(file_path, 'borders');
+            save_folder = fullfile(root, 'Data', 'Working', 'raster');
+            check_path(save_folder);
+            file_name = sprintf('raster_%s_%d.mat', full_name, session_idx);
+            file_path = fullfile(save_folder, file_name);
+            save(file_path, 'N', 'trial_num', 'cell_id', 'cell_area', 'channel', 'session_name', 'trial_len', 'rasters', 'firing_rates');
 
             fprintf('Done.\n');
-            fprintf('CheckSum: %f\n', sum(raster, 'all'));
         end
     end
 end
+
