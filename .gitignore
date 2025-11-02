@@ -1,0 +1,6 @@
+# Ignore Data and Figures directories
+/Data/
+/Figures/
+
+# Ignore any file starting with "cluster" and ending with ".sh"
+cluster*.sh

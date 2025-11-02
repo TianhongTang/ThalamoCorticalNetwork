@@ -1,0 +1,393 @@
+/apps/software/extern/matlab/R2024a/bin/matlab
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+                  R2024a (24.1.0.2537033) 64-bit (glnxa64)
+                             February 21, 2024
+
+[Warning: Name is nonexistent or not a directory:
+/data/apps/extern/matlab/matlab_parallel_server/scripts] 
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Loading: Muscimol, ACC, Pre, Task, session1, N=13...
+max duration: 1.298158e+01, min duration: 8.872800e+00
+max length: 12982, min length: 8873
+
+Loading: Muscimol, ACC, Post, Task, session1, N=13...
+max duration: 1.359640e+01, min duration: 8.872550e+00
+max length: 13597, min length: 8873
+
+Loading: Muscimol, ACC, Pre, Task, session2, N=16...
+max duration: 1.265895e+01, min duration: 8.873900e+00
+max length: 12659, min length: 8874
+
+Loading: Muscimol, ACC, Post, Task, session2, N=16...
+max duration: 1.300005e+01, min duration: 8.874550e+00
+max length: 13001, min length: 8875
+
+Loading: Muscimol, ACC, Pre, Task, session3, N=0...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Muscimol, ACC, Post, Task, session3, N=0...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Muscimol, ACC, Pre, Task, session4, N=0...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Muscimol, ACC, Post, Task, session4, N=0...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Muscimol, ACC, Pre, Task, session5, N=14...
+max duration: 1.358248e+01, min duration: 8.874175e+00
+max length: 13583, min length: 8875
+
+Loading: Muscimol, ACC, Post, Task, session5, N=14...
+max duration: 1.414828e+01, min duration: 8.766325e+00
+max length: 14149, min length: 8767
+
+Loading: Muscimol, ACC, Pre, Task, session6, N=28...
+max duration: 1.333578e+01, min duration: 8.874500e+00
+max length: 13336, min length: 8875
+
+Loading: Muscimol, ACC, Post, Task, session6, N=28...
+max duration: 1.388555e+01, min duration: 8.875750e+00
+max length: 13886, min length: 8876
+
+Loading: Muscimol, ACC, Pre, Task, session7, N=26...
+max duration: 1.319938e+01, min duration: 8.869325e+00
+max length: 13200, min length: 8870
+
+Loading: Muscimol, ACC, Post, Task, session7, N=26...
+max duration: 1.308313e+01, min duration: 8.879425e+00
+max length: 13084, min length: 8880
+
+Loading: Muscimol, ACC, Pre, Task, session8, N=41...
+max duration: 1.267985e+01, min duration: 8.883450e+00
+max length: 12680, min length: 8884
+
+Loading: Muscimol, ACC, Post, Task, session8, N=41...
+max duration: 1.406288e+01, min duration: 8.775600e+00
+max length: 14063, min length: 8776
+
+Loading: Muscimol, ACC, Pre, Task, session9, N=22...
+max duration: 1.328125e+01, min duration: 8.875800e+00
+max length: 13282, min length: 8876
+
+Loading: Muscimol, ACC, Post, Task, session9, N=22...
+max duration: 1.290312e+01, min duration: 8.787250e+00
+max length: 12904, min length: 8788
+
+Loading: Muscimol, ACC, Pre, Task, session10, N=30...
+max duration: 1.376755e+01, min duration: 8.872675e+00
+max length: 13768, min length: 8873
+
+Loading: Muscimol, ACC, Post, Task, session10, N=30...
+max duration: 1.365137e+01, min duration: 8.676100e+00
+max length: 13652, min length: 8677
+
+Loading: Muscimol, Thalamus, Pre, Task, session1, N=55...
+max duration: 1.298158e+01, min duration: 8.872800e+00
+max length: 12982, min length: 8873
+
+Loading: Muscimol, Thalamus, Pre, Task, session2, N=43...
+max duration: 1.265895e+01, min duration: 8.873900e+00
+max length: 12659, min length: 8874
+
+Loading: Muscimol, Thalamus, Pre, Task, session3, N=64...
+max duration: 1.376682e+01, min duration: 8.868275e+00
+max length: 13767, min length: 8869
+
+Loading: Muscimol, Thalamus, Pre, Task, session4, N=5...
+max duration: 1.281777e+01, min duration: 8.868200e+00
+max length: 12818, min length: 8869
+
+Loading: Muscimol, Thalamus, Pre, Task, session5, N=54...
+max duration: 1.358248e+01, min duration: 8.874175e+00
+max length: 13583, min length: 8875
+
+Loading: Muscimol, Thalamus, Pre, Task, session6, N=56...
+max duration: 1.333578e+01, min duration: 8.874500e+00
+max length: 13336, min length: 8875
+
+Loading: Muscimol, Thalamus, Pre, Task, session7, N=31...
+max duration: 1.319938e+01, min duration: 8.869325e+00
+max length: 13200, min length: 8870
+
+Loading: Muscimol, Thalamus, Pre, Task, session8, N=29...
+max duration: 1.267985e+01, min duration: 8.883450e+00
+max length: 12680, min length: 8884
+
+Loading: Muscimol, Thalamus, Pre, Task, session9, N=37...
+max duration: 1.328125e+01, min duration: 8.875800e+00
+max length: 13282, min length: 8876
+
+Loading: Muscimol, Thalamus, Pre, Task, session10, N=35...
+max duration: 1.376755e+01, min duration: 8.872675e+00
+max length: 13768, min length: 8873
+
+Loading: Muscimol, VLPFC, Pre, Task, session1, N=19...
+max duration: 1.298158e+01, min duration: 8.872800e+00
+max length: 12982, min length: 8873
+
+Loading: Muscimol, VLPFC, Post, Task, session1, N=19...
+max duration: 1.359640e+01, min duration: 8.872550e+00
+max length: 13597, min length: 8873
+
+Loading: Muscimol, VLPFC, Pre, Task, session2, N=5...
+max duration: 1.265895e+01, min duration: 8.873900e+00
+max length: 12659, min length: 8874
+
+Loading: Muscimol, VLPFC, Post, Task, session2, N=5...
+max duration: 1.300005e+01, min duration: 8.874550e+00
+max length: 13001, min length: 8875
+
+Loading: Muscimol, VLPFC, Pre, Task, session3, N=31...
+max duration: 1.376682e+01, min duration: 8.868275e+00
+max length: 13767, min length: 8869
+
+Loading: Muscimol, VLPFC, Post, Task, session3, N=31...
+max duration: 1.292612e+01, min duration: 8.874050e+00
+max length: 12927, min length: 8875
+
+Loading: Muscimol, VLPFC, Pre, Task, session4, N=26...
+max duration: 1.281777e+01, min duration: 8.868200e+00
+max length: 12818, min length: 8869
+
+Loading: Muscimol, VLPFC, Post, Task, session4, N=26...
+max duration: 1.289012e+01, min duration: 8.967525e+00
+max length: 12891, min length: 8968
+
+Loading: Muscimol, VLPFC, Pre, Task, session5, N=0...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Muscimol, VLPFC, Post, Task, session5, N=0...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Muscimol, VLPFC, Pre, Task, session6, N=25...
+max duration: 1.333578e+01, min duration: 8.874500e+00
+max length: 13336, min length: 8875
+
+Loading: Muscimol, VLPFC, Post, Task, session6, N=25...
+max duration: 1.388555e+01, min duration: 8.875750e+00
+max length: 13886, min length: 8876
+
+Loading: Muscimol, VLPFC, Pre, Task, session7, N=53...
+max duration: 1.319938e+01, min duration: 8.869325e+00
+max length: 13200, min length: 8870
+
+Loading: Muscimol, VLPFC, Post, Task, session7, N=53...
+max duration: 1.308313e+01, min duration: 8.879425e+00
+max length: 13084, min length: 8880
+
+Loading: Muscimol, VLPFC, Pre, Task, session8, N=54...
+max duration: 1.267985e+01, min duration: 8.883450e+00
+max length: 12680, min length: 8884
+
+Loading: Muscimol, VLPFC, Post, Task, session8, N=54...
+max duration: 1.406288e+01, min duration: 8.775600e+00
+max length: 14063, min length: 8776
+
+Loading: Muscimol, VLPFC, Pre, Task, session9, N=48...
+max duration: 1.328125e+01, min duration: 8.875800e+00
+max length: 13282, min length: 8876
+
+Loading: Muscimol, VLPFC, Post, Task, session9, N=48...
+max duration: 1.290312e+01, min duration: 8.787250e+00
+max length: 12904, min length: 8788
+
+Loading: Muscimol, VLPFC, Pre, Task, session10, N=40...
+max duration: 1.376755e+01, min duration: 8.872675e+00
+max length: 13768, min length: 8873
+
+Loading: Muscimol, VLPFC, Post, Task, session10, N=40...
+max duration: 1.365137e+01, min duration: 8.676100e+00
+max length: 13652, min length: 8677
+
+Loading: Saline, ACC, Pre, Task, session1, N=27...
+max duration: 1.358572e+01, min duration: 8.874375e+00
+max length: 13586, min length: 8875
+
+Loading: Saline, ACC, Post, Task, session1, N=27...
+max duration: 1.280138e+01, min duration: 8.866550e+00
+max length: 12802, min length: 8867
+
+Loading: Saline, ACC, Pre, Task, session2, N=39...
+max duration: 1.404125e+01, min duration: 8.873600e+00
+max length: 14042, min length: 8874
+
+Loading: Saline, ACC, Post, Task, session2, N=39...
+max duration: 1.378862e+01, min duration: 8.894925e+00
+max length: 13789, min length: 8895
+
+Loading: Saline, ACC, Pre, Task, session3, N=20...
+max duration: 1.343657e+01, min duration: 8.873750e+00
+max length: 13437, min length: 8874
+
+Loading: Saline, ACC, Post, Task, session3, N=20...
+max duration: 1.311685e+01, min duration: 8.875200e+00
+max length: 13117, min length: 8876
+
+Loading: Saline, ACC, Pre, Task, session4, N=10...
+max duration: 1.231153e+01, min duration: 8.873625e+00
+max length: 12312, min length: 8874
+
+Loading: Saline, ACC, Post, Task, session4, N=10...
+max duration: 1.305073e+01, min duration: 8.875550e+00
+max length: 13051, min length: 8876
+
+Loading: Saline, ACC, Pre, Task, session5, N=20...
+max duration: 1.345328e+01, min duration: 8.874200e+00
+max length: 13454, min length: 8875
+
+Loading: Saline, ACC, Post, Task, session5, N=20...
+max duration: 1.365117e+01, min duration: 8.874425e+00
+max length: 13652, min length: 8875
+
+Loading: Saline, Thalamus, Pre, Task, session1, N=20...
+max duration: 1.358572e+01, min duration: 8.874375e+00
+max length: 13586, min length: 8875
+
+Loading: Saline, Thalamus, Post, Task, session1, N=20...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Saline, Thalamus, Pre, Task, session2, N=35...
+max duration: 1.404125e+01, min duration: 8.873600e+00
+max length: 14042, min length: 8874
+
+Loading: Saline, Thalamus, Post, Task, session2, N=35...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Saline, Thalamus, Pre, Task, session3, N=16...
+max duration: 1.343657e+01, min duration: 8.873750e+00
+max length: 13437, min length: 8874
+
+Loading: Saline, Thalamus, Post, Task, session3, N=16...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Saline, Thalamus, Pre, Task, session4, N=30...
+max duration: 1.231153e+01, min duration: 8.873625e+00
+max length: 12312, min length: 8874
+
+Loading: Saline, Thalamus, Post, Task, session4, N=30...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Saline, Thalamus, Pre, Task, session5, N=48...
+max duration: 1.345328e+01, min duration: 8.874200e+00
+max length: 13454, min length: 8875
+
+Loading: Saline, Thalamus, Post, Task, session5, N=48...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: Saline, VLPFC, Pre, Task, session1, N=39...
+max duration: 1.358572e+01, min duration: 8.874375e+00
+max length: 13586, min length: 8875
+
+Loading: Saline, VLPFC, Post, Task, session1, N=39...
+max duration: 1.280138e+01, min duration: 8.866550e+00
+max length: 12802, min length: 8867
+
+Loading: Saline, VLPFC, Pre, Task, session2, N=32...
+max duration: 1.404125e+01, min duration: 8.873600e+00
+max length: 14042, min length: 8874
+
+Loading: Saline, VLPFC, Post, Task, session2, N=32...
+max duration: 1.378862e+01, min duration: 8.894925e+00
+max length: 13789, min length: 8895
+
+Loading: Saline, VLPFC, Pre, Task, session3, N=23...
+max duration: 1.343657e+01, min duration: 8.873750e+00
+max length: 13437, min length: 8874
+
+Loading: Saline, VLPFC, Post, Task, session3, N=23...
+max duration: 1.311685e+01, min duration: 8.875200e+00
+max length: 13117, min length: 8876
+
+Loading: Saline, VLPFC, Pre, Task, session4, N=26...
+max duration: 1.231153e+01, min duration: 8.873625e+00
+max length: 12312, min length: 8874
+
+Loading: Saline, VLPFC, Post, Task, session4, N=26...
+max duration: 1.305073e+01, min duration: 8.875550e+00
+max length: 13051, min length: 8876
+
+Loading: Saline, VLPFC, Pre, Task, session5, N=35...
+max duration: 1.345328e+01, min duration: 8.874200e+00
+max length: 13454, min length: 8875
+
+Loading: Saline, VLPFC, Post, Task, session5, N=35...
+max duration: 1.365117e+01, min duration: 8.874425e+00
+max length: 13652, min length: 8875
+
+Loading: SimRec, ACC, Pre, Task, session1, N=0...
+max duration: 0, min duration: 9999
+max length: 0, min length: 9999000
+
+Loading: SimRec, ACC, Pre, Task, session2, N=11...
+max duration: 1.174745e+01, min duration: 8.880000e+00
+max length: 11748, min length: 8881
+
+Loading: SimRec, ACC, Pre, Task, session3, N=45...
+max duration: 1.314642e+01, min duration: 8.874925e+00
+max length: 13147, min length: 8875
+
+Loading: SimRec, ACC, Pre, Task, session4, N=16...
+max duration: 1.409428e+01, min duration: 8.882300e+00
+max length: 14095, min length: 8883
+
+Loading: SimRec, ACC, Pre, Task, session5, N=1...
+max duration: 1.260650e+01, min duration: 8.885400e+00
+max length: 12607, min length: 8886
+
+Loading: SimRec, Thalamus, Pre, Task, session1, N=37...
+max duration: 1.278967e+01, min duration: 8.867400e+00
+max length: 12790, min length: 8868
+
+Loading: SimRec, Thalamus, Pre, Task, session2, N=40...
+max duration: 1.174745e+01, min duration: 8.880000e+00
+max length: 11748, min length: 8881
+
+Loading: SimRec, Thalamus, Pre, Task, session3, N=4...
+max duration: 1.314642e+01, min duration: 8.874925e+00
+max length: 13147, min length: 8875
+
+Loading: SimRec, Thalamus, Pre, Task, session4, N=53...
+max duration: 1.409428e+01, min duration: 8.882300e+00
+max length: 14095, min length: 8883
+
+Loading: SimRec, Thalamus, Pre, Task, session5, N=21...
+max duration: 1.260650e+01, min duration: 8.885400e+00
+max length: 12607, min length: 8886
+
+Loading: SimRec, VLPFC, Pre, Task, session1, N=48...
+max duration: 1.278967e+01, min duration: 8.867400e+00
+max length: 12790, min length: 8868
+
+Loading: SimRec, VLPFC, Pre, Task, session2, N=21...
+max duration: 1.174745e+01, min duration: 8.880000e+00
+max length: 11748, min length: 8881
+
+Loading: SimRec, VLPFC, Pre, Task, session3, N=6...
+max duration: 1.314642e+01, min duration: 8.874925e+00
+max length: 13147, min length: 8875
+
+Loading: SimRec, VLPFC, Pre, Task, session4, N=19...
+max duration: 1.409428e+01, min duration: 8.882300e+00
+max length: 14095, min length: 8883
+
+Loading: SimRec, VLPFC, Pre, Task, session5, N=6...
+max duration: 1.260650e+01, min duration: 8.885400e+00
+max length: 12607, min length: 8886
+
