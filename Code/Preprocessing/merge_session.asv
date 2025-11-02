@@ -31,7 +31,7 @@ prepost_types = {'Pre', 'Post'};
 states = {'RestOpen', 'RestClose', 'Task'};
 
 tasks = {};
-for control_idx = 1:length(controls)
+for control_idx = 1:3
     control = controls{control_idx};
     unique_sessions = unique_sessions_all{control_idx};
     for session_idx = 1:length(unique_sessions)
@@ -142,10 +142,9 @@ for task_idx = 1:task_num
         else
             assert(trial_num == data.trial_num, ...
                 'trial num not match! Area: %s, Control: %s, state: %s', area, control, state);
-            if strcmp(state, 'Task')
-                assert(~((any(cuetype~=data.cuetype & ~isnan(cuetype))) || any(trial_len ~= data.trial_len)), ...
+            if strcmp()
+                assert((any(cuetype~=data.cuetype & ~isnan(cuetype))) || any(trial_len ~= data.trial_len), ...
                     'trial info not match! Area: %s, Control: %s, state: %s', area, control, state);
-            end
         end
         N = N+data.N;
         cell_area = [cell_area, repmat({area}, 1, data.N)];
@@ -159,14 +158,12 @@ for task_idx = 1:task_num
     end
     % save data
     save_folder = fullfile(root, 'Data', 'Working', 'raster');
-    check_path(save_folder);
-    save_name = sprintf('raster_%s_%d.mat', [control, prepost, state, merge_type], session_idx);
+    save_name = sprintf('raster_%s%s%s%s_%d.mat', control, prepost, state, merge_type, session_idx);
     save_path = fullfile(save_folder, save_name);
     save(save_path, 'N', "cell_id", "cuetype", "firing_rates", "trial_num",...
         "rasters", "spikes", "session_name_full", "trial_len", "cell_area", "channel", '-v7.3');
     % save border file
     save_folder = fullfile(root, 'Data', 'Working', 'border');
-    check_path(save_folder);
     save_name = sprintf('borders_%s%s%s_%d.mat', control, prepost, merge_type, session_idx);
     save_path = fullfile(save_folder, save_name);
     save(save_path, "borders");

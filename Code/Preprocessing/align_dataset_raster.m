@@ -1,53 +1,115 @@
-% Align task, eyeclose and eyeopen datasets to have the same duration
+%% Align all states to the same duration
 
-%% Load data
-control = 'Saline';
-% control = 'Muscimol';
+%% Get root folder
+code_depth = 3;
+script_path = mfilename('fullpath');
+root = script_path;
+for i = 1:code_depth
+    root = fileparts(root);
+end
+% include code folder and utils
+addpath(fileparts(script_path));
+addpath(fullfile(root, 'Code', 'Utils'));
+
+%% Main
+
+% Load data
+controls = {'Muscimol', 'Saline'};
+session_idxs_all = {1:10, 1:5}; % session indices for each control
+area_types = {'Full', 'Cortex'};
+prepost_types = {'Pre', 'Post'};
+states = {'RestOpen', 'RestClose', 'Task'};
 kernel = 'DeltaPure';
 
-tasks = {...
-    'PreTask_full', 'PreTask_cortex', 'PostTask_cortex',...
-    'PreRestClose_full', 'PreRestClose_cortex', 'PostRestClose_cortex',...
-    'PreRestOpen_full', 'PreRestOpen_cortex', 'PostRestOpen_cortex'};
+% load kernel length
+folder_name = fullfile(root, 'Data', 'Working', 'kernel');
+file_name = sprintf('kernel_%s.mat', kernel);
+file_path = fullfile(folder_name, file_name);
+load(file_path, 'kernel_len');
+align_kernel_name = kernel;
+align_kernel_len = kernel_len;
 
-% check data size
-for session = 1:10
+tasks = {};
+% register tasks
+for control_idx = 1:length(controls)
+    control = controls{control_idx};
+    sessions = session_idxs_all{control_idx};
+    for session_idx = sessions
+        for area_idx = 1:length(area_types)
+            area_type = area_types{area_idx};
+            task = struct();
+            task.control = control;
+            task.area_type = area_type;
+            task.session_idx = session_idx;
+
+            prepost_states = {};
+            for prepost_idx = 1:length(prepost_types)
+                prepost = prepost_types{prepost_idx};
+                if strcmp(area_type, 'Full') && strcmp(prepost, 'Post')
+                    % All thalamus data in post sessions are not available
+                    continue;
+                end
+                for state_idx = 1:length(states)
+                    state = states{state_idx};
+                    prepost_states{end+1} = struct('prepost', prepost, 'state', state);
+                end
+            end
+            task.prepost_states = prepost_states;
+            tasks{end+1} = task;
+        end
+    end
+end
+
+% run tasks
+task_num = length(tasks);
+for task_idx = 1:task_num
+    task = tasks{task_idx};
+    control = task.control;
+    session_idx = task.session_idx;
+    area_type = task.area_type;
+    prepost_states = task.prepost_states;
+    fprintf('----------------------------------------\n');
+    fprintf('Task %d/%d: %s Session %d Area %s with %d prepost_states\n', ...
+        task_idx, task_num, control, session_idx, area_type, length(prepost_states));
+    
+    % find min duration among prepost_states
     min_duration = 10000000;
-    for task_idx = 1:length(tasks)
-        task = tasks{task_idx};
+    for ps_idx = 1:length(prepost_states)
+        prepost = prepost_states{ps_idx}.prepost;
+        state = prepost_states{ps_idx}.state;
 
-        % file_path = ['../GLM_data/', control, task, '/GLMdata_', control, task, '_', int2str(session), '_', kernel, '_0.mat'];
-        % load(file_path, 'N', 'B');
-        file_path = ['../GLM_data/', control, task, '/raster_', control, task, '_', int2str(session), '_0.mat'];
-        load(file_path, 'n_trial', 'trial_len', 'N');
-        file_path = ['../GLM_data/kernel_', kernel, '.mat'];
-        load(file_path, 'kernel_len');
+        % load length info
+        folder_name = fullfile(root, 'Data', 'Working', 'raster');
+        file_name = sprintf('raster_%s_%d.mat', [control, prepost, state, area_type], session_idx);
+        raster_path = fullfile(folder_name, file_name);
+        load(raster_path, 'trial_num', 'trial_len', 'N');
 
-        effective_len = sum(trial_len - kernel_len + 1);
-        B = effective_len;
+        B = sum(trial_len - align_kernel_len + 1); % effective length
 
         min_duration = min(min_duration, B);
-        fprintf('Session %d, task %s, N = %d, B = %d, n_trial = %d\n', session, task, N, B, n_trial);
-        fprintf('Session %d, task %s, effective_len = %d\n', session, task, effective_len);
+        fprintf('%s%s Session %d, N = %d, B = %d, trial_num = %d\n', control, area_type, session_idx, N, B, trial_num);
     end
     seconds = floor(min_duration/1000);
-    fprintf('Session %d, min_duration = %d, %d:%d\n', session, min_duration, floor(seconds/60), mod(seconds, 60));
+    fprintf('%s%s Session %d, min_duration = %d (%d:%d)\n', control, area_type, session_idx, min_duration, floor(seconds/60), mod(seconds, 60));
 
     % align data to min_duration
     modes = {'First', 'Last'};
-    for task_idx = 1:length(tasks)
-        task = tasks{task_idx};
-        fprintf('Aligning %s %s\n', control, task);
-        fprintf('Loading...');
-
-
+    for ps_idx = 1:length(prepost_states)
+        prepost = prepost_states{ps_idx}.prepost;
+        state = prepost_states{ps_idx}.state;
+        fprintf('Aligning %s ...\n', [prepost, state]);
 
         for mode_idx = 1:length(modes)
             % raster file and border file
-            file_path = ['../GLM_data/', control, task, '/raster_', control, task, '_', int2str(session), '_0.mat'];
-            load(file_path, 'n_trial', 'cell_id', 'cell_area', 'channel', 'session_name_full', 'trial_len', 'rasters');
-            file_path = ['../GLM_data/', control, task, '/borders_', control, task, '_', int2str(session), '.mat'];
-            load(file_path, 'borders');
+            fprintf('Loading...');
+            folder_name = fullfile(root, 'Data', 'Working', 'raster');
+            file_name = sprintf('raster_%s_%d.mat', [control, prepost, state, area_type], session_idx);
+            raster_path = fullfile(folder_name, file_name);
+            load(raster_path, 'trial_num', 'cell_id', 'cell_area', 'channel', 'session_name_full', 'trial_len', 'rasters');
+            % folder_name = fullfile(root, 'Data', 'Working', 'border');
+            % file_name = sprintf('borders_%s_%d.mat', [control, prepost, area_type], session_idx);
+            % raster_path = fullfile(folder_name, file_name);
+            % load(raster_path, 'borders');
             fprintf('Done\n');
 
             mode = modes{mode_idx};
@@ -59,7 +121,7 @@ for session = 1:10
 
             switch mode
                 case 'First'
-                    for trial = 1:n_trial
+                    for trial = 1:trial_num
                         trial_eff_dur = trial_len(trial) - kernel_len + 1;
                         if current_eff_dur + trial_eff_dur >= min_duration
                             cut_len = min_duration - current_eff_dur + kernel_len - 1;
@@ -73,7 +135,7 @@ for session = 1:10
                         end
                     end
                 case 'Last'
-                    for trial = n_trial:-1:1
+                    for trial = trial_num:-1:1
                         trial_eff_dur = trial_len(trial) - kernel_len + 1;
                         if current_eff_dur + trial_eff_dur >= min_duration
                             cut_len = min_duration - current_eff_dur + kernel_len - 1;
@@ -88,26 +150,30 @@ for session = 1:10
                     end
             end
 
+            if strcmp(mode, 'Last')
+                raster_aligned = fliplr(raster_aligned);
+                trial_len_aligned = fliplr(trial_len_aligned);
+            end
+
             rasters = raster_aligned;
             trial_len = trial_len_aligned;
-            n_trial = length(rasters);
+            trial_num = length(rasters);
 
-            firing_rates = cell(1, n_trial);
-            for i = 1:n_trial
+            firing_rates = cell(1, trial_num);
+            for i = 1:trial_num
                 firing_rates{i} = mean(rasters{i}, 2);
             end
 
-            full_name = [control, task, '_Align', mode];
+            full_name = [control, prepost, state, area_type, 'Align', mode];
             fprintf('Saving...');
-            check_path(['../GLM_data/', full_name]);
-
-            % raster file and border file
-            file_path = ['../GLM_data/', full_name, '/raster_', full_name, '_', int2str(session), '_0.mat'];
-            save(file_path, 'n_trial', 'cell_id', 'cell_area', 'channel', 'session_name_full', 'trial_len', 'rasters', 'firing_rates');
-            file_path = ['../GLM_data/', full_name, '/borders_', full_name, '_', int2str(session), '.mat'];
-            save(file_path, 'borders');
+            save_folder = fullfile(root, 'Data', 'Working', 'raster');
+            check_path(save_folder);
+            file_name = sprintf('raster_%s_%d.mat', full_name, session_idx);
+            file_path = fullfile(save_folder, file_name);
+            save(file_path, 'trial_num', 'cell_id', 'cell_area', 'channel', 'session_name_full', 'trial_len', 'rasters', 'firing_rates');
 
             fprintf('Done.\n');
         end
     end
 end
+

@@ -1,18 +1,75 @@
-% Align task, eyeclose and eyeopen datasets, keep data length (B) the same.
+%% Align all states to the same duration
 
-%% Load data
-% control = 'Muscimol';
-control = 'Saline';
+%% Get root folder
+code_depth = 3;
+script_path = mfilename('fullpath');
+root = script_path;
+for i = 1:code_depth
+    root = fileparts(root);
+end
+% include code folder and utils
+addpath(fileparts(script_path));
+addpath(fullfile(root, 'Code', 'Utils'));
+
+%% Main
+
+% Load data
+controls = {'Muscimol', 'Saline'};
+session_idxs_all = {1:10, 1:5}; % session indices for each control
+area_types = {'Full', 'Cortex'};
+prepost_types = {'Pre', 'Post'};
+states = {'RestOpen', 'RestClose', 'Task'};
 kernel = 'DeltaPure';
 
-tasks = {'PreTask_full', 'PreTask_cortex', 'PostTask_cortex',...
-    'PreRestClose_full', 'PreRestClose_cortex', 'PostRestClose_cortex',...
-    'PreRestOpen_full', 'PreRestOpen_cortex', 'PostRestOpen_cortex'};
+tasks = {};
+% register tasks
+for control_idx = 1:length(controls)
+    control = controls{control_idx};
+    sessions = session_idxs_all{control_idx};
+    for session_idx = sessions
+        for area_idx = 1:length(area_types)
+            area_type = area_types{area_idx};
+            task = struct();
+            task.control = control;
+            task.area_type = area_type;
+            task.session_idx = session_idx;
 
-if strcmp(control, 'Muscimol')
-    sessions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-elseif strcmp(control, 'Saline')
-    sessions = [1, 2, 3, 4, 5];
+            prepost_states = {};
+            for prepost_idx = 1:length(prepost_types)
+                prepost = prepost_types{prepost_idx};
+                if strcmp(area_type, 'Full') && strcmp(prepost, 'Post')
+                    % All thalamus data in post sessions are not available
+                    continue;
+                end
+                for state_idx = 1:length(states)
+                    state = states{state_idx};
+                    prepost_states{end+1} = struct('prepost', prepost, 'state', state);
+                end
+            end
+            task.prepost_states = prepost_states;
+            tasks{end+1} = task;
+        end
+    end
+end
+
+% run tasks
+task_num = length(tasks);
+for task_idx = 1:task_num
+    task = tasks{task_idx};
+    control = task.control;
+    session_idx = task.session_idx;
+    area_type = task.area_type;
+    prepost_states = task.prepost_states;
+    fprintf('Task %d/%d: %s Session %d Area %s with %d prepost_states\n', ...
+        task_idx, task_num, control, session_idx, area_type, length(prepost_states));
+    
+    % find min duration among prepost_states
+    min_duration = 10000000;
+    for ps_idx = 1:length(prepost_states)
+        prepost = prepost_states{ps_idx}.prepost;
+        state = prepost_states{ps_idx}.state;
+        folder_name = fullfile(root, 'Data', 'Working', 'raster');
+    end
 end
 
 % check data size

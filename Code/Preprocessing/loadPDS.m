@@ -10,11 +10,8 @@ for i = 1:code_depth
 end
 
 %% Main
-% 1ms time bin, max time = 3.1s
+% TODO: get rid of nested loops. Use task registration instead.
 dt=0.001;
-% B=3100;
-% max_t=B*dt;
-% edges = 0:dt:max_t;
 
 unique_sessions_all = ...
     {{'10272023', '11012023', '11102023', '11172023', '12012023',...
@@ -136,10 +133,10 @@ for control_idx = 1:3
                     for i = 1:N
                         % fprintf("Loading: %s, %s, %s, session%d, #%d...\n", control, area, subsession, session_idx, i);
                         if strcmp(control, 'SimRec')
-                            file_name = ['/LemmyKim-', session_name, '-', session_type, ...
+                            file_name = ['LemmyKim-', session_name, '-', session_type, ...
                                 '_MYInfoPavChoice_NovelReward_', cell_id{i}, '_PDS.mat'];
                         else
-                            file_name = ['/LemmyKim-', session_name, '-', session_type, ...
+                            file_name = ['LemmyKim-', session_name, '-', session_type, ...
                                 '_MYInfoPavChoice_', cell_id{i}, '_PDS.mat'];
                         end
                         filepath = fullfile(folder_name, file_name);
