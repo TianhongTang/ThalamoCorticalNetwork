@@ -1,6 +1,6 @@
 function GLM_multi_kernel_crossval(dataset_name, session, kernel_name, shuffle_id, max_epoch, reg, log_level, lr, test_fold)
 %% GLM inference with cross-validation
-% test_fold: which fold to use as test set 
+% test_fold: which fold to use as test set. If 0, use all data for training and testing.
 %%%% required input : (from convolution)
 %%%% dataset: "../GLM_data/[dataset_name]/
 %%%%   GLMdata_[dataset_name]_[session]_[shuffle_id]_[kernel_name].mat"
@@ -63,12 +63,18 @@ for fold_id = 1:fold_num
 end
 
 % test set
-raster_test = folds{test_fold}.raster;
-predjs_conn_test = folds{test_fold}.predjs_conn;
-predjs_PS_test = folds{test_fold}.predjs_PS;
-B_test = folds{test_fold}.B;
+if test_fold == 0
+    raster_test = raster;
+    predjs_conn_test = predjs_conn;
+    predjs_PS_test = predjs_PS;
+    B_test = B_train;
+else
+    raster_test = folds{test_fold}.raster;
+    predjs_conn_test = folds{test_fold}.predjs_conn;
+    predjs_PS_test = folds{test_fold}.predjs_PS;
+    B_test = folds{test_fold}.B;
+end 
 
-% todo: edit below
 % filter: ignore 0 firing rate neurons in inference
 raster_filter = sum(raster, 2)>0;
 % N_original = N;

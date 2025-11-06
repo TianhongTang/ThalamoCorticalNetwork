@@ -7,6 +7,8 @@
 % "rasters": cell(1, n_trial), each element is a trial.
 % Each raster is a (N, trial_len(i)) binary matrix, N is number of neurons.
 
+% This version is for L2 regularization optimization.
+
 %% Get root folder
 code_depth = 4;
 script_path = mfilename('fullpath');
@@ -35,43 +37,50 @@ states = {'RestOpen', 'RestClose', 'Task'};
 alignments = {'Last'};
 
 kernel = 'DeltaPure';
-reg = struct();
-reg.l1=0;
-reg.l2=2;
-reg.name='L2=2';
+
+reg_levels = [0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5];
 
 tasks = {};
-for control_idx = 1:length(controls)
-    control = controls{control_idx};
-    sessions = session_idxs_all{control_idx};
-    for session_idx = sessions
-        for area_idx = 1:length(area_types)
-            area_type = area_types{area_idx};
-            prepost_states = {};
-            for prepost_idx = 1:length(prepost_types)
-                prepost = prepost_types{prepost_idx};
-                if strcmp(area_type, 'Full') && strcmp(prepost, 'Post')
-                    % All thalamus data in post sessions are not available
-                    continue;
-                end
-                for align_idx = 1:length(alignments)
-                    alignment = alignments{align_idx};
-                    for state_idx = 1:length(states)
-                        state = states{state_idx};
+for reg_idx = 1:length(reg_levels)
+    reg_level = reg_levels(reg_idx);
 
-                        task = struct();
-                        task.control = control;
-                        task.area_type = area_type;
-                        task.prepost = prepost;
-                        task.state = state;
-                        task.alignment = alignment;
-                        task.name = [control, prepost, state, area_type, 'Align', alignment];
-                        task.session_idx = session_idx;
-                        task.kernel = kernel;
-                        task.reg = reg;
-                        task.shuffle_size = 0; % number of shuffles
-                        task.epoch = 2500;
-                        tasks{end+1} = task;
+    for control_idx = 1:length(controls)
+        control = controls{control_idx};
+        sessions = session_idxs_all{control_idx};
+        for session_idx = sessions
+            for area_idx = 1:length(area_types)
+                area_type = area_types{area_idx};
+                prepost_states = {};
+                for prepost_idx = 1:length(prepost_types)
+                    prepost = prepost_types{prepost_idx};
+                    if strcmp(area_type, 'Full') && strcmp(prepost, 'Post')
+                        % All thalamus data in post sessions are not available
+                        continue;
+                    end
+                    for align_idx = 1:length(alignments)
+                        alignment = alignments{align_idx};
+                        for state_idx = 1:length(states)
+                            state = states{state_idx};
+
+                            reg = struct();
+                            reg.l1 = 0;
+                            reg.l2 = reg_level;
+                            reg.name = sprintf('L2=%d', reg_level*100);
+
+                            task = struct();
+                            task.control = control;
+                            task.area_type = area_type;
+                            task.prepost = prepost;
+                            task.state = state;
+                            task.alignment = alignment;
+                            task.name = [control, prepost, state, area_type, 'Align', alignment];
+                            task.session_idx = session_idx;
+                            task.kernel = kernel;
+                            task.reg = reg;
+                            task.shuffle_size = 0; % number of shuffles
+                            task.epoch = 2500;
+                            tasks{end+1} = task;
+                        end
                     end
                 end
             end
@@ -106,9 +115,9 @@ for task_idx=1:task_num
         tic;
         for shuffle_id=0:shuffle_size
             % skip if already exists
-            target_folder = fullfile(root, 'Data', 'Working', 'raster');
-            target_file = sprintf('shuffled_%s_%d_%d.mat', dataset_name, session_idx, shuffle_id);
-            target_path = fullfile(target_folder, target_file);
+            % TODO: Fix path for skip checking
+            target_path = ['../GLM_data/', dataset_name, '/raster_', ...
+                dataset_name, '_', int2str(session_idx),  '_', int2str(shuffle_id), '.mat'];
             if isfile(target_path) && ~force_rebuild
                 fprintf("Skip %d. \n", shuffle_id);
                 continue;
@@ -130,9 +139,8 @@ for task_idx=1:task_num
         tic;
         for shuffle_id=0:shuffle_size % seed=0: original data (no shuffle)
             % skip if already exists
-            target_folder = fullfile(root, 'Data', 'Working', 'crossval_split');
-            target_file = sprintf('crossval_%s_%d_%d.mat', dataset_name, session_idx, shuffle_id);
-            target_path = fullfile(target_folder, target_file);
+            target_path = ['../GLM_data/', dataset_name, '/crossval_split_', ...
+                dataset_name, '_', int2str(session_idx), '_', int2str(shuffle_id), '.mat'];
             if isfile(target_path) && ~force_rebuild
                 fprintf("Skip %d. \n", shuffle_id);
                 continue;
@@ -152,9 +160,8 @@ for task_idx=1:task_num
         tic;
         for shuffle_id=0:shuffle_size % seed=0: original data (no shuffle)
             % skip if already exists
-            target_folder = fullfile(root, 'Data', 'Working', 'GLM_data');
-            target_file = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session, shuffle_id, kernel_name);
-            target_path = fullfile(target_folder, target_file);
+            target_path = ['../GLM_data/', dataset_name, '/GLMdata_', dataset_name,...
+                '_', int2str(session_idx), '_', kernel_name,  '_', int2str(shuffle_id), '.mat'];
             if isfile(target_path) && ~force_rebuild
                 fprintf("Skip %d. \n", shuffle_id);
                 continue;
@@ -167,18 +174,20 @@ for task_idx=1:task_num
         %% GLM inference
         for shuffle_seed=0:shuffle_size
             fprintf("Training %d\n", shuffle_seed);
+
+            % skip if already exists
+            foldername = ['../GLM_model/', dataset_name];
+            target_path = [foldername, '/GLM_', dataset_name, '_', ...
+            int2str(session_idx), '_', kernel_name, '_', int2str(shuffle_seed), '_', ...
+            reg.name, '_', int2str(max_epoch)];
+            if isfile([target_path, '.mat']) && ~force_retrain
+                fprintf("Skip. \n");
+                continue;
+            end
+
             skip_flag = false;
             tic;
             for fold_idx = 1:3
-                % skip if already exists
-                target_folder = fullfile(root, 'Data', 'Working', 'GLM_models');
-                target_file = sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session, shuffle_id, kernel_name, ...
-                    reg.name, epoch, test_fold);
-                target_path = fullfile(target_folder, target_file);
-                if isfile(target_path) && ~force_retrain
-                    fprintf("Skip. \n");
-                    continue;
-                end
                 GLM_multi_kernel_crossval(dataset_name, session_idx, kernel_name, shuffle_id, max_epoch, reg, 1, 5e-3, fold_idx);
             end
             toc;
