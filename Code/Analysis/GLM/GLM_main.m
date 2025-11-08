@@ -7,6 +7,7 @@
 % "rasters": cell(1, n_trial), each element is a trial.
 % Each raster is a (N, trial_len(i)) binary matrix, N is number of neurons.
 
+clear;
 %% Get root folder
 code_depth = 4;
 script_path = mfilename('fullpath');
@@ -19,14 +20,13 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-clear;
 force_rebuild = false;
 force_retrain = false;
 debug = true;
 
 % register tasks
-% controls = {'Muscimol', 'Saline'};
-controls = {'Muscimol'};
+controls = {'Muscimol', 'Saline'};
+% controls = {'Muscimol'};
 session_idxs_all = {1:10, 1:5}; % session indices for each control
 % area_types = {'Full', 'Cortex'};
 area_types = {'Cortex'};
@@ -37,8 +37,8 @@ alignments = {'Last'};
 kernel = 'DeltaPure';
 reg = struct();
 reg.l1=0;
-reg.l2=2;
-reg.name='L2=2';
+reg.l2=0.2;
+reg.name='L2=0_2';
 
 tasks = {};
 for control_idx = 1:length(controls)
@@ -153,7 +153,7 @@ for task_idx=1:task_num
         for shuffle_id=0:shuffle_size % seed=0: original data (no shuffle)
             % skip if already exists
             target_folder = fullfile(root, 'Data', 'Working', 'GLM_data');
-            target_file = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session, shuffle_id, kernel_name);
+            target_file = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session_idx, shuffle_id, kernel_name);
             target_path = fullfile(target_folder, target_file);
             if isfile(target_path) && ~force_rebuild
                 fprintf("Skip %d. \n", shuffle_id);
@@ -169,11 +169,11 @@ for task_idx=1:task_num
             fprintf("Training %d\n", shuffle_seed);
             skip_flag = false;
             tic;
-            for fold_idx = 1:3
+            for fold_idx = 0:0
                 % skip if already exists
                 target_folder = fullfile(root, 'Data', 'Working', 'GLM_models');
-                target_file = sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session, shuffle_id, kernel_name, ...
-                    reg.name, epoch, test_fold);
+                target_file = sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session_idx, shuffle_id, kernel_name, ...
+                    reg.name, max_epoch, fold_idx);
                 target_path = fullfile(target_folder, target_file);
                 if isfile(target_path) && ~force_retrain
                     fprintf("Skip. \n");

@@ -1,6 +1,7 @@
 %% J_counting.m - Count significant J numbers in each area.
 % 
 
+clear;
 %% Get root folder
 code_depth = 4;
 script_path = mfilename('fullpath');
@@ -13,17 +14,16 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-clear;
-
-session_types = {'Muscimol', 'Saline', 'Simulated'};
-
+% session_types = {'Muscimol', 'Saline', 'Simulated'};
+session_types = {'Muscimol', 'Saline'};
 kernel = 'DeltaPure';
-reg = 'L2=20';
+reg = 'L2=0_2';
 epoch = '2500';
 area_names = {'ACC', 'VLPFC', 'Thalamus'};
 filter_threshold = 1;
 states = {'Task', 'RestOpen', 'RestClose'};
 state_num = length(states);
+prepost_types = {'Pre', 'Post'};
 
 for session_type_idx = 1:length(session_types)
     session_type = session_types{session_type_idx};
@@ -40,14 +40,6 @@ for session_type_idx = 1:length(session_types)
             states = {'Task', 'RestClose'};
     end
 
-    % load border info, get area_num. borders: starting index of each area
-    folder_name = fullfile(root, 'Data', 'Working', 'border');
-    file_name = sprintf('borders_%sPreCortex_1.mat', session_type);
-    file_path = fullfile(folder_name, file_name);
-    load(file_path, 'borders');
-    area_num = length(borders);
-    borders_raw = borders;
-
     % load kernel info
     folder_name = fullfile(root, 'Data', 'Working', 'kernel');
     file_name = sprintf('kernel_%s.mat', kernel);
@@ -56,6 +48,9 @@ for session_type_idx = 1:length(session_types)
 
     % (area i, area j, session, posneg, kernel, state, prepost)
     J_count = zeros(3, 3, session_num, 2, n_conn_kernel, state_num, 2);
+    max_count = zeros(3, 3, session_num, 2, n_conn_kernel, state_num, 2); % maximum possible connections
+    J_count_by_area = zeros(2, session_num, 2, n_conn_kernel, state_num, 2); % (within/across, session, posneg, kernel, state, prepost)
+    max_count_by_area = zeros(2, session_num, 2, n_conn_kernel, state_num, 2); % (within/across, session, posneg, kernel, state, prepost)
 
     for prepost_idx = 1:2
         prepost = prepost_types{prepost_idx};
@@ -63,6 +58,14 @@ for session_type_idx = 1:length(session_types)
             state = states{state_idx};
             for session_idx = 1:session_num
                 fprintf('Processing session %d/%d, state %s, prepost %s\n', session_idx, session_num, state, prepost);
+                
+                % load border info, get area num. borders: starting index of each area
+                folder_name = fullfile(root, 'Data', 'Working', 'border');
+                file_name = sprintf('borders_%sPreCortex_%d.mat', session_type, session_idx);
+                file_path = fullfile(folder_name, file_name);
+                load(file_path, 'borders');
+                area_num = length(borders);
+                borders_raw = borders;
 
                 % load model data
                 folder_name = fullfile(root, 'Data', 'Working', 'GLM_models');
@@ -82,23 +85,54 @@ for session_type_idx = 1:length(session_types)
                         for j = 1:area_num
                             i_filter = borders(i):borders(i+1)-1;
                             j_filter = borders(j):borders(j+1)-1;
+                            i_num = borders(i+1) - borders(i);
+                            j_num = borders(j+1) - borders(j);
                             data_mat = J_mat(i_filter, j_filter);
                             error_mat = J_err(i_filter, j_filter);
                             % count significant positive and negative connections
-                            pos_count = sum(data_mat > filter_threshold * error_mat);
-                            neg_count = sum(data_mat < -filter_threshold * error_mat);
+                            pos_count = sum(data_mat > filter_threshold * error_mat, "all");
+                            neg_count = sum(data_mat < -filter_threshold * error_mat, "all");
                             J_count(i, j, session_idx, 1, kernel_idx, state_idx, prepost_idx) = pos_count;
                             J_count(i, j, session_idx, 2, kernel_idx, state_idx, prepost_idx) = neg_count;
+                            if i == j
+                                max_count(i, j, session_idx, 1, kernel_idx, state_idx, prepost_idx) = i_num * (i_num - 1); % exclude self-connection
+                                max_count(i, j, session_idx, 2, kernel_idx, state_idx, prepost_idx) = i_num * (i_num - 1);
+                                J_count_by_area(1, session_idx, 1, kernel_idx, state_idx, prepost_idx) = ...
+                                    J_count_by_area(1, session_idx, 1, kernel_idx, state_idx, prepost_idx) + pos_count;
+                                J_count_by_area(1, session_idx, 2, kernel_idx, state_idx, prepost_idx) = ...
+                                    J_count_by_area(1, session_idx, 2, kernel_idx, state_idx, prepost_idx) + neg_count;
+                                max_count_by_area(1, session_idx, 1, kernel_idx, state_idx, prepost_idx) = ...
+                                    max_count_by_area(1, session_idx, 1, kernel_idx, state_idx, prepost_idx) + i_num * (i_num - 1);
+                                max_count_by_area(1, session_idx, 2, kernel_idx, state_idx, prepost_idx) = ...
+                                    max_count_by_area(1, session_idx, 2, kernel_idx, state_idx, prepost_idx) + i_num * (i_num - 1);
+                            else
+                                max_count(i, j, session_idx, 1, kernel_idx, state_idx, prepost_idx) = i_num * j_num;
+                                max_count(i, j, session_idx, 2, kernel_idx, state_idx, prepost_idx) = i_num * j_num;
+                                J_count_by_area(2, session_idx, 1, kernel_idx, state_idx, prepost_idx) = ...
+                                    J_count_by_area(2, session_idx, 1, kernel_idx, state_idx, prepost_idx) + pos_count;
+                                J_count_by_area(2, session_idx, 2, kernel_idx, state_idx, prepost_idx) = ...
+                                    J_count_by_area(2, session_idx, 2, kernel_idx, state_idx, prepost_idx) + neg_count;
+                                max_count_by_area(2, session_idx, 1, kernel_idx, state_idx, prepost_idx) = ...
+                                    max_count_by_area(2, session_idx, 1, kernel_idx, state_idx, prepost_idx) + i_num * j_num;
+                                max_count_by_area(2, session_idx, 2, kernel_idx, state_idx, prepost_idx) = ...
+                                    max_count_by_area(2, session_idx, 2, kernel_idx, state_idx, prepost_idx) + i_num * j_num;
+                            end
                         end
                     end
                 end
             end
         end
     end
+
+    J_ratio = J_count ./ max_count;
+    J_ratio(isnan(J_ratio)) = 0;
+    J_ratio_by_area = J_count_by_area ./ max_count_by_area;
+    J_ratio_by_area(isnan(J_ratio_by_area)) = 0;
+
     % save results
     folder_name = fullfile(root, 'Data', 'Working', 'J_count');
     check_path(folder_name);
     file_name = sprintf('Jcount_%s.mat', session_type);
     file_path = fullfile(folder_name, file_name);
-    save(file_path, 'J_count', 'session_num', 'kernel', 'reg', 'epoch');
+    save(file_path, 'J_count', 'J_count_by_area', 'J_ratio', 'J_ratio_by_area', 'max_count', 'max_count_by_area', 'session_num', 'kernel', 'reg', 'epoch');
 end
