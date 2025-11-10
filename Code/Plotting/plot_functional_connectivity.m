@@ -97,8 +97,8 @@ for task_idx = 1:length(tasks)
     borders_raw = borders;
 
     % plot: 2 row, 3 col. Row 1: weight matrix, Row 2: circular graph. 3 kernels.
-    f = figure('Position', [100, 100, 1200, 800], 'Visible', 'off');
-    t = tiledlayout(2, 3, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+    f = figure('Position', [100, 100, 1200, 1200], 'Visible', 'off');
+    t = tiledlayout(3, 3, 'TileSpacing', 'Compact', 'Padding', 'Compact');
 
     for kernel_idx = 1:n_conn_kernel
         % extract full J matrix
@@ -112,7 +112,7 @@ for task_idx = 1:length(tasks)
         % imagesc(J_mat, 'AlphaData', ~isnan(J_mat));
         % set(gca, 'Color', [0, 0, 0]);
         colormap(cmap);
-        clim([-2, 2]);
+        clim([-5, 5]);
         colorbar;
         % border lines for areas
         for b = 2:length(borders_raw)
@@ -131,17 +131,54 @@ for task_idx = 1:length(tasks)
         xlabel('From Neuron');
         ylabel('To Neuron');
 
-        % circular graph plot
+        
+        % weight matrix plot, set non-significant to 0
         nexttile(kernel_idx + 3);
+        hold on;
+        J_mat_sig = J_mat;;
+        nonsig_idx = abs(J_mat) <= J_err;
+        J_mat_sig(nonsig_idx) = 0;
+        imagesc(J_mat_sig);
+        % imagesc(J_mat, 'AlphaData', ~isnan(J_mat));
+        % set(gca, 'Color', [0, 0, 0]);
+        colormap(cmap);
+        clim([-5, 5]);
+        colorbar;
+        % border lines for areas
+        for b = 2:length(borders_raw)
+            border_pos = borders_raw(b)-0.5;
+            plot([border_pos, border_pos], [0.5, N+0.5], 'k-', 'LineWidth', 1);
+            plot([0.5, N+0.5], [border_pos, border_pos], 'k-', 'LineWidth', 1);
+        end
+        set(gca, 'YDir', 'reverse');
+        xlim([0.5, N+0.5]);
+        ylim([0.5, N+0.5]);
+        axis square;
+        box on;
+        hold off;
+
+        title(sprintf('Significant connections, Kernel %d', kernel_idx));
+        xlabel('From Neuron');
+        ylabel('To Neuron');
+
+        % circular graph plot
+        nexttile(kernel_idx + 6);
         % prepare data for circular graph
         % nodes: neurons
         % edges: significant connections
         ax = gca;
         node_colors = zeros(N, 3);
         area_names = {'ACC', 'VLPFC'};
+        mode = 'across'; % 'within', 'across' or 'all'
+        area_offset = 0.5;
+        fill_ratio = 0.7;
 
-        network_plot_hemi(ax, J_mat, J_err, [borders, N+1], node_colors, area_names);
+    network_plot_hemi(ax, J_mat, J_err, [borders, N+1], node_colors, area_names, mode, area_offset, fill_ratio);
+        title(sprintf('Network Graph, Kernel %d', kernel_idx));
     end
+
+    % global title
+    sgtitle(sprintf('Functional Connectivity: %s, Session %d', task.name, task.session_idx), 'FontSize', 16);
 
     % save figure
     folder_name = fullfile(root, 'Figures', 'Functional_Connectivity');
