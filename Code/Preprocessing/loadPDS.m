@@ -123,7 +123,7 @@ for control_idx = 1:3
                     trial_len = NaN;
                     
                     % construct output file
-                    session_name_full = [session_name, '_', subsession, state, '_', area];
+                    session_name_full = [session_name, '_', subsession, state];
 
                     fprintf("Loading: %s, %s, %s, %s, session%d, N=%d...\n", control, area, subsession, state, session_idx, N);
                     max_duration = 0;
