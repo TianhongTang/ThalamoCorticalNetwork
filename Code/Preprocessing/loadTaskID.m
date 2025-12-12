@@ -49,13 +49,12 @@ for prepost_idx = 1:length(prepost)
 end
 
 for session_type_idx = 1:n_session_types
+    session_type = session_types{session_type_idx};
+    unique_sessions = unique_sessions_all{session_type_idx};
+    n_sessions = length(unique_sessions);
     for area_name_idx = 1:n_area_names
         fprintf('-------------------\n');
-
-        session_type = session_types{session_type_idx};
         area_name = area_names{area_name_idx};
-        unique_sessions = unique_sessions_all{session_type_idx};
-        n_sessions = length(unique_sessions);
 
         if strcmp(area_name, 'ACC') || strcmp(area_name, 'VLPFC')
             folder_name = fullfile(root, 'Data', 'Experimental', 'taskID');
@@ -93,7 +92,7 @@ for session_type_idx = 1:n_session_types
 
         elseif strcmp(area_name, 'Thalamus')
             folder_name = fullfile(root, 'Data', 'Experimental', 'taskID');
-            file_name = ['Sl_', area_name, '_', session_type, '_pre_popPav.mat'];
+            file_name = ['Sl_', area_name, '_', session_type, '_pre_popPav_02202025.mat'];
             file_path = fullfile(folder_name, file_name);
             load(file_path, 'pop');
             unitID = pop.unitID;
@@ -199,7 +198,7 @@ for session_type_idx = 1:length(session_types)
             check_path(save_folder);
             save_file = ['tuning_', model_name_full, '_', num2str(session_idx), '.mat'];
             save_path = fullfile(save_folder, save_file);
-            save(save_path, 'tuning_session', 'beta_session', 'taskID_labels', 'cell_area', 'cell_id', 'session_name_full');
+            save(save_path, 'tuning_session', 'beta_session', 'taskID_labels', 'cell_area', 'cell_id', 'session_name');
         end
     end
 end
