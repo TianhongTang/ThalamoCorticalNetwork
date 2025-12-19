@@ -92,6 +92,36 @@ for session_idx = 1:session_num
     end
 end
 
+% histogram of fano factor and synchrony chi
+figure('Visible', 'off');
+t = tiledlayout(2, 1);
+
+nexttile;
+hold on;
+for state_idx = 1:n_states
+    histogram(fano_factor_all(:, state_idx), 'Normalization', 'pdf', 'FaceAlpha', 0.5);
+    title(sprintf('Fano Factor - %s', state_names{state_idx}));
+    xlabel('Fano Factor');
+    ylabel('Probability Density');
+end
+hold off;
+
+nexttile;
+hold on;
+for state_idx = 1:n_states
+    histogram(sync_chi_all(:, state_idx), 'Normalization', 'pdf', 'FaceAlpha', 0.5);
+    title(sprintf('Synchrony Chi - %s', state_names{state_idx}));
+    xlabel('Synchrony Chi');
+    ylabel('Probability Density');
+end
+hold off;
+
+figure_folder = fullfile(root, 'Results', 'Figures', 'basics');
+check_path(figure_folder);
+figure_name = 'basic_statistics_histograms.png';
+saveas(gcf, fullfile(figure_folder, figure_name));
+
+
 fprintf('Summary of statistics:\n');
 for state_idx = 1:n_states
     valid_session_num = sum(~isnan(fano_factor_all(:, state_idx)));

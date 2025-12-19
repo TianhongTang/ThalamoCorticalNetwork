@@ -44,6 +44,8 @@ total_area_session_counts = zeros(area_num, 1);
 special.thalamus_sessions = {};
 thalamus_idx = find(strcmp(segmentNames, 'Thalamus'), 1);
 fprintf('Thalamus area index: %d\n', thalamus_idx);
+special.thalamus_threshold_counts = zeros(20, 1); % count of sessions with at least N neurons in thalamus, N=1..20
+
 
 for session_idx = 1:session_num
     fprintf('-------------------------\n');
@@ -92,7 +94,7 @@ for session_idx = 1:session_num
     check_path(spike_folder);
     spike_file_name = sprintf('spikes_%s.mat', session_name);
     spike_file_path = fullfile(spike_folder, spike_file_name);
-    load(spike_file_path, 'spikes', 'neuron_info', 'N', 'state_windows', 'session_length', 'session_name');
+    load(spike_file_path, 'all_spikes', 'neuron_info', 'N', 'state_windows', 'session_length', 'session_name');
 
     % Process each unit
     SPK_count = 0;
@@ -125,7 +127,7 @@ for session_idx = 1:session_num
         end
 
         % spikes
-        spike_times = spikes{neuron_idx};
+        spike_times = all_spikes{neuron_idx};
         neuron_max_spike_time = max(spike_times);
         neuron_min_spike_time = min(spike_times);
         session_max_spike_time = max(session_max_spike_time, neuron_max_spike_time);
@@ -144,6 +146,9 @@ for session_idx = 1:session_num
     if area_counts(thalamus_idx) >= 5
         special.thalamus_sessions{end+1} = session_name; 
     end
+    thal_count_filter = 1:20 <= area_counts(thalamus_idx);
+    special.thalamus_threshold_counts(thal_count_filter) = ...
+        special.thalamus_threshold_counts(thal_count_filter) + 1;
 
     fprintf('Session(%d/%d): %s, Monkey: %s. \n', session_idx, session_num, session_name, monkey_name);
     fprintf('Total Neurons: %d, SPK: %d, MUA: %d, Unknown: %d. \n', ...
@@ -183,4 +188,8 @@ end
 fprintf('Sessions with at least 5 neurons in Thalamus area:\n');
 for i = 1:length(special.thalamus_sessions)
     fprintf('  %d:%s\n', i, special.thalamus_sessions{i});
+end
+fprintf('Thalamus neuron count thresholds across all sessions:\n');
+for n = 1:20
+    fprintf('  At least %d neurons: %d sessions\n', n, special.thalamus_threshold_counts(n));
 end
