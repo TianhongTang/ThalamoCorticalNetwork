@@ -1,4 +1,4 @@
-%% check_spikes.m - Quick visualization of spikes/rasters
+%% check_spikes_fast.m - Quick visualization of spikes/rasters
 
 clear;
 %% Get root folder
@@ -13,14 +13,14 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-mode = 'spikes';
+% mode = 'spikes';
 % mode = 'raster';
-session_type = 'KZRestOpen';
+state = 'KZRestOpen';
 session_idx = 608;
 
 % load data
 data_folder = fullfile(root, 'Data', 'Temp');
-data_name = sprintf('raster_%s_%d.mat', session_type, session_idx);
+data_name = sprintf('raster_%s_%d.mat', state, session_idx);
 data_path = fullfile(data_folder, data_name);
 load(data_path, "rasters");
 
