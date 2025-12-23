@@ -13,15 +13,24 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
+merge_open = false; % merge all non-closed-eye states into EyeOpen
 state_colors.Resting = [0.25, 0.25, 1]; % blue for eye closed
 state_colors.Arousal = [1, 0, 0]; % red for arousal
 state_colors.Lowsaccade = [0, 1, 0]; % green for low saccade
 state_colors.Default = [0, 0, 0]; % black for default
 state_colors.EyeOpen = [1, 0.25, 1]; % magenta for eye open
+
+if merge_open
+    state_colors.Arousal = state_colors.EyeOpen;
+    state_colors.Lowsaccade = state_colors.EyeOpen;
+    state_colors.Default = state_colors.EyeOpen;
+end
+
 window_size = 20000; % 20s
 dt = 0.001; % 1 ms
 mode = 'session';
 % mode = 'state';
+states = {'Resting', 'Arousal', 'Lowsaccade'};
 
 % load session metadata
 meta_folder = fullfile(root, 'Data', 'Working', 'Meta');
@@ -30,9 +39,21 @@ meta_file_path = fullfile(meta_folder, meta_file_name);
 load(meta_file_path, 'all_session_info', 'segmentNames');
 session_num = size(all_session_info, 2);
 
+% load session filters
+filter_file_name = 'session_filters_KZ.mat';
+filter_file_path = fullfile(meta_folder, filter_file_name);
+load(filter_file_path, 'session_filters', 'session_properties');
+applied_filter = session_filters.combined_filter;
+filtered_session_num = sum(applied_filter);
+fprintf('Total sessions: %d, Valid sessions after filter: %d\n', ...
+    session_num, filtered_session_num);
+
+filtered_session_indices = find(applied_filter);
+
 switch mode
 case 'session'
-    parfor session_idx = 1:session_num
+    parfor idx = 1:filtered_session_num
+        session_idx = filtered_session_indices(idx);
         % Load spikes data
         session_name = all_session_info(session_idx).sessionname;
         fprintf('Processing session %d: %s\n', session_idx, session_name);
@@ -49,36 +70,16 @@ case 'session'
         session_name = loaded.session_name;
 
         %% sort state windows: merge all state windows into a single timeline
-        states = {'Resting', 'Arousal', 'Lowsaccade'};
-
         % handle window overlap
         for state_i = 1:length(states)
             state = states{state_i};
+            state_ranges = state_windows.(['range', state]);
             for state_j = (state_i+1):length(states)
                 other_state = states{state_j};
-                state_ranges = state_windows.(['range', state]);
                 other_state_ranges = state_windows.(['range', other_state]);
-                for i = 1:size(state_ranges, 1)
-                    state_range = state_ranges(i, :);
-                    for j = 1:size(other_state_ranges, 1)
-                        other_state_range = other_state_ranges(j, :);
-                        % check overlap. If overlap, remove the overlapping part from the other state range
-                        include_head = state_range(1) <= other_state_range(1) && other_state_range(1) <= state_range(2);
-                        include_tail = state_range(1) <= other_state_range(2) && other_state_range(2) <= state_range(2);
-                        if include_head && include_tail
-                            % other state range fully included in state range: remove other state range
-                            other_state_ranges(j, :) = [-1, -1]; % mark for removal
-                        elseif include_head
-                            % overlap at head: adjust other state range start
-                            other_state_ranges(j, 1) = state_range(2) + 1;  
-                        elseif include_tail
-                            % overlap at tail: adjust other state range end
-                            other_state_ranges(j, 2) = state_range(1) - 1;  
-                        end
-                    end
+                for range_idx = 1:size(state_ranges, 1)
+                    other_state_ranges = subtract_interval(other_state_ranges, state_ranges(range_idx, :));
                 end
-                filter = other_state_ranges(:,1) ~= -1;
-                other_state_ranges = other_state_ranges(filter, :);
                 state_windows.(['range', other_state]) = other_state_ranges;
             end
         end
@@ -162,14 +163,14 @@ case 'session'
         drawnow('update');
 
         %% rasterize spikes
-        raster_edges = 0:dt:(session_length*dt);
-        raster = zeros(N, session_length);
+        % raster_edges = 0:dt:(session_length*dt);
+        % raster = zeros(N, session_length);
 
-        for neuron_idx = 1:N
-            spikes = all_spikes{neuron_idx}; % in ms
-            raster(neuron_idx, :) = histcounts(spikes, raster_edges);
-        end
-        raster(raster > 1) = 1; % binarize
+        % for neuron_idx = 1:N
+        %     spikes = all_spikes{neuron_idx}; % in ms
+        %     raster(neuron_idx, :) = histcounts(spikes, raster_edges);
+        % end
+        % raster(raster > 1) = 1; % binarize
 
         % plot raster
         window_num = ceil(session_length / window_size);
@@ -182,17 +183,38 @@ case 'session'
             hold on;
 
             % plot states in the window
-            while sorted_state_windows(state_pointer, 1) <= window_end
+            while state_pointer <= size(sorted_state_windows, 1) && sorted_state_windows(state_pointer, 1) <= window_end
                 state_start = max(sorted_state_windows(state_pointer, 1), window_start);
                 state_end = min(sorted_state_windows(state_pointer, 2), window_end);
+
+                if state_end < state_start
+                    state_pointer = state_pointer + 1;
+                    continue;
+                end
                 state = sorted_states{state_pointer};
                 state_color = state_colors.(state);
+                
+                % rasterize spikes for the state window
+                raster_edges = ((state_start-1):state_end)*dt;
+                x = (state_start:state_end) - window_start + 1;
                 for i = 1:N
-                    plot(raster(i, state_start:state_end) + i - 0.5, 'Color', state_color, 'LineWidth', 1);
+                    spikes = all_spikes{i}; % in ms
+                    raster = histcounts(spikes, raster_edges);
+
+                    % non-thalamic neurons in light color
+                    if ~strcmp(neuron_info(i).NeuralTargetsAnatomy, 'Thalamus')
+                        plot_color = 1 - ((1-state_color) * 0.3); % light color for non-thalamus neurons
+                    else
+                        plot_color = state_color;
+                    end
+
+                    plot(x, raster + i - 0.5, 'Color', plot_color, 'LineWidth', 1);
                 end
                 % if fully covered the state window, continue to next state
                 if sorted_state_windows(state_pointer, 2) <= window_end
                     state_pointer = state_pointer + 1;
+                else
+                    break; % remainder of the state draws in the next window
                 end
             end
             hold off;
@@ -260,7 +282,7 @@ case 'state'
                     title(sprintf('Session %d, State %s, Trial %d. Window %d (%d-%d ms)', ...
                         session_idx, state, trial_idx, window_idx, start_t, end_t));
                     % save figure
-                    save_folder = fullfile(root, 'Figures', 'rasters_overview');
+                    save_folder = fullfile(root, 'Figures', 'rasters_overview_filtered');
                     check_path(save_folder);
                     save_name = sprintf('raster_session%d_%s_trial%d_window%d.png', session_idx, state, trial_idx, window_idx);
                     saveas(f, fullfile(save_folder, save_name));
@@ -270,4 +292,39 @@ case 'state'
         end
         fprintf('Completed session %d.\n', session_idx);
     end
+end
+
+function updated_ranges = subtract_interval(ranges, interval)
+% Remove overlap between ranges and interval, splitting as needed.
+    if isempty(ranges)
+        updated_ranges = ranges;
+        return;
+    end
+
+    updated = zeros(size(ranges, 1) * 2, 2);
+    pointer = 1;
+
+    for idx = 1:size(ranges, 1)
+        current = ranges(idx, :);
+        overlap_start = max(current(1), interval(1));
+        overlap_end = min(current(2), interval(2));
+
+        if overlap_start > overlap_end
+            updated(pointer, :) = current;
+            pointer = pointer + 1;
+            continue;
+        end
+
+        if current(1) < overlap_start
+            updated(pointer, :) = [current(1), overlap_start - 1];
+            pointer = pointer + 1;
+        end
+
+        if overlap_end < current(2)
+            updated(pointer, :) = [overlap_end + 1, current(2)];
+            pointer = pointer + 1;
+        end
+    end
+
+    updated_ranges = updated(1:pointer-1, :);
 end
