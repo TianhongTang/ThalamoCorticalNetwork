@@ -33,6 +33,9 @@ n_states = length(states);
 fano_factor_all = NaN(session_num, n_states); % (session, state)
 sync_chi_all = NaN(session_num, n_states);
 
+fano_thal_thresholds = cell(20, 1); % for sessions with at least N thalamus neurons
+chi_thal_thresholds = cell(20, 1);
+
 for session_idx = 1:session_num
     session_info = all_session_info(session_idx);
     fprintf('Processing session %d: %s\n', session_idx, session_info.sessionname);
@@ -92,36 +95,6 @@ for session_idx = 1:session_num
     end
 end
 
-% histogram of fano factor and synchrony chi
-figure('Visible', 'off');
-t = tiledlayout(2, 1);
-
-nexttile;
-hold on;
-for state_idx = 1:n_states
-    histogram(fano_factor_all(:, state_idx), 'Normalization', 'pdf', 'FaceAlpha', 0.5);
-    title(sprintf('Fano Factor - %s', state_names{state_idx}));
-    xlabel('Fano Factor');
-    ylabel('Probability Density');
-end
-hold off;
-
-nexttile;
-hold on;
-for state_idx = 1:n_states
-    histogram(sync_chi_all(:, state_idx), 'Normalization', 'pdf', 'FaceAlpha', 0.5);
-    title(sprintf('Synchrony Chi - %s', state_names{state_idx}));
-    xlabel('Synchrony Chi');
-    ylabel('Probability Density');
-end
-hold off;
-
-figure_folder = fullfile(root, 'Results', 'Figures', 'basics');
-check_path(figure_folder);
-figure_name = 'basic_statistics_histograms.png';
-saveas(gcf, fullfile(figure_folder, figure_name));
-
-
 fprintf('Summary of statistics:\n');
 for state_idx = 1:n_states
     valid_session_num = sum(~isnan(fano_factor_all(:, state_idx)));
@@ -131,8 +104,8 @@ for state_idx = 1:n_states
     ave_chi = mean(sync_chi_all(:, state_idx), 'omitnan');
     se_chi = std(sync_chi_all(:, state_idx), 0, 'omitnan') / sqrt(valid_session_num);
     fprintf('State: %s\n', state_names{state_idx});
-    fprintf('Average Fano Factor: %.4f ± %.4f\n', ave_fano, se_fano);
-    fprintf('Average Synchrony Chi: %.4f ± %.4f\n', ave_chi, se_chi);
+    fprintf('Average Fano Factor: %.4f +/- %.4f\n', ave_fano, se_fano);
+    fprintf('Average Synchrony Chi: %.4f +/- %.4f\n', ave_chi, se_chi);
 end
 
 save_folder = fullfile(root, 'Data', 'Working', 'basic');
