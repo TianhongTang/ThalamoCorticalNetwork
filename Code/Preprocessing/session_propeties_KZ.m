@@ -17,7 +17,7 @@ cutoff = 250; % ms, removing beginning and end of states
 meta_folder = fullfile(root, 'Data', 'Working', 'Meta');
 check_path(meta_folder);
 meta_file_name = 'all_session_info_KZ.mat';
-meta_file_path = fullfile(meta_folder, meta_file_name);
+meta_file_path = fullfile(meta_folder, meta_file_name); 
 load(meta_file_path, 'all_session_info', 'segmentNames');
 
 session_num = length(all_session_info);

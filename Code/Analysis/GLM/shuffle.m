@@ -2,6 +2,11 @@ function shuffle(dataset_name, session, shuffle_id, shuffle_seed, shuffle_type)
 %% shuffle spike trains and keep the firing rate.
 % shuffle_type: "None", "Within trial", "Across trial"
 
+% required input files:
+% - raster file: 'raster_%s_%d.mat' (dataset_name, session)
+% output files:
+% - shuffled raster file: 'shuffled_%s_%d_%d.mat' (dataset_name, session, shuffle_id)
+
 %% Get root folder
 code_depth = 4;
 script_path = mfilename('fullpath');

@@ -22,7 +22,10 @@ unique_sessions_all = ...
 % load data
 controls = {'Muscimol', 'Saline', 'SimRec'};
 areas = {'ACC', 'Thalamus', 'VLPFC'};
-for control_idx = 1:3
+
+control_num = length(controls);
+
+for control_idx = 1:control_num
     control = controls{control_idx};
     unique_sessions = unique_sessions_all{control_idx};
     session_num = length(unique_sessions);
