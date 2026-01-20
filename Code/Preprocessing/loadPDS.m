@@ -22,66 +22,126 @@ load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_file
 
 areas = {'ACC', 'VLPFC', 'Thalamus'};
 area_num = length(areas);
+cell_session_names = cell(1, area_num);
+cell_ids = cell(1, area_num);
+cell_filenames = cell(1, area_num);
+
+for area_idx = 1:area_num
+    % Load all cell IDs and session names for this area
+    area = areas{area_idx};
+    folder_name = fullfile(root, 'Data', 'Experimental', 'PDS', area);
+    file_names = {dir(folder_name).name}.'; % format: LemmyKim-#date-00#-MYInfoPavChoice_cl##_PDS.mat
+    splited = cellfun(@(name) split(name, ["-", "_"]), file_names, 'UniformOutput', false);
+    splited = splited(3:end); % remove . and ..
+    cell_filter = cellfun(@(x) length(x)>=5, splited, 'UniformOutput', true);
+    splited = splited(cell_filter);
+    cell_file_num = length(splited);
+    fprintf('Area: %s, Total files: %d, Valid cells: %d\n', ...
+        area, length(file_names)-2, cell_file_num);
+    cell_session_names{area_idx} = cellfun(@(x) [x{2}, '-', x{3}], splited, 'UniformOutput', false);
+    file_names = file_names(3:end); % remove . and ..
+    cell_filenames{area_idx} = file_names(cell_filter);
+    % simrec naming: LemmyKim-#date-00#-MYInfoPavChoice_NovelReward_cl##_PDS.mat
+    simrec_filter = cellfun(@(x) strcmp(x{5}, 'NovelReward'), splited, 'UniformOutput', true);
+    cell_ids{area_idx} = cell(1, cell_file_num);
+    for i = 1:cell_file_num
+        if simrec_filter(i)
+            cell_ids{area_idx}{i} = splited{i}{6};
+        else
+            cell_ids{area_idx}{i} = splited{i}{5};
+        end
+    end
+end
+
+% disp(cell_filenames);
+% disp(cell_session_names);
 
 for dataset_idx = 1:dataset_num
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
+    fprintf('=========================\n');
 
-    for area_idx = 1:area_num
-        % Read filenames and extract session names, types, and cell ids.
-        area = areas{area_idx};
-        folder_name = fullfile(root, 'Data', 'Experimental', area);
-        file_names = {dir(folder_name).name}.'; % format: LemmyKim-#date-00#-MYInfoPavChoice_cl##_PDS.mat
-        splited = cellfun(@(name) split(name, ["-", "_"]), file_names, 'UniformOutput', false);
-        splited = splited(3:end);
-        session_names = cellfun(@(x) x{2}, splited, 'UniformOutput', false);
-        session_types = cellfun(@(x) x{3}, splited, 'UniformOutput', false);
-        if strcmp(control, 'SimRec')
-            cell_ids = cellfun(@(x) x{6}, splited, 'UniformOutput', false);
+    for session_idx = 1:session_num
+        cortex_file = cortex_files{dataset_idx}{session_idx};
+        thalamus_file = thalamus_files{dataset_idx}{session_idx};
+        eyeID_file = eyeID_files{dataset_idx}{session_idx};
+        has_cortex = ~isempty(cortex_file);
+        has_thalamus = ~isempty(thalamus_file);
+        has_eyeID = ~isempty(eyeID_file);
+
+        fprintf('-------------------------\n');
+        fprintf('Dataset(%d/%d): %s, Session(%d/%d):\n - Cortex file: %s\n - Thalamus file: %s\n - EyeID file: %s\n\n', ...
+            dataset_idx, dataset_num, dataset_name, session_idx, session_num, cortex_file, thalamus_file, eyeID_file);
+
+        if ~has_eyeID
+            fprintf(' - No EyeID file\n\n');
         else
-            cell_ids = cellfun(@(x) x{5}, splited, 'UniformOutput', false);
+            % load eyeID data
+            folder_name_eye = fullfile(root, 'Data', 'Experimental', 'eyeID');
+            file_path_eye = fullfile(folder_name_eye, sprintf('eyeID-%s.mat', eyeID_file));
+            load(file_path_eye, "r");
+            % if r has pre and post fields, use them
+            if isfield(r, 'pre') && isfield(r, 'post')
+                eyeID_pre = r.pre;
+                eyeID_post = r.post;
+                has_post = true;
+            else
+                eyeID_pre = r;
+                eyeID_post = [];
+                has_post = false;
+            end
+            fprintf(' - EyeID loaded.');
+            if has_post
+                fprintf(' (Pre and Post)\n\n');
+            else
+                fprintf(' (Pre only)\n\n');
+            end
         end
 
-        for session_idx = 1:session_num
-            % metadata for sessions, need to adjust for each dataset.
-            session_name = unique_sessions{session_idx};
-            session_type = '008';
-            if strcmp(area, 'Thalamus')
-                session_type = '001';
-                if strcmp(session_name, '11012023')
-                    session_type = '004';
-                end
-            end
-            if strcmp(control, 'SimRec')
-                session_type = '001';
-                if strcmp(session_name, '08112023')
-                    session_type = '003';
-                end
-            end
-            if strcmp(control, 'ZeppelinSim')
-                session_type = zeppelin_session_types{session_idx};
-            end
+        for area_idx = 1:area_num
+            area = areas{area_idx};
+            folder_name = fullfile(root, 'Data', 'Experimental', 'PDS', area);
 
-            
-            session_file_idx = strcmp(session_names, session_name)...
-                & strcmp(session_types, session_type);
+            if strcmp(area, 'Thalamus')
+                session_filename = thalamus_file;
+                if ~has_thalamus
+                    fprintf(' - No Thalamus file, skip %s %s session%d\n\n', dataset_name, area, session_idx);
+                    continue;
+                end
+            else
+                session_filename = cortex_file;
+                if ~has_cortex
+                    fprintf(' - No Cortex file, skip %s %s session%d\n\n', dataset_name, area, session_idx);
+                    continue;
+                end
+            end
+            session_file_idx = strcmp(cell_session_names{area_idx}, session_filename);
             N = sum(session_file_idx);
-            cell_id = cell_ids(session_file_idx).';
+            cell_id = cell_ids{area_idx}(session_file_idx);
+            file_names = cell_filenames{area_idx}(session_file_idx);
+
+            % area_cellnames = cell_filenames{area_idx};
+            % disp(area_cellnames);
+            % disp(file_names);
+            
+            fprintf(' - Area: %s, Cell num: %d\n', area, N);
 
             states = {'Task', 'RestOpen', 'RestClose'};
             for state_idx = 1:3
                 state = states{state_idx};
 
+                if strcmp(state, 'RestOpen') || strcmp(state, 'RestClose')
+                    if ~has_eyeID
+                        fprintf('   - No EyeID file, skip %s %s %s session%d\n\n', dataset_name, area, state, session_idx);
+                        continue;
+                    end
+                end
+
                 % task trials
                 subsession_types = {'Pre', 'Post'};
-
-                if strcmp(control, 'SimRec') && (strcmp(state, 'RestOpen') || strcmp(state, 'RestClose'))
-                    % SimRec does not have RestOpen and RestClose sessions
-                    continue;
-                end
                 
                 % simrec have different taskIDs than other two
-                if strcmp(control, 'SimRec')
+                if contains(dataset_name, 'Noinj')
                     taskIDs = [1, 2];
                 else
                     taskIDs = [1.1, 1.2];
@@ -91,20 +151,18 @@ for dataset_idx = 1:dataset_num
                     subsession = subsession_types{subsession_idx};
                     taskID = taskIDs(subsession_idx);
 
-                    % skip simrec post sessions
-                    if (strcmp(control, 'SimRec')||strcmp(control, 'ZeppelinSim')) && strcmp(subsession, 'Post')
+                    if ~has_post && strcmp(subsession, 'Post')
+                        fprintf('   - No Post session for EyeID, skip %s %s %s session%d\n\n', dataset_name, area, subsession, session_idx);
                         continue;
                     end
-                    % skip muscimol thalamus post sessions
-                    if strcmp(area, 'Thalamus') && strcmp(subsession, 'Post') && strcmp(control, 'Muscimol')
-                        continue;
+                    
+                    if strcmp(subsession, 'Pre')
+                        eyeID = eyeID_pre;
+                    else
+                        eyeID = eyeID_post;
                     end
-                    % % skip all thalamus post sessions
-                    % if strcmp(area, 'Thalamus') && strcmp(subsession, 'Post')
-                    %     continue;
-                    % end
 
-                    % Loading a single file starts here
+                    % Loading a single session&state starts here
 
                     trial_num = NaN;
                     spikes = NaN;
@@ -114,67 +172,72 @@ for dataset_idx = 1:dataset_num
                     channel = NaN;
                     trial_len = NaN;
                     
-                    % construct output file
-                    session_name_full = [session_name, '_', subsession, state];
-
-                    fprintf("Loading: %s, %s, %s, %s, session%d, N=%d...\n", control, area, subsession, state, session_idx, N);
+                    fprintf("   - Loading: %s, %s...\n", subsession, state);
                     max_duration = 0;
                     min_duration = 9999;
                     max_trial_len = 0;
                     min_trial_len = 999999;
+
+                    % loop over neurons to check consistency
+                    first_neuron = true;
                     for i = 1:N
                         % fprintf("Loading: %s, %s, %s, session%d, #%d...\n", control, area, subsession, session_idx, i);
-                        if strcmp(control, 'SimRec')
-                            file_name = ['LemmyKim-', session_name, '-', session_type, ...
-                                '_MYInfoPavChoice_NovelReward_', cell_id{i}, '_PDS.mat'];
-                        else
-                            file_name = ['LemmyKim-', session_name, '-', session_type, ...
-                                '_MYInfoPavChoice_', cell_id{i}, '_PDS.mat'];
-                        end
+                        file_name = file_names{i};
                         filepath = fullfile(folder_name, file_name);
                         load(filepath, "PDS");
-
-                        % load resting state eye data
-                        if strcmp(state, 'RestOpen') || strcmp(state, 'RestClose')
-                            % load resting state eye data
-                            session_type_eye = '008';
-                            if strcmp(session_name, '11012023')
-                                session_type_eye = '009';
-                            end
-                            if strcmp(control, 'ZeppelinSim')
-                                session_type_eye = zeppelin_session_types{session_idx};
-                            end
-                            folder_name_eye = fullfile(root, 'Data', 'Experimental', 'eyeID');
-                            file_name = ['eyeID-', session_name, '-', session_type_eye, ...
-                                '.mat'];
-                            file_path = fullfile(folder_name_eye, file_name);
-                            load(file_path, "r");
-                            if strcmp(control, 'ZeppelinSim')
-                                eyeID = r;
-                            else
-                                if strcmp(subsession, 'Pre')    
-                                    eyeID = r.pre;
-                                else
-                                    eyeID = r.post;
-                                end
-                            end
-                        end
-                        
-                        % NaN check for thalamus
-                        if any(isnan(PDS.taskID))
-                            % fprintf("NaN in: %s, %s, %s, session%d, #%d...\n", control, area, subsession, session_idx, i);
-                            PDS.taskID(isnan(PDS.taskID)) = 1.1;
-                        end
                         
                         % ---choose trials
                         if strcmp(state, 'Task')
+                            if first_neuron
+                                % taskID counting
+                                fprintf('   - TaskID counts:\n');
+                                all_taskIDs = unique(PDS.taskID);
+                                taskID_counts = zeros(length(all_taskIDs), 1);
+                                for t = 1:length(all_taskIDs)
+                                    taskID_counts(t) = sum(PDS.taskID==all_taskIDs(t));
+                                    fprintf('     - TaskID %.1f: %d trials\n', all_taskIDs(t), taskID_counts(t));
+                                end
+                                fprintf('\n');
+                            end
+                            
+                            % taskID fix: NaN, 1000, 1001 to 1.1, 1.1, 1.2, due to old data saving issue.
+                            if any(isnan(PDS.taskID))
+                                if first_neuron
+                                    fprintf("     - %d NaN found in task ID, file: %s \n", sum(isnan(PDS.taskID)), file_name);
+                                end
+                                PDS.taskID(isnan(PDS.taskID)) = 1.1;
+                            end
+                            if any(PDS.taskID==1000)
+                                if first_neuron
+                                    fprintf("     - %d 1000 found in task ID, file: %s \n", sum(PDS.taskID==1000), file_name);
+                                end
+                                PDS.taskID(PDS.taskID==1000) = 1.1;
+                            end
+                            if any(PDS.taskID==1001)
+                                if first_neuron
+                                    fprintf("     - %d 1001 found in task ID, file: %s \n", sum(PDS.taskID==1001), file_name);
+                                end
+                                PDS.taskID(PDS.taskID==1001) = 1.2;
+                            end
+
                             % -choice and pav trials
-                            % selected_trial = (PDS.taskID==taskID)&(PDS.goodtrial);
+                            valid_trials = (PDS.taskID==taskID)&(PDS.goodtrial);
                             % -pav trials only
-                            % selected_trial = (PDS.taskID==taskID)&(PDS.goodtrial)&isnan(PDS.timeoffer1cho)&isnan(PDS.timeoffer2cho);
+                            pav_trials = (PDS.taskID==taskID)&(PDS.goodtrial)&isnan(PDS.timeoffer1cho)&isnan(PDS.timeoffer2cho);
                             % -choice trials only
-                            selected_trial = (PDS.taskID==taskID)&(PDS.goodtrial)&(~isnan(PDS.timeoffer1cho)|~isnan(PDS.timeoffer2cho));
+                            choice_trials = (PDS.taskID==taskID)&(PDS.goodtrial)&(~isnan(PDS.timeoffer1cho)|~isnan(PDS.timeoffer2cho));
+                            
+                            % Use choice trials
+                            selected_trial = choice_trials;
                             selected_spikes = PDS.sptimes(selected_trial);
+
+                            if first_neuron
+                            fprintf('   - Total trials: %d.\n', length(PDS.taskID));
+                            fprintf('     - Valid trials (good, taskID %.1f): %d.\n', taskID, sum(valid_trials));
+                            fprintf('     - Pav trials: %d.\n', sum(pav_trials));
+                            fprintf('     - Choice trials: %d.\n\n', sum(choice_trials));
+                            end
+
                         end
 
                         % ---choose phases in trial
@@ -291,8 +354,9 @@ for dataset_idx = 1:dataset_num
                             min_duration = min_dur_cell;
                         end
 
-                        % if this is the first neuron, initialize
-                        if isnan(trial_num)
+                        %% Process spikes for this neuron
+                        if first_neuron
+                            % if this is the first neuron, initialize output variables
                             if strcmp(state, 'Task')
                                 cuetype = PDS.Cuetype(selected_trial);
                                 trial_num = sum(selected_trial);
@@ -308,9 +372,18 @@ for dataset_idx = 1:dataset_num
                                 rasters{j} = NaN;
                                 firing_rates{j} = ones(N, 1) * NaN;
                             end
+                            first_neuron = false;
+                        else
+                            % check consistency
+                            if strcmp(state, 'Task')
+                                assert(trial_num == sum(selected_trial), 'Inconsistent trial num in %s, neuron %d', session_filename, i);
+                                assert(all(cuetype == PDS.Cuetype(selected_trial)), 'Inconsistent cuetype in %s, neuron %d', session_filename, i);
+                            else
+                                assert(trial_num == length(selected_start), 'Inconsistent trial num in %s, neuron %d', session_filename, i);
+                            end
                         end
 
-                        channel(1, i) = PDS.channel;
+                        channel(i) = PDS.channel;
                         % spikes & rasters for each trial
                         for j=1:trial_num
                             if strcmp(state, 'Task')
@@ -319,16 +392,22 @@ for dataset_idx = 1:dataset_num
                                 switch subsession
                                 case 'Pre'
                                     % -resting state eye open
-                                    % skip Muscimol session 2
-                                    if strcmp(session_name, '11012023') 
-                                        spike_trial = [];
+                                    % % skip Muscimol session 2
+                                    % if strcmp(session_name, '11012023') 
+                                    %     spike_trial = [];
+                                    % else
+                                    %     if strcmp(area, 'Thalamus')
+                                    %         spike_trial = PDS.sptimes_aftertask;
+                                    %     else
+                                    %         spike_trial = PDS.sptimes_betweentask{1};
+                                    %     end
+                                    % end   
+                                    
+                                    if strcmp(area, 'Thalamus')
+                                        spike_trial = PDS.sptimes_aftertask;
                                     else
-                                        if strcmp(area, 'Thalamus')
-                                            spike_trial = PDS.sptimes_aftertask;
-                                        else
-                                            spike_trial = PDS.sptimes_betweentask{1};
-                                        end
-                                    end          
+                                        spike_trial = PDS.sptimes_betweentask{1};
+                                    end
 
                                 case 'Post'
                                     % -resting state eye close
@@ -370,8 +449,9 @@ for dataset_idx = 1:dataset_num
                         end
                     end
 
-                    fprintf('max duration: %d, min duration: %d\n', max_duration, min_duration);
-                    fprintf('max length: %d, min length: %d\n\n', ceil(max_duration/dt), ceil(min_duration/dt));
+                    fprintf('   - Loaded %d neurons, %d trials.\n', N, trial_num);
+                    fprintf('   - max duration: %d, min duration: %d\n', max_duration, min_duration);
+                    fprintf('   - max length: %d, min length: %d\n\n', ceil(max_duration/dt), ceil(min_duration/dt));
                     
                     % output
                     % if isnan(n_trial)
@@ -381,7 +461,8 @@ for dataset_idx = 1:dataset_num
                     % end
 
                     % save
-                    session_name_save = [control, subsession, state, area];
+                    session_name_save = [dataset_name, subsession, state, area];
+                    session_name_full = sprintf('%s_%d', session_name_save, session_idx);
                     save_name = sprintf('raster_%s_%d.mat', session_name_save, session_idx);
                     save_folder = fullfile(root, 'Data', 'Working', 'raster');
                     check_path(save_folder);
