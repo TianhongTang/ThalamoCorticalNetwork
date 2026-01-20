@@ -1,4 +1,4 @@
-% load cell-based PDS file, 
+% load cell-based PDS file, print detailed session info.
 % extract trial-based spike timings and rasters.
 
 %% Get root folder
@@ -8,41 +8,29 @@ root = script_path;
 for i = 1:code_depth
     root = fileparts(root);
 end
+% include code folder and utils
+addpath(fileparts(script_path));
+addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-% TODO: get rid of nested loops. Use task registration instead.
 dt=0.001;
 
-unique_sessions_all = ...
-    {{'10272023', '11012023', '11102023', '11172023', '12012023',...
-    '12082023', '12152023', '12292023', '01052024', '01122024'},...
-    {'01302024', '02022024', '02092024', '02162024', '02292024'},...
-    {'08112023', '08142023', '08152023', '08162023', '08172023', '03072024', '03122024'}};
+% load dataset metadata
+metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
+metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');  
+load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_files', 'thalamus_files', 'eyeID_files');
 
-% load data
-controls = {'Muscimol', 'Saline', 'SimRec'};
-areas = {'ACC', 'Thalamus', 'VLPFC'};
+areas = {'ACC', 'VLPFC', 'Thalamus'};
+area_num = length(areas);
 
-control_num = length(controls);
+for dataset_idx = 1:dataset_num
+    dataset_name = dataset_names{dataset_idx};
+    session_num = session_nums(dataset_idx);
 
-for control_idx = 1:control_num
-    control = controls{control_idx};
-    unique_sessions = unique_sessions_all{control_idx};
-    session_num = length(unique_sessions);
-
-    randomA_start = NaN;
-    % randomA_end = NaN;
-    randomB_start = NaN;
-    % randomB_end = NaN;
-    randomShort_start = NaN;
-    % randomShort_end = NaN;
-    randomLong_start = NaN;
-    % randomLong_end = NaN;
-
-    for area_idx = 1:3
+    for area_idx = 1:area_num
         % Read filenames and extract session names, types, and cell ids.
         area = areas{area_idx};
-        folder_name = fullfile(root, 'Data', 'Experimental', control, area);
+        folder_name = fullfile(root, 'Data', 'Experimental', area);
         file_names = {dir(folder_name).name}.'; % format: LemmyKim-#date-00#-MYInfoPavChoice_cl##_PDS.mat
         splited = cellfun(@(name) split(name, ["-", "_"]), file_names, 'UniformOutput', false);
         splited = splited(3:end);
@@ -70,15 +58,16 @@ for control_idx = 1:control_num
                     session_type = '003';
                 end
             end
+            if strcmp(control, 'ZeppelinSim')
+                session_type = zeppelin_session_types{session_idx};
+            end
+
             
             session_file_idx = strcmp(session_names, session_name)...
                 & strcmp(session_types, session_type);
             N = sum(session_file_idx);
             cell_id = cell_ids(session_file_idx).';
 
-            % trialphases = {'Decision', 'InfoAnti', 'InfoResp', 'Info', 'RandomA', 'RandomB'};
-            % trialphases = {'Offer1', 'Offer2', 'Decision', 'InfoAnti', 'InfoResp', 'Reward', 'RandomA', 'RandomB'};
-            % trialphases = {'Task', 'RandomShort', 'RandomLong'};
             states = {'Task', 'RestOpen', 'RestClose'};
             for state_idx = 1:3
                 state = states{state_idx};
@@ -103,7 +92,7 @@ for control_idx = 1:control_num
                     taskID = taskIDs(subsession_idx);
 
                     % skip simrec post sessions
-                    if strcmp(control, 'SimRec') && strcmp(subsession, 'Post')
+                    if (strcmp(control, 'SimRec')||strcmp(control, 'ZeppelinSim')) && strcmp(subsession, 'Post')
                         continue;
                     end
                     % skip muscimol thalamus post sessions
@@ -152,15 +141,22 @@ for control_idx = 1:control_num
                             if strcmp(session_name, '11012023')
                                 session_type_eye = '009';
                             end
+                            if strcmp(control, 'ZeppelinSim')
+                                session_type_eye = zeppelin_session_types{session_idx};
+                            end
                             folder_name_eye = fullfile(root, 'Data', 'Experimental', 'eyeID');
                             file_name = ['eyeID-', session_name, '-', session_type_eye, ...
                                 '.mat'];
                             file_path = fullfile(folder_name_eye, file_name);
                             load(file_path, "r");
-                            if  strcmp(subsession, 'Pre')
-                                eyeID = r.pre;
+                            if strcmp(control, 'ZeppelinSim')
+                                eyeID = r;
                             else
-                                eyeID = r.post;
+                                if strcmp(subsession, 'Pre')    
+                                    eyeID = r.pre;
+                                else
+                                    eyeID = r.post;
+                                end
                             end
                         end
                         

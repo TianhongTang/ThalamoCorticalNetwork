@@ -14,11 +14,41 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-data_folder = fullfile(root, 'Data', 'Working');
-subfolders = dir(data_folder);
+
+%% TODO: Raw data
+
+%% Eye ID
+fprintf('======================\n');
+fprintf('Eye ID files:\n');
+
+eye_id_folder = fullfile(root, 'Data', 'Experimental', 'eyeID');
+eye_id_files = dir(fullfile(eye_id_folder, 'eyeID-*.mat'));
+
+% TODO: better filter
+all_files = dir(eye_id_folder);
+unexpected_files = setdiff({all_files.name}, {eye_id_files.name});
+if ~isempty(unexpected_files)
+    fprintf('****Unexpected files in eyeID folder****:\n');
+    for i = 1:length(unexpected_files)
+        fprintf(' - %s\n', unexpected_files{i});
+    end
+    fprintf('****End of unexpected files****\n\n');
+end
+
+
+
+
+%% rasters
+fprintf('======================\n');
+fprintf('Raster files:\n');
+raster_folder = fullfile(root, 'Data', 'Working', 'raster');
+
 
 %% models
-model_folder = fullfile(data_folder, 'GLM_models');
+fprintf('======================\n');
+fprintf('GLM model files:\n');
+
+model_folder = fullfile(root, 'Data', 'Working', 'GLM_models');
 model_files = dir(fullfile(model_folder, 'GLM_*.mat'));
 all_files = dir(model_folder);
 unexpected_files = setdiff({all_files.name}, {model_files.name});

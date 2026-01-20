@@ -20,6 +20,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Zeppelin sessions
 
 
+
 %% Emperor sessions
 
 
@@ -70,9 +71,10 @@ for session_idx = 1:filtered_session_num
 
         % training configurations
         config = struct();
-        config.max_epochs = 2500;
+        config.max_epochs = 5000;
         config.save_interval = 100;
         config.kernel = 'DeltaPure';
+        config.crossval_fold_num = 3;
         reg = struct();
         reg.l1 = 0;
         reg.l2 = 0.2;

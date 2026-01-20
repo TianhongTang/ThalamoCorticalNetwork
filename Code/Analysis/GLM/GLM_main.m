@@ -20,10 +20,10 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-gpuDeviceTable;
+gpuDeviceTable
 
 force_rebuild = false;
-force_retrain = false;
+force_retrain = true;
 debug = true;
 
 training_tasks = {'KZ'};
@@ -35,8 +35,6 @@ reg.l2=0.2;
 reg.name='L2=0_2';
 
 tasks = {};
-
-
 
 for training_idx = 1:length(training_tasks)
     training_task = training_tasks{training_idx};
@@ -76,6 +74,7 @@ for training_idx = 1:length(training_tasks)
             reg = config.reg;
             shuffle_size=config.shuffle_size;
             max_epoch=config.max_epochs;
+            fold_num = config.crossval_fold_num;
             
             %% generate shuffled raster
             fprintf("Shuffle rasters\n");
@@ -120,7 +119,7 @@ for training_idx = 1:length(training_tasks)
                 else
                     split_type = 'Time';
                 end
-                crossval_split(dataset_name, session_idx, shuffle_id, 3, split_type);
+                crossval_split(dataset_name, session_idx, shuffle_id, fold_num, split_type);
             end
 
             %% convolve predj and combine trials
@@ -145,7 +144,7 @@ for training_idx = 1:length(training_tasks)
                 fprintf("Training %d\n", shuffle_seed);
                 skip_flag = false;
                 tic;
-                for fold_idx = 0:0
+                for fold_idx = 0:(fold_num)
                     % skip if already exists
                     target_folder = fullfile(root, 'Data', 'Working', 'GLM_models');
                     target_file = sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session_idx, shuffle_id, kernel_name, ...

@@ -120,10 +120,14 @@ for epoch=1:max_epoch
             n_PS_kernel,n_conn_kernel,raster,predjs_PS,predjs_conn,logfacts,reg); 
         loss_test = minuslogL_grad_hess_fun(par,B_test,N_filtered, ...
             n_PS_kernel,n_conn_kernel,raster_test,predjs_PS_test,predjs_conn_test,logfacts,reg);
+        normalized_loss = loss.minuslogL / (B_train * N_filtered);
+        normalized_loss_test = loss_test.minuslogL / (B_test * N_filtered);
     else
         [loss, grad] = minuslogL_grad_hess_fun(par,B_train,N_filtered, ...
             n_PS_kernel,n_conn_kernel,raster,predjs_PS,predjs_conn,logfacts,reg); 
         loss_test = NaN;
+        normalized_loss = loss.minuslogL / (B_train * N_filtered);
+        normalized_loss_test = NaN;
     end
     
     % Adam
@@ -137,8 +141,8 @@ for epoch=1:max_epoch
     par = par - lr*mh./(sqrt(vh+e));
     
     if log_level==2
-        fprintf("Epoch %d/%d, train L=%f, test L=%f, reg=%f, sparsity=%f\n", epoch, max_epoch, ...
-            loss.minuslogL, loss_test.minuslogL, loss.reg, sum(abs(par)>1e-2,"all")/numel(par));
+        fprintf("Epoch %d/%d, normalized train L=%f, normalized test L=%f, reg=%f, sparsity=%f\n", epoch, max_epoch, ...
+            normalized_loss, normalized_loss_test, loss.reg, sum(abs(par)>1e-2,"all")/numel(par));
         grad_norm_minuslogL = sum(grad.minuslogL.^2, "all");
         grad_norm_reg = sum(grad.reg.^2, "all");
         grad_norm_total = sum(grad.total.^2, "all");
@@ -150,8 +154,8 @@ for epoch=1:max_epoch
     % save model
     if mod(epoch, 100)==0
         if log_level==1
-            fprintf("Epoch %d/%d, train L=%f, test L=%f, reg=%f, sparsity=%f\n", epoch, max_epoch, ...
-                loss.minuslogL, loss_test.minuslogL, loss.reg, sum(abs(par)>1e-2,"all")/numel(par));
+            fprintf("Epoch %d/%d, normalized train L=%f, normalized test L=%f, reg=%f, sparsity=%f\n", epoch, max_epoch, ...
+                normalized_loss, normalized_loss_test, loss.reg, sum(abs(par)>1e-2,"all")/numel(par));
             grad_norm_minuslogL = sum(grad.minuslogL.^2, "all");
             grad_norm_reg = sum(grad.reg.^2, "all");
             grad_norm_total = sum(grad.total.^2, "all");
@@ -204,6 +208,6 @@ for epoch=1:max_epoch
         fprintf('Saving to: %s\n', model_path);
         save(model_path, 'model_par', 'train_loss', 'test_loss', 'model_err', 'N', "reg", "kernel", ...
            "raster_filter", "N_filtered");
-        fprintf('saved');
+        fprintf('saved\n');
     end
 end

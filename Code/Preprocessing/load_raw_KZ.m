@@ -1,8 +1,5 @@
 %% Dataset from Kaining. Load raw data and extract useful information.
 % raw data is too large.
-% Info to extract:
-% 1. total number of sessions
-% 2. 
 % for each session:
 
 % After this, processed data:
@@ -21,7 +18,7 @@ end
 addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
-% Main
+%% Main
 % load session metadata
 session_data_folder = fullfile(root, 'Data', 'Experimental', '15SecondsThreshold');
 session_data_path = fullfile(session_data_folder, 'StateInfoSummary.mat');

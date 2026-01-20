@@ -15,7 +15,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 % session_types = {'Muscimol', 'Saline', 'Simulated'};
-session_types = {'Muscimol', 'Saline'};
+% session_types = {'Muscimol', 'Saline'};
+session_types = {'KZ', 'Saline'};
 kernel = 'DeltaPure';
 reg = 'L2=0_2';
 epoch = '2500';
@@ -27,17 +28,24 @@ prepost_types = {'Pre', 'Post'};
 
 for session_type_idx = 1:length(session_types)
     session_type = session_types{session_type_idx};
-
     switch session_type
         case 'Muscimol'
-            session_num = 10;
+            sessions = 1:10;
+            session_num = length(sessions);
             states = {'Task', 'RestOpen', 'RestClose'};
         case 'Saline'
-            session_num = 5;
+            sessions = 1:5;
+            session_num = length(sessions);
             states = {'Task', 'RestOpen', 'RestClose'};
         case 'Simulated'
-            session_num = 10;
+            sessions = 1:10;
+            session_num = length(sessions);
             states = {'Task', 'RestClose'};
+        case 'KZ'
+            % load filtered sessions for KZ
+            folder_name = fullfile(root, 'Data', 'Working', 'filtered_sessions');
+            session_num = 100;
+            states = {'RestOpen', 'RestClose'};
     end
 
     % load kernel info
@@ -57,11 +65,12 @@ for session_type_idx = 1:length(session_types)
         for state_idx = 1:state_num
             state = states{state_idx};
             for session_idx = 1:session_num
+                session_idx_file = sessions(session_idx);
                 fprintf('Processing session %d/%d, state %s, prepost %s\n', session_idx, session_num, state, prepost);
                 
                 % load border info, get area num. borders: starting index of each area
                 folder_name = fullfile(root, 'Data', 'Working', 'border');
-                file_name = sprintf('borders_%sPreCortex_%d.mat', session_type, session_idx);
+                file_name = sprintf('borders_%sPreCortex_%d.mat', session_type, session_idx_file);
                 file_path = fullfile(folder_name, file_name);
                 load(file_path, 'borders');
                 area_num = length(borders);
@@ -70,7 +79,7 @@ for session_type_idx = 1:length(session_types)
                 % load model data
                 folder_name = fullfile(root, 'Data', 'Working', 'GLM_models');
                 file_name = sprintf('GLM_%s%s%sCortexAlignLast_s%d_shuffle0_%s_%s_epoch%s_fold0.mat', ...
-                    session_type, prepost, state, session_idx, kernel, reg, epoch); 
+                    session_type, prepost, state, session_idx_file, kernel, reg, epoch); 
                 file_path = fullfile(folder_name, file_name);
                 load(file_path, 'model_par', 'model_err', 'N');
                 borders = [borders_raw, N+1]; % add end border

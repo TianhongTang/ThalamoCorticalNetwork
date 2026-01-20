@@ -1,6 +1,5 @@
 %% basic_statistics_main.m -  Basic statistics of each session/state: Synchrony index, firing rate, fano factor, etc.
 
-
 clear;
 %% Get root folder
 code_depth = 4;
