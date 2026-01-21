@@ -15,11 +15,11 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 % mode = 'spikes';
 % mode = 'raster';
-state = 'KZRestOpen';
-session_idx = 608;
+state = 'SlayerMusPreRestOpenFull';
+session_idx = 6;
 
 % load data
-data_folder = fullfile(root, 'Data', 'Temp');
+data_folder = fullfile(root, 'Data', 'Working', 'raster');
 data_name = sprintf('raster_%s_%d.mat', state, session_idx);
 data_path = fullfile(data_folder, data_name);
 load(data_path, "rasters");
@@ -38,6 +38,12 @@ session_info = all_session_info(session_idx);
 neuron_info = session_info.neuronList;
 thal_filter = cellfun(@(x) strcmp(x, 'Thalamus'), {neuron_info.NeuralTargetsAnatomy});
 
+%% concatenate rasters
+concatenated_rasters = cell2mat(rasters);
+concatenated_smoothed = cell2mat(smoothed_rasters);
+trial_borders = cumsum(cellfun(@(x) size(x, 2), rasters));
+
 %% plot raster
 % raster_visualization(rasters{1}(thal_filter, :));
-raster_visualization(rasters{1}(:, :));
+% raster_visualization(rasters{1}(:, :), trial_borders);
+raster_visualization(concatenated_rasters, trial_borders);

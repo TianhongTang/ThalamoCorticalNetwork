@@ -110,13 +110,22 @@ for session_idx = 1:session_num
                 area_name = neuron_info(neuron_idx).NeuralTargetsAnatomy;
                 if strcmp(area_name, 'Thalamus')
                     coordinates = cell_coordinates(neuron_idx, :); 
-                    if coordinates(3) > 18 || coordinates(2) < 37
+                    if coordinates(3) < -18 || coordinates(2) < 37
                         cell_area{neuron_idx} = 'ThalamusPosterior';
                     else
                         cell_area{neuron_idx} = 'ThalamusAnterior';
                     end
                 end
             end
+        elseif strcmp(monkey_name, 'Slayer')
+            for neuron_idx = 1:N
+                area_name = neuron_info(neuron_idx).NeuralTargetsAnatomy;
+                if strcmp(area_name, 'Thalamus')
+                    cell_area{neuron_idx} = 'ThalamusAnterior';
+                end
+            end
+        else
+            error('Unknown monkey name: %s', monkey_name);
         end
 
         trial_len = zeros(1, trial_num);

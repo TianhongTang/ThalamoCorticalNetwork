@@ -76,7 +76,7 @@ for session_idx = 1:session_num
             area_name = neuron_info(neuron_idx).NeuralTargetsAnatomy;
             if strcmp(area_name, 'Thalamus')
                 coordinates = cell_coordinates(neuron_idx, :); 
-                if coordinates(3) > 18 || coordinates(2) < 37
+                if coordinates(3) < -18 || coordinates(2) < 37
                     cell_area{neuron_idx} = 'ThalamusPosterior';
                 else
                     cell_area{neuron_idx} = 'ThalamusAnterior';
@@ -118,7 +118,7 @@ for session_idx = 1:session_num
     session_properties(session_idx).is_bad = ismember(session_idx, [241, 608, 630, 644]);
 
     % save filters
-    property_filters(session_idx).thalamus = session_properties(session_idx).thalamus_count_total >= 5;
+    property_filters(session_idx).thalamus = session_properties(session_idx).thalamus_count_anterior >= 3;
     property_filters(session_idx).resting = session_properties(session_idx).resting_count > 0;
     property_filters(session_idx).duration = total_resting_dur >= 30000 && total_arousal_dur >= 30000;
     property_filters(session_idx).good_session = ~session_properties(session_idx).is_bad;

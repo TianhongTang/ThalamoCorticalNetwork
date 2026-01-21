@@ -13,7 +13,7 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-USE_EXISTING_RESULTS = false; % if true, load existing results if available [Not implemented]
+USE_EXISTING_RESULTS = false; % if true, load existing results if available
 result_folder = fullfile(root, 'Data', 'Working', 'Analysis', 'Synchrony');
 check_path(result_folder);
 result_name = sprintf('synchrony_results.mat');
@@ -170,7 +170,7 @@ else
     filter_path = fullfile(root, 'Data', 'Working', 'Meta', 'session_filters_KZ.mat');
     load(filter_path, 'property_filters');
     % add session indices for filtered sessions
-    filter = property_filters.combined;
+    filter = [property_filters.combined];
     task.sessions = find(filter);
     tasks{end+1} = task;
 
