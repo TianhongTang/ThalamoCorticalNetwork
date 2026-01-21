@@ -67,9 +67,43 @@ for session_idx = 1:session_num
         resting_num = 0;
     end
 
+    % Exclude posterior thalamic neurons based on coordinates
+    cell_area = {neuron_info.NeuralTargetsAnatomy};
+    cell_coordinates = cat(1, neuron_info.fcsvCoordinates); % (N, 3) matrix, (right-left, anterior, inferior)
+    % exclude posterior thalamic neurons
+    if strcmp(monkey_name, 'Lemmy')
+        for neuron_idx = 1:N
+            area_name = neuron_info(neuron_idx).NeuralTargetsAnatomy;
+            if strcmp(area_name, 'Thalamus')
+                coordinates = cell_coordinates(neuron_idx, :); 
+                if coordinates(3) > 18 || coordinates(2) < 37
+                    cell_area{neuron_idx} = 'ThalamusPosterior';
+                else
+                    cell_area{neuron_idx} = 'ThalamusAnterior';
+                end
+            end
+        end
+    elseif strcmp(monkey_name, 'Slayer')
+        for neuron_idx = 1:N
+            area_name = neuron_info(neuron_idx).NeuralTargetsAnatomy;
+            if strcmp(area_name, 'Thalamus')
+                cell_area{neuron_idx} = 'ThalamusAnterior';
+            end
+        end
+    else
+        error('Unknown monkey name: %s', monkey_name);
+    end
+
+    thalamus_filter = cellfun(@(x) strcmp(x, 'Thalamus'), cell_area);
+    thalamus_filter_anterior = cellfun(@(x) strcmp(x, 'ThalamusAnterior'), cell_area);
+    thalamus_filter_posterior = cellfun(@(x) strcmp(x, 'ThalamusPosterior'), cell_area);
+
     % save session properties
-    thalamus_filter = cellfun(@(x) strcmp(x, 'Thalamus'), {neuron_info.NeuralTargetsAnatomy});
     session_properties(session_idx).thalamus_count = sum(thalamus_filter);
+    session_properties(session_idx).thalamus_count_anterior = sum(thalamus_filter_anterior);
+    session_properties(session_idx).thalamus_count_posterior = sum(thalamus_filter_posterior);
+    session_properties(session_idx).thalamus_count_total = sum(thalamus_filter) + sum(thalamus_filter_anterior) + sum(thalamus_filter_posterior);
+    session_properties(session_idx).arousal_count = arousal_num;
     session_properties(session_idx).resting_count = resting_num;
     session_properties(session_idx).session_length = session_length;
     session_properties(session_idx).resting_dur = total_resting_dur;
@@ -78,14 +112,18 @@ for session_idx = 1:session_num
     session_properties(session_idx).default_dur = session_length - total_resting_dur - total_arousal_dur - total_lowsaccade_dur;
     session_properties(session_idx).eyeClosed_dur = total_resting_dur;
     session_properties(session_idx).eyeOpen_dur = session_length - total_resting_dur;
+    session_properties(session_idx).cell_area = cell_area;
+
+    % bad session (241, 608, 630, 644): abnormal pause in recording
+    session_properties(session_idx).is_bad = ismember(session_idx, [241, 608, 630, 644]);
 
     % save filters
-    property_filters(session_idx).thalamus = session_properties(session_idx).thalamus_count >= 5;
+    property_filters(session_idx).thalamus = session_properties(session_idx).thalamus_count_total >= 5;
     property_filters(session_idx).resting = session_properties(session_idx).resting_count > 0;
-    property_filters(session_idx).combined = property_filters(session_idx).thalamus & property_filters(session_idx).resting;
+    property_filters(session_idx).duration = total_resting_dur >= 30000 && total_arousal_dur >= 30000;
+    property_filters(session_idx).good_session = ~session_properties(session_idx).is_bad;
+    property_filters(session_idx).combined = property_filters(session_idx).thalamus && property_filters(session_idx).duration && property_filters(session_idx).good_session;
 end
-
-session_filters = repmat(struct('thalamus', false, 'resting', false, 'combined', false), 1, session_num);
 
 % save filters
 filter_save_path = fullfile(meta_folder, 'session_filters_KZ.mat');

@@ -42,6 +42,32 @@ end
 fprintf('======================\n');
 fprintf('Raster files:\n');
 raster_folder = fullfile(root, 'Data', 'Working', 'raster');
+raster_files = dir(fullfile(raster_folder, 'raster_*.mat'));
+all_files = dir(raster_folder);
+unexpected_files = setdiff({all_files.name}, {raster_files.name});
+if ~isempty(unexpected_files)
+    fprintf('****Unexpected files in raster folder****:\n');
+    for i = 1:length(unexpected_files)
+        fprintf(' - %s\n', unexpected_files{i});
+    end
+    fprintf('****End of unexpected files****\n\n');
+end
+% raster file format: raster_<dataset_name>_##.mat
+all_datasets = struct();
+for i = 1:length(raster_files)
+    raster_file = raster_files(i);
+    file_name = raster_file.name;
+    pattern = "^raster_(\w+)_s(\d+)\.mat$";
+    t = regexp(file_name, pattern, "tokens", "once");
+    dataset_name = t{1};
+    session_idx  = str2double(t{2});
+
+    if ~isfield(all_datasets, dataset_name)
+        all_datasets.(dataset_name) = struct();
+        all_datasets.(dataset_name).sessions = [];
+    end
+    all_datasets.(dataset_name).sessions = [all_datasets.(dataset_name).sessions, session_idx];
+end
 
 
 %% models

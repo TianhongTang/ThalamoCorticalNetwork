@@ -98,8 +98,27 @@ for session_idx = 1:session_num
         spikes = cell(N, trial_num);
         rasters = cell(1, trial_num);
         firing_rates = cell(1, trial_num);
+
+        % cell properties
         channel = [neuron_info.electrodeID];
         cell_id = {neuron_info.name};
+        cell_area = {neuron_info.NeuralTargetsAnatomy};
+        cell_coordinates = cat(1, neuron_info.fcsvCoordinates); % (N, 3) matrix, (right-left, anterior, inferior)
+        % exclude posterior thalamic neurons
+        if strcmp(monkey_name, 'Lemmy')
+            for neuron_idx = 1:N
+                area_name = neuron_info(neuron_idx).NeuralTargetsAnatomy;
+                if strcmp(area_name, 'Thalamus')
+                    coordinates = cell_coordinates(neuron_idx, :); 
+                    if coordinates(3) > 18 || coordinates(2) < 37
+                        cell_area{neuron_idx} = 'ThalamusPosterior';
+                    else
+                        cell_area{neuron_idx} = 'ThalamusAnterior';
+                    end
+                end
+            end
+        end
+
         trial_len = zeros(1, trial_num);
         for trial_idx=1:trial_num
             trial_start = selected_ranges(trial_idx, 1) + cutoff;
@@ -133,6 +152,6 @@ for session_idx = 1:session_num
         save_path = fullfile(save_folder, save_name);
         save(save_path,...
             "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...
-            "session_name", "N", "cell_id", "channel", 'dt');
+            "session_name", "N", "cell_id", "cell_area", "channel", 'dt');
     end
 end

@@ -164,17 +164,17 @@ for dataset_idx = 1:dataset_num
 
                     % Loading a single session&state starts here
 
-                    trial_num = NaN;
-                    spikes = NaN;
-                    rasters = NaN;
+                    trial_num    = NaN;
+                    spikes       = NaN;
+                    rasters      = NaN;
                     firing_rates = NaN;
-                    cuetype = NaN;
-                    channel = NaN;
-                    trial_len = NaN;
+                    cuetype      = NaN;
+                    channel      = NaN;
+                    trial_len    = NaN;
                     
                     fprintf("   - Loading: %s, %s...\n", subsession, state);
-                    max_duration = 0;
-                    min_duration = 9999;
+                    max_duration  = 0;
+                    min_duration  = 9999;
                     max_trial_len = 0;
                     min_trial_len = 999999;
 
@@ -245,17 +245,17 @@ for dataset_idx = 1:dataset_num
                         case 'All'
                             % -all
                             selected_start = PDS.timetargeton(selected_trial);
-                            selected_end = PDS.timeInfotargetoff(selected_trial);
+                            selected_end   = PDS.timeInfotargetoff(selected_trial);
 
                         case 'Offer1'
                             % -after offer1
                             selected_start = PDS.timetargeton(selected_trial);
-                            selected_end = selected_start + 1;
+                            selected_end   = selected_start + 1;
 
                         case 'Offer2'
                             % -after offer2
                             selected_start = PDS.timetargeton1(selected_trial);
-                            selected_end = selected_start + 1;
+                            selected_end   = selected_start + 1;
 
                         case 'Decision'
                             % -before decision
@@ -469,7 +469,7 @@ for dataset_idx = 1:dataset_num
                     save_path = fullfile(save_folder, save_name);
                     save(save_path,...
                         "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...
-                        "session_name_full", "N", "cuetype", "cell_id", "channel", 'dt');
+                        "session_name_full", "N", "cuetype", "cell_id", "channel", 'dt', '-v7.3');
                 end
             % todo: load resting state
             end
