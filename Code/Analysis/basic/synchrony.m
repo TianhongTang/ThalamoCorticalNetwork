@@ -27,132 +27,132 @@ else
     %% register tasks
     tasks = {};
 
-    % % register MY dataset metadata
-    % metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
-    % metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');  
-    % load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums');
-    % prepost_types = {'Pre', 'Post'};
+    % register MY dataset metadata
+    metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
+    metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');  
+    load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums');
+    prepost_types = {'Pre', 'Post'};
     
-    % % Remove 'SlayerNoinj' from dataset_names and dataset_num
-    % noinj_idx = find(contains(dataset_names, 'SlayerNoinj'));
-    % fprintf('Removing dataset: %s\n', dataset_names{noinj_idx});
-    % dataset_names(noinj_idx) = [];
-    % dataset_num = length(dataset_names);
-    % session_nums(noinj_idx) = [];
+    % Remove 'SlayerNoinj' from dataset_names and dataset_num
+    noinj_idx = find(contains(dataset_names, 'SlayerNoinj'));
+    fprintf('Removing dataset: %s\n', dataset_names{noinj_idx});
+    dataset_names(noinj_idx) = [];
+    dataset_num = length(dataset_names);
+    session_nums(noinj_idx) = [];
 
-    % fprintf('Total datasets after removal: %d\n', dataset_num);
-    % for i = 1:dataset_num
-    %     fprintf(' - Dataset %d: %s, Sessions: %d\n', i, dataset_names{i}, session_nums(i));
-    % end
-    % fprintf('-------------------------\n');
+    fprintf('Total datasets after removal: %d\n', dataset_num);
+    for i = 1:dataset_num
+        fprintf(' - Dataset %d: %s, Sessions: %d\n', i, dataset_names{i}, session_nums(i));
+    end
+    fprintf('-------------------------\n');
 
-    % % thalamus within area synchrony comparison tasks
-    % for dataset_idx = 1:dataset_num
-    %     dataset_name = dataset_names{dataset_idx};
-    %     session_num = session_nums(dataset_idx);
+    % thalamus within area synchrony comparison tasks
+    for dataset_idx = 1:dataset_num
+        dataset_name = dataset_names{dataset_idx};
+        session_num = session_nums(dataset_idx);
 
-    %     prepost = 'Pre';
-    %     task = struct();
-    %     task.dataset = dataset_name;
-    %     task.prepost = prepost;
-    %     task.xlabel = 'Eyes Open';
-    %     task.ylabel = 'Eyes Closed';
-    %     task.xdata = [dataset_name, prepost, 'RestOpen', 'Full'];
-    %     task.ydata = [dataset_name, prepost, 'RestClose', 'Full'];
-    %     task.across_area = false;
-    %     task.filter_type = 'Area';
-    %     task.area_filter = {'Thalamus'};
-    %     task.sessions = 1:session_num;
+        prepost = 'Pre';
+        task = struct();
+        task.dataset = dataset_name;
+        task.prepost = prepost;
+        task.xlabel = 'Eyes Open';
+        task.ylabel = 'Eyes Closed';
+        task.xdata = [dataset_name, prepost, 'RestOpen', 'Full'];
+        task.ydata = [dataset_name, prepost, 'RestClose', 'Full'];
+        task.across_area = false;
+        task.filter_type = 'Area';
+        task.area_filter = {'Thalamus'};
+        task.sessions = 1:session_num;
 
-    %     tasks{end+1} = task; %#ok<SAGROW>
-    % end
+        tasks{end+1} = task; %#ok<SAGROW>
+    end
 
-    % % cortical single area synchrony comparison tasks
-    % single_areas = {'ACC', 'VLPFC'};
-    % for area_idx = 1:length(single_areas)
-    %     for dataset_idx = 1:dataset_num
-    %         for prepost_idx = 1:length(prepost_types)
-    %             prepost = prepost_types{prepost_idx};
-    %             dataset_name = dataset_names{dataset_idx};
-    %             session_num = session_nums(dataset_idx);
+    % cortical single area synchrony comparison tasks
+    single_areas = {'ACC', 'VLPFC'};
+    for area_idx = 1:length(single_areas)
+        for dataset_idx = 1:dataset_num
+            for prepost_idx = 1:length(prepost_types)
+                prepost = prepost_types{prepost_idx};
+                dataset_name = dataset_names{dataset_idx};
+                session_num = session_nums(dataset_idx);
 
-    %             if contains(dataset_name, 'Noinj') && strcmp(prepost, 'Post')
-    %                 % No injection session does not have post sessions 
-    %                 continue;
-    %             end
+                if contains(dataset_name, 'Noinj') && strcmp(prepost, 'Post')
+                    % No injection session does not have post sessions 
+                    continue;
+                end
 
-    %             task = struct();
-    %             task.dataset = dataset_name;
-    %             task.prepost = prepost;
-    %             task.xlabel = 'Eyes Open';
-    %             task.ylabel = 'Eyes Closed';
-    %             task.xdata = [dataset_name, prepost, 'RestOpen', 'Cortex'];
-    %             task.ydata = [dataset_name, prepost, 'RestClose', 'Cortex'];
-    %             task.filter_type = 'Area';
-    %             task.area_filter = single_areas(area_idx);
-    %             task.across_area = false;
-    %             task.sessions = 1:session_num;
+                task = struct();
+                task.dataset = dataset_name;
+                task.prepost = prepost;
+                task.xlabel = 'Eyes Open';
+                task.ylabel = 'Eyes Closed';
+                task.xdata = [dataset_name, prepost, 'RestOpen', 'Cortex'];
+                task.ydata = [dataset_name, prepost, 'RestClose', 'Cortex'];
+                task.filter_type = 'Area';
+                task.area_filter = single_areas(area_idx);
+                task.across_area = false;
+                task.sessions = 1:session_num;
 
-    %             tasks{end+1} = task; %#ok<SAGROW>
-    %         end
-    %     end
-    % end
+                tasks{end+1} = task; %#ok<SAGROW>
+            end
+        end
+    end
 
-    % % cortical across area synchrony comparison tasks
-    % for dataset_idx = 1:dataset_num
-    %     for prepost_idx = 1:length(prepost_types)
-    %         prepost = prepost_types{prepost_idx};
-    %         dataset_name = dataset_names{dataset_idx};
-    %         session_num = session_nums(dataset_idx);
+    % cortical across area synchrony comparison tasks
+    for dataset_idx = 1:dataset_num
+        for prepost_idx = 1:length(prepost_types)
+            prepost = prepost_types{prepost_idx};
+            dataset_name = dataset_names{dataset_idx};
+            session_num = session_nums(dataset_idx);
 
-    %         if contains(dataset_name, 'Noinj') && strcmp(prepost, 'Post')
-    %             % No injection session does not have post sessions 
-    %             continue;
-    %         end
+            if contains(dataset_name, 'Noinj') && strcmp(prepost, 'Post')
+                % No injection session does not have post sessions 
+                continue;
+            end
 
-    %         task = struct();
-    %         task.dataset = dataset_name;
-    %         task.prepost = prepost;
-    %         task.xlabel = 'Eyes Open';
-    %         task.ylabel = 'Eyes Closed';
-    %         task.xdata = [dataset_name, prepost, 'RestOpen', 'Cortex'];
-    %         task.ydata = [dataset_name, prepost, 'RestClose', 'Cortex'];
-    %         task.across_area = true;
-    %         task.filter_type = 'Area';
-    %         task.area_filter = {'ACC', 'VLPFC'};
-    %         task.sessions = 1:session_num;
+            task = struct();
+            task.dataset = dataset_name;
+            task.prepost = prepost;
+            task.xlabel = 'Eyes Open';
+            task.ylabel = 'Eyes Closed';
+            task.xdata = [dataset_name, prepost, 'RestOpen', 'Cortex'];
+            task.ydata = [dataset_name, prepost, 'RestClose', 'Cortex'];
+            task.across_area = true;
+            task.filter_type = 'Area';
+            task.area_filter = {'ACC', 'VLPFC'};
+            task.sessions = 1:session_num;
 
-    %         tasks{end+1} = task; %#ok<SAGROW>
-    %     end
-    % end
+            tasks{end+1} = task; %#ok<SAGROW>
+        end
+    end
 
-    % % cortical multi-area synchrony comparison tasks
-    % for dataset_idx = 1:dataset_num
-    %     for prepost_idx = 1:length(prepost_types)
-    %         prepost = prepost_types{prepost_idx};
-    %         dataset_name = dataset_names{dataset_idx};
-    %         session_num = session_nums(dataset_idx);
+    % cortical multi-area synchrony comparison tasks
+    for dataset_idx = 1:dataset_num
+        for prepost_idx = 1:length(prepost_types)
+            prepost = prepost_types{prepost_idx};
+            dataset_name = dataset_names{dataset_idx};
+            session_num = session_nums(dataset_idx);
 
-    %         if contains(dataset_name, 'Noinj') && strcmp(prepost, 'Post')
-    %             % No injection session does not have post sessions 
-    %             continue;
-    %         end
+            if contains(dataset_name, 'Noinj') && strcmp(prepost, 'Post')
+                % No injection session does not have post sessions 
+                continue;
+            end
 
-    %         task = struct();
-    %         task.dataset = dataset_name;
-    %         task.prepost = prepost;
-    %         task.xlabel = 'Eyes Open';
-    %         task.ylabel = 'Eyes Closed';
-    %         task.xdata = [dataset_name, prepost, 'RestOpen', 'Cortex'];
-    %         task.ydata = [dataset_name, prepost, 'RestClose', 'Cortex'];
-    %         task.across_area = false;
-    %         task.filter_type = 'Area';
-    %         task.area_filter = {'ACC', 'VLPFC'};
-    %         task.sessions = 1:session_num;
+            task = struct();
+            task.dataset = dataset_name;
+            task.prepost = prepost;
+            task.xlabel = 'Eyes Open';
+            task.ylabel = 'Eyes Closed';
+            task.xdata = [dataset_name, prepost, 'RestOpen', 'Cortex'];
+            task.ydata = [dataset_name, prepost, 'RestClose', 'Cortex'];
+            task.across_area = false;
+            task.filter_type = 'Area';
+            task.area_filter = {'ACC', 'VLPFC'};
+            task.sessions = 1:session_num;
 
-    %         tasks{end+1} = task; %#ok<SAGROW>
-    %     end
-    % end
+            tasks{end+1} = task; %#ok<SAGROW>
+        end
+    end
 
     % register KZ dataset metadata
     task = struct();

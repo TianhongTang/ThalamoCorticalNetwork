@@ -75,3 +75,4 @@ zlabel('Z');
 title('Thalamus Neuron Coordinates (KZ Dataset)');
 legend('Thalamus Anterior', 'Thalamus Posterior');
 grid on;
+set(gca, 'YDir','reverse');
