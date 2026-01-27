@@ -1,4 +1,4 @@
-%% Align all states to the same duration
+%% Align raster files of all states to the same duration
 
 %% Get root folder
 code_depth = 3;
@@ -13,12 +13,15 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 
+% load data
+metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
+metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');  
+load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_files', 'thalamus_files', 'eyeID_files');
+
 % Load data
-controls = {'Muscimol', 'Saline'};
-session_idxs_all = {1:10, 1:5}; % session indices for each control
 area_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
-states = {'RestOpen', 'RestClose', 'Task'};
+states = {'RestOpen', 'RestClose'};
 kernel = 'DeltaPure';
 
 % load kernel length
@@ -31,14 +34,14 @@ align_kernel_len = kernel_len;
 
 tasks = {};
 % register tasks
-for control_idx = 1:length(controls)
-    control = controls{control_idx};
-    sessions = session_idxs_all{control_idx};
-    for session_idx = sessions
+for dataset_idx = 1:6
+    dataset_name = dataset_names{dataset_idx};
+    session_num = session_nums(dataset_idx);
+    for session_idx = 1:session_num
         for area_idx = 1:length(area_types)
             area_type = area_types{area_idx};
             task = struct();
-            task.control = control;
+            task.dataset_name = dataset_name;
             task.area_type = area_type;
             task.session_idx = session_idx;
 
@@ -49,8 +52,17 @@ for control_idx = 1:length(controls)
                     % All thalamus data in post sessions are not available
                     continue;
                 end
+                if contains(dataset_name, 'Noinj') && strcmp(prepost, 'Post')
+                    % No injection session does not have post sessions 
+                    continue;
+                end
+
                 for state_idx = 1:length(states)
                     state = states{state_idx};
+                    if strcmp(dataset_name, 'SlayerNoinj') && contains(state, 'Rest')
+                        % SlayerNoinj does not have RestOpen and RestClose sessions
+                        continue;
+                    end
                     prepost_states{end+1} = struct('prepost', prepost, 'state', state);
                 end
             end
@@ -64,13 +76,13 @@ end
 task_num = length(tasks);
 for task_idx = 1:task_num
     task = tasks{task_idx};
-    control = task.control;
+    dataset_name = task.dataset_name;
     session_idx = task.session_idx;
     area_type = task.area_type;
     prepost_states = task.prepost_states;
     fprintf('----------------------------------------\n');
     fprintf('Task %d/%d: %s Session %d Area %s with %d prepost_states\n', ...
-        task_idx, task_num, control, session_idx, area_type, length(prepost_states));
+        task_idx, task_num, dataset_name, session_idx, area_type, length(prepost_states));
     
     % find min duration among prepost_states
     min_duration = 10000000;
@@ -80,17 +92,17 @@ for task_idx = 1:task_num
 
         % load length info
         folder_name = fullfile(root, 'Data', 'Working', 'raster');
-        file_name = sprintf('raster_%s_%d.mat', [control, prepost, state, area_type], session_idx);
+        file_name = sprintf('raster_%s_%d.mat', [dataset_name, prepost, state, area_type], session_idx);
         raster_path = fullfile(folder_name, file_name);
         load(raster_path, 'trial_num', 'trial_len', 'N');
 
         B = sum(trial_len - align_kernel_len + 1); % effective length
 
         min_duration = min(min_duration, B);
-        fprintf('%s%s Session %d, N = %d, B = %d, trial_num = %d\n', control, area_type, session_idx, N, B, trial_num);
+        fprintf('%s%s%s%s Session %d, N = %d, B = %d, trial_num = %d\n', dataset_name, prepost, state, area_type, session_idx, N, B, trial_num);
     end
     seconds = floor(min_duration/1000);
-    fprintf('%s%s Session %d, min_duration = %d (%d:%d)\n', control, area_type, session_idx, min_duration, floor(seconds/60), mod(seconds, 60));
+    fprintf('%s%s Session %d, min_duration = %d (%d:%d)\n', dataset_name, area_type, session_idx, min_duration, floor(seconds/60), mod(seconds, 60));
 
     % align data to min_duration
     modes = {'First', 'Last'};
@@ -103,11 +115,11 @@ for task_idx = 1:task_num
             % raster file and border file
             fprintf('Loading...');
             folder_name = fullfile(root, 'Data', 'Working', 'raster');
-            file_name = sprintf('raster_%s_%d.mat', [control, prepost, state, area_type], session_idx);
+            file_name = sprintf('raster_%s_%d.mat', [dataset_name, prepost, state, area_type], session_idx);
             raster_path = fullfile(folder_name, file_name);
             load(raster_path, 'trial_num', 'cell_id', 'cell_area', 'channel', 'session_name', 'trial_len', 'rasters');
             % folder_name = fullfile(root, 'Data', 'Working', 'border');
-            % file_name = sprintf('borders_%s_%d.mat', [control, prepost, area_type], session_idx);
+            % file_name = sprintf('borders_%s_%d.mat', [dataset_name, prepost, area_type], session_idx);
             % raster_path = fullfile(folder_name, file_name);
             % load(raster_path, 'borders');
             fprintf('Done\n');
@@ -164,7 +176,7 @@ for task_idx = 1:task_num
                 firing_rates{i} = mean(rasters{i}, 2);
             end
 
-            full_name = [control, prepost, state, area_type, 'Align', mode];
+            full_name = [dataset_name, prepost, state, area_type, 'Align', mode];
             fprintf('Saving...');
             save_folder = fullfile(root, 'Data', 'Working', 'raster');
             check_path(save_folder);

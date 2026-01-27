@@ -23,10 +23,10 @@ addpath(fullfile(root, 'Code', 'Utils'));
 gpuDeviceTable
 
 force_rebuild = false;
-force_retrain = true;
+force_retrain = false;
 debug = true;
 
-training_tasks = {'KZ'};
+training_tasks = {'Slayer'};
 
 kernel = 'DeltaPure';
 reg = struct();
@@ -67,6 +67,7 @@ for training_idx = 1:length(training_tasks)
             fprintf("Task %d/%d: %s, session%d\n", task_idx, task_num, task.dataset_name, task.session_idx);
             skip_flag = true;
             dataset_name = task.dataset_name;
+            border_name = task.border_name;
             session_idx = task.session_idx;
 
             config = task.config;
@@ -144,7 +145,7 @@ for training_idx = 1:length(training_tasks)
                 fprintf("Training %d\n", shuffle_seed);
                 skip_flag = false;
                 tic;
-                for fold_idx = 0:(fold_num)
+                for fold_idx = 0:0
                     % skip if already exists
                     target_folder = fullfile(root, 'Data', 'Working', 'GLM_models');
                     target_file = sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session_idx, shuffle_id, kernel_name, ...
@@ -160,13 +161,14 @@ for training_idx = 1:length(training_tasks)
             end
 
             %% plot
-            % fprintf("Plotting\n");
-            % tic;
-            % channel_file = ['../GLM_data/', dataset_name, '/raster_', dataset_name, '_', int2str(session_idx), ...
-            % '_0.mat'];
-            % load(channel_file, "channel");
-            % plot_GLM_sorted(dataset_name, session_idx, kernel_name, max_epoch, reg, shuffle_size, "idx", channel);
-            % toc;
+            fprintf("Plotting\n");
+            tic;
+            channel_folder = fullfile(root, 'Data', 'Working', 'raster');
+            channel_file = sprintf('raster_%s_%d.mat', dataset_name, session_idx);
+            channel_path = fullfile(channel_folder, channel_file);
+            load(channel_path, "channel");
+            plot_GLM_sorted(dataset_name, border_name, session_idx, kernel_name, max_epoch, reg, shuffle_size, "idx", channel);
+            toc;
 
             if skip_flag
                 skipped = skipped + 1;
@@ -184,12 +186,12 @@ for training_idx = 1:length(training_tasks)
         end
     end
     
-    fprintf("Total: %d, Success: %d, Skipped: %d, Failed: %d\n", total_training, success, skipped, failed);
-    % save failed_list
-    save('../GLM_data/failed_list.mat', 'failed_list');
-    if failed>0
-        for i=1:length(failed_list)
-            fprintf("Failed: %s, %s, %s\n", failed_list{i}{1}, failed_list{i}{2}, failed_list{i}{3});
-        end
-    end
+    % fprintf("Total: %d, Success: %d, Skipped: %d, Failed: %d\n", total_training, success, skipped, failed);
+    % % save failed_list
+    % save('../GLM_data/failed_list.mat', 'failed_list');
+    % if failed>0
+    %     for i=1:length(failed_list)
+    %         fprintf("Failed: %s, %s, %s\n", failed_list{i}{1}, failed_list{i}{2}, failed_list{i}{3});
+    %     end
+    % end
 end

@@ -1,34 +1,65 @@
-function plot_GLM_sorted(dataset_name, session, kernel_name, epoch, reg, shuffle_size, sorting, idx)
-model_path_ori = ['../GLM_model/', dataset_name, '/GLM_', dataset_name, '_', ...
-        int2str(session), '_', kernel_name, '_0_', ...
-        reg.name, '_', int2str(epoch), '.mat'];
-load(model_path_ori, "model_par", "model_err", "PS_kernels", "conn_kernels", "n_PS_kernel", "n_conn_kernel", "kernel_len", "N");
+function plot_GLM_sorted(dataset_name, border_name, session, kernel_name, epoch, reg, shuffle_size, sorting, idx)
+%% Get root folder
+code_depth = 4;
+script_path = mfilename('fullpath');
+root = script_path;
+for i = 1:code_depth
+    root = fileparts(root);
+end
+% include code folder and utils
+addpath(fileparts(script_path));
+addpath(fullfile(root, 'Code', 'Utils'));
 
-data_path = ['../GLM_data/', dataset_name, '/GLMdata_', dataset_name, '_', ...
-        int2str(session),'_', kernel_name, '_0.mat'];
-load(data_path, "raster");
-firing_rate = mean(raster, 2);
+%% Main
+model_folder = fullfile(root, 'Data', 'Working', 'GLM_models');
+model_file = sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session, 0, kernel_name, ...
+                        reg.name, epoch, 0);
+model_path = fullfile(model_folder, model_file);
 
-if session<100
-    session_border = session;
-else
-    session_border = floor(session/100);
+data_folder = fullfile(root, 'Data', 'Working', 'GLM_data');
+data_file = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session, 0, kernel_name);
+data_path = fullfile(data_folder, data_file);
+
+border_folder = fullfile(root, 'Data', 'Working', 'border');
+border_file = sprintf('borders_%s_%d.mat', border_name, session);
+border_path = fullfile(border_folder, border_file);
+                
+load(model_path, "model_par", "model_err", "kernel", "N");
+load(data_path, "folds", "fold_num");
+PS_kernels = kernel.PS_kernels;
+conn_kernels = kernel.conn_kernels;
+n_PS_kernel = kernel.n_PS_kernel;
+n_conn_kernel = kernel.n_conn_kernel;
+kernel_len = kernel.kernel_len;
+
+spike_total = zeros(N, 1);
+t_total = 0;
+for fold_idx = 1:fold_num
+    spike_total = spike_total + sum(folds{fold_idx}.raster, 2);
+    t_total = t_total + size(folds{fold_idx}.raster, 2);
+end
+firing_rate = 1000 * spike_total/t_total;
+
+% if session<100
+%     session_border = session;
+% else
+%     session_border = floor(session/100);
+% end
+
+load(border_path, "borders");
+if length(borders)==2
+    borders = [borders(1), borders(2), borders(2)];
 end
 
-load(['../GLM_data/', dataset_name,'/borders_', dataset_name, '_', ...
-        int2str(session_border),'.mat'], "borders");
-
-% for acc-thalamus-vlpfc dataset
-A_T_border = borders(1);
-T_P_border = borders(2);
+% for new dataset
+A_V_border = borders(2)-0.5;
+V_T_border = borders(3)-0.5;
     
 par_ori = model_par;
 
 par_sfl = zeros([size(par_ori), shuffle_size]);
 for i=1:shuffle_size
-    model_path_sfl = ['../GLM_model/', dataset_name, '/GLM_', dataset_name, '_', ...
-        int2str(session), '_', kernel_name, '_', int2str(i), '_', ...
-        reg.name, '_', int2str(epoch), '.mat'];
+    model_path_sfl = fullfile(model_folder, sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session, i, kernel_name, reg.name, epoch, 0));
     par_sfl(:, :, i) = load(model_path_sfl).model_par;
 end
 
@@ -78,7 +109,7 @@ clim_all = max(clim_ori, clim_sfl);
 clim_all = 2;
 
 %% sorting
-sorting_ranges = [1, A_T_border-0.5;A_T_border+0.5,T_P_border-0.5;T_P_border+0.5, N];
+sorting_ranges = [1, A_V_border-0.5;A_V_border+0.5,V_T_border-0.5;V_T_border+0.5, N];
 criterion = 1;
 sort_idx = zeros(1, N);
 
@@ -135,8 +166,10 @@ end
 firing_rate = firing_rate(sort_idx);
 
 %% save sorting index
-sort_path = ['../GLM_data/', dataset_name, '/sortidx_', dataset_name, '_', ...
-        int2str(session),'_', kernel_name, '.mat'];
+sort_folder = fullfile(root, 'Data', 'Working', "sort_idx");
+check_path(sort_folder);
+sort_file = sprintf('sortidx_%s_%d_%s.mat', dataset_name, session, kernel_name);
+sort_path = fullfile(sort_folder, sort_file);
 save(sort_path, "sort_idx");
 
 
@@ -194,14 +227,14 @@ for plot_x=1:1+n_conn_kernel+n_PS_kernel
                 
                 % brain area borders
                 hold on
-                if A_T_border == T_P_border
-                    line([0,N+0.5], [A_T_border,A_T_border], 'Color', 'k');
-                    line([A_T_border,A_T_border], [0,N+0.5], 'Color', 'k');
+                if A_V_border == V_T_border
+                    line([0,N+0.5], [A_V_border,A_V_border], 'Color', 'k');
+                    line([A_V_border,A_V_border], [0,N+0.5], 'Color', 'k');
                 else
-                    line([0,N+0.5], [A_T_border,A_T_border], 'Color', 'r');
-                    line([0,N+0.5], [T_P_border,T_P_border], 'Color', 'b');
-                    line([A_T_border,A_T_border], [0,N+0.5], 'Color', 'r');
-                    line([T_P_border,T_P_border], [0,N+0.5], 'Color', 'b');
+                    line([0,N+0.5], [A_V_border,A_V_border], 'Color', 'r');
+                    line([0,N+0.5], [V_T_border,V_T_border], 'Color', 'b');
+                    line([A_V_border,A_V_border], [0,N+0.5], 'Color', 'r');
+                    line([V_T_border,V_T_border], [0,N+0.5], 'Color', 'b');
                 end
                 hold off
 
@@ -235,17 +268,15 @@ for plot_x=1:1+n_conn_kernel+n_PS_kernel
                 axis square;
 
                 % brain area borders
-                A_T_border = borders(1);
-                T_P_border = borders(2);
                 hold on
-                if A_T_border == T_P_border
-                    line([0,N+0.5], [A_T_border,A_T_border], 'Color', 'k');
-                    line([A_T_border,A_T_border], [0,N+0.5], 'Color', 'k');
+                if A_V_border == V_T_border
+                    line([0,N+0.5], [A_V_border,A_V_border], 'Color', 'k');
+                    line([A_V_border,A_V_border], [0,N+0.5], 'Color', 'k');
                 else
-                    line([0,N+0.5], [A_T_border,A_T_border], 'Color', 'r');
-                    line([0,N+0.5], [T_P_border,T_P_border], 'Color', 'b');
-                    line([A_T_border,A_T_border], [0,N+0.5], 'Color', 'r');
-                    line([T_P_border,T_P_border], [0,N+0.5], 'Color', 'b');
+                    line([0,N+0.5], [A_V_border,A_V_border], 'Color', 'r');
+                    line([0,N+0.5], [V_T_border,V_T_border], 'Color', 'b');
+                    line([A_V_border,A_V_border], [0,N+0.5], 'Color', 'r');
+                    line([V_T_border,V_T_border], [0,N+0.5], 'Color', 'b');
                 end
                 hold off
 
@@ -279,17 +310,15 @@ for plot_x=1:1+n_conn_kernel+n_PS_kernel
                 axis square;
 
                 % brain area borders
-                A_T_border = borders(1);
-                T_P_border = borders(2);
                 hold on
-                if A_T_border == T_P_border
-                    line([0,N+0.5], [A_T_border,A_T_border], 'Color', 'k');
-                    line([A_T_border,A_T_border], [0,N+0.5], 'Color', 'k');
+                if A_V_border == V_T_border
+                    line([0,N+0.5], [A_V_border,A_V_border], 'Color', 'k');
+                    line([A_V_border,A_V_border], [0,N+0.5], 'Color', 'k');
                 else
-                    line([0,N+0.5], [A_T_border,A_T_border], 'Color', 'r');
-                    line([0,N+0.5], [T_P_border,T_P_border], 'Color', 'b');
-                    line([A_T_border,A_T_border], [0,N+0.5], 'Color', 'r');
-                    line([T_P_border,T_P_border], [0,N+0.5], 'Color', 'b');
+                    line([0,N+0.5], [A_V_border,A_V_border], 'Color', 'r');
+                    line([0,N+0.5], [V_T_border,V_T_border], 'Color', 'b');
+                    line([A_V_border,A_V_border], [0,N+0.5], 'Color', 'r');
+                    line([V_T_border,V_T_border], [0,N+0.5], 'Color', 'b');
                 end
                 hold off
 
@@ -309,12 +338,11 @@ for plot_x=1:1+n_conn_kernel+n_PS_kernel
     end
 end
 
-fig_path = ['../figures/GLM/', dataset_name];
-check_path(fig_path);
-fig_file = [fig_path, '/GLMparameters_' dataset_name, '_', ...
-        int2str(session), '_', kernel_name, '_', ...
-        reg.name, '_', int2str(epoch), '_sorted.png'];
+fig_folder = fullfile(root, 'Figures', 'GLM_models', dataset_name);
+check_path(fig_folder);
+fig_file = sprintf('GLMpar_%s_%d_%s_%s_epoch%d_sorted.png', dataset_name, session, kernel_name, reg.name, epoch);
+fig_path = fullfile(fig_folder, fig_file);
 % exportgraphics(fig, fig_file);
-print(fig, fig_file,'-dpng', '-r100');
+print(fig, fig_path,'-dpng', '-r100');
 
 end

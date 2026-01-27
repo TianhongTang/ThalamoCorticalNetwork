@@ -16,14 +16,19 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 
 % session_types = {'Muscimol', 'Saline', 'Simulated'};
-session_types = {'Muscimol', 'Saline'};
+% session_types = {'Muscimol', 'Saline'};
+session_types = {'EmperorMus', 'EmperorSal'};
 session_type_num = length(session_types);
 kernel_num = 3;
 
-state_labels = {'Task', 'RestOpen', 'RestClose'};
-state_names = {'Task', 'Eyes Open', 'Eye Closed'};
-selected_states = {'Task', 'RestClose'};
+% state_labels = {'Task', 'RestOpen', 'RestClose'};
+% state_names = {'Eyes Open', 'Eyes Open', 'Eye Closed'};
+state_labels = {'RestOpen', 'RestClose'};
+state_names = {'Eyes Open', 'Eye Closed'};
+selected_states = {'RestOpen', 'RestClose'};
+% selected_states = {'Task', 'RestClose'};
 [~, selected_state_idx] = intersect(state_labels, selected_states, 'stable');
+
 if isempty(selected_state_idx)
     error('plot_J_count:NoStatesSelected', 'selected_states must include at least one valid state');
 end
@@ -51,7 +56,7 @@ for session_type_idx = 1:session_type_num
         for posneg_idx = 1:2
             posneg = posneg_types{posneg_idx};
             for kernel_idx = 1:kernel_num
-                nexttile;
+                ax = nexttile;
 
                 % merge all sessions
                 counts = squeeze(J_count_by_area(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
@@ -192,7 +197,8 @@ for session_type_idx = 1:session_type_num
                 % bar plot of ratios, with error bars
                 bar_data = ratio * 100;
                 b = bar(bar_data);
-                set(b, 'BarWidth', 0.6, 'FaceColor', [0.7, 0.7, 0.7]);
+                set(b, 'BarWidth', 0.6);
+                % set(b, 'BarWidth', 0.6, 'FaceColor', [0.7, 0.7, 0.7]);
                 hold on;
                 lower_err = bar_data - CI_low;
                 upper_err = CI_high - bar_data;

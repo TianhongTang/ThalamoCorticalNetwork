@@ -27,7 +27,7 @@ prepost_types = {'Pre', 'Post'};
 states = {'RestOpen', 'RestClose', 'Task'};
 
 tasks = {};
-for dataset_idx = [1, 6]
+for dataset_idx = [7]
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
     for session_idx = 1:session_num
@@ -161,7 +161,7 @@ for task_idx = 1:task_num
     % save border file
     save_folder = fullfile(root, 'Data', 'Working', 'border');
     check_path(save_folder);
-    save_name = sprintf('borders_%s%s%s_%d.mat', dataset_name, prepost, merge_type, session_idx);
+    save_name = sprintf('borders_%s%s_%d.mat', dataset_name, merge_type, session_idx);
     save_path = fullfile(save_folder, save_name);
     save(save_path, "borders");
     

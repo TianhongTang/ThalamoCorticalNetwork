@@ -13,7 +13,7 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-USE_EXISTING_RESULTS = false; % if true, load existing results if available
+USE_EXISTING_RESULTS = true; % if true, load existing results if available
 result_folder = fullfile(root, 'Data', 'Working', 'Analysis', 'Synchrony');
 check_path(result_folder);
 result_name = sprintf('synchrony_results.mat');
@@ -340,16 +340,17 @@ for plot_idx = 1:2 % 1: chi, 2: Pearson's r
     % dummy plot to create legend
     x = [NaN, NaN];
     y = [NaN, NaN];
-    scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [1,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Slayer');
-    scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,1], 'MarkerEdgeColor', 'none', 'DisplayName', 'Zeppelin');
-    scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Emperor');
+    % scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [1,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Slayer');
+    % scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,1], 'MarkerEdgeColor', 'none', 'DisplayName', 'Zeppelin');
+    scatter(x, y, 50, 's', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Emperor Saline');
+    scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Emperor Muscimol');
 
     for i = 1:length(tasks)
         task = tasks{i};
         if strcmp(task.filter_type, 'Area') && ...
         length(task.area_filter) == 1 && ...
         strcmp(task.area_filter{1}, 'Thalamus') && ...
-        ~task.across_area
+        ~task.across_area && strcmp(task.dataset(1:6), 'Empero')
             task_filter(i) = true;
             % plot on figure
             if plot_idx == 1
@@ -369,7 +370,12 @@ for plot_idx = 1:2 % 1: chi, 2: Pearson's r
             if plot_idx == 2
                 x_err = x_err(nan_filter);
                 y_err = y_err(nan_filter);
-                % errorbar(x, y, y_err, y_err, x_err, x_err, 'o', 'Color', [0, 0, 1, 0.3], 'LineStyle', 'none', 'CapSize', 0);
+                x_neg = x - x_err;
+                x_pos = x + x_err;
+                y_neg = y - y_err;
+                y_pos = y + y_err;
+                errorbar(x, y, y_err, y_err, x_err, x_err, 'Color',...
+                 [0, 0, 0, 0.3], 'LineStyle', 'none', 'CapSize', 5, 'HandleVisibility','off');
             end
 
             % markers for different datasets
@@ -393,17 +399,25 @@ for plot_idx = 1:2 % 1: chi, 2: Pearson's r
                 otherwise
                     marker = '^'; % triangle
             end
-            marker = 'o'; % for now, use circle for all
+            % marker = 'o'; % for now, use circle for all
 
             scatter(x, y, 50, marker, 'filled', 'MarkerFaceAlpha', 0.6,...
              'MarkerFaceColor', color, 'MarkerEdgeColor', 'none', 'HandleVisibility','off');
             if ~isempty(x)
                 max_max = max(max_max, max(x));
                 min_min = min(min_min, min(x));
+                if plot_idx == 2
+                    max_max = max(max_max, max(x + x_err));
+                    min_min = min(min_min, min(x - x_err));
+                end
             end
             if ~isempty(y)
                 max_max = max(max_max, max(y));
                 min_min = min(min_min, min(y));
+                if plot_idx == 2
+                    max_max = max(max_max, max(y + y_err));
+                    min_min = min(min_min, min(y - y_err));
+                end
             end
         end
     end

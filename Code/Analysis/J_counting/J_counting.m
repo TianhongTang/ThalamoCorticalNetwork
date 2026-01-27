@@ -14,16 +14,20 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-% session_types = {'Muscimol', 'Saline', 'Simulated'};
-% session_types = {'Muscimol', 'Saline'};
-session_types = {'KZ', 'Saline'};
+% load metadata
+metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
+metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');  
+load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_files', 'thalamus_files', 'eyeID_files');
+
+% session_types = {'EmperorSal', 'EmperorMus'};
+session_types = {'SlayerSal', 'SlayerMus'};
 kernel = 'DeltaPure';
 reg = 'L2=0_2';
-epoch = '2500';
+epoch = '3000';
 area_names = {'ACC', 'VLPFC', 'Thalamus'};
 filter_threshold = 1;
-states = {'Task', 'RestOpen', 'RestClose'};
-state_num = length(states);
+% states = {'RestOpen', 'RestClose'};
+% state_num = length(states);
 prepost_types = {'Pre', 'Post'};
 
 for session_type_idx = 1:length(session_types)
@@ -31,22 +35,27 @@ for session_type_idx = 1:length(session_types)
     switch session_type
         case 'Muscimol'
             sessions = 1:10;
-            session_num = length(sessions);
             states = {'Task', 'RestOpen', 'RestClose'};
         case 'Saline'
             sessions = 1:5;
-            session_num = length(sessions);
             states = {'Task', 'RestOpen', 'RestClose'};
         case 'Simulated'
             sessions = 1:10;
-            session_num = length(sessions);
             states = {'Task', 'RestClose'};
         case 'KZ'
             % load filtered sessions for KZ
             folder_name = fullfile(root, 'Data', 'Working', 'filtered_sessions');
-            session_num = 100;
+            states = {'RestOpen', 'RestClose'};
+        case 'EmperorSal'
+            sessions = 1:3;
+            states = {'RestOpen', 'RestClose'};
+        case 'EmperorMus'
+            sessions = 1:2;
             states = {'RestOpen', 'RestClose'};
     end
+
+    session_num = length(sessions);
+    state_num = length(states);
 
     % load kernel info
     folder_name = fullfile(root, 'Data', 'Working', 'kernel');

@@ -16,7 +16,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 
 % session_types = {'Muscimol', 'Saline', 'Simulated'};
-session_types = {'Muscimol', 'Saline'};
+% session_types = {'Muscimol', 'Saline'};
+session_types = {'EmperorMus', 'EmperorSal'};
 session_type_num = length(session_types);
 kernel_num = 3;
 
