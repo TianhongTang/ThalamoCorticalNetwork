@@ -24,9 +24,9 @@ gpuDeviceTable
 
 force_rebuild = false;
 force_retrain = false;
-debug = true;
+debug = false;
 
-training_tasks = {'Slayer'};
+training_tasks = {'Slayer', 'Zeppelin', 'Emperor'};
 
 kernel = 'DeltaPure';
 reg = struct();
@@ -179,19 +179,19 @@ for training_idx = 1:length(training_tasks)
         catch ME
             fprintf("Failed: %s\n", ME.message);
             failed = failed + 1;
-            % failed_list{end+1} = {dataset_name, int2str(session_idx), ME.message};
+            failed_list{end+1} = {dataset_name, int2str(session_idx), ME.message};
             if debug
                 rethrow(ME);
             end
         end
     end
     
-    % fprintf("Total: %d, Success: %d, Skipped: %d, Failed: %d\n", total_training, success, skipped, failed);
-    % % save failed_list
-    % save('../GLM_data/failed_list.mat', 'failed_list');
-    % if failed>0
-    %     for i=1:length(failed_list)
-    %         fprintf("Failed: %s, %s, %s\n", failed_list{i}{1}, failed_list{i}{2}, failed_list{i}{3});
-    %     end
-    % end
+    fprintf("Total: %d, Success: %d, Skipped: %d, Failed: %d\n", task_num, success, skipped, failed);
+    % save failed_list
+    folder = fullfile(root, 'Data', 'Working', 'log');
+    check_path(folder);
+    save(fullfile(folder, 'failed_list.mat'), 'failed_list');
+    for i=1:numel(failed_list)
+        fprintf("Failed: %s, %s, %s\n", failed_list{i}{1}, failed_list{i}{2}, failed_list{i}{3});
+    end
 end
