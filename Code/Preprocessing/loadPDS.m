@@ -56,7 +56,7 @@ end
 % disp(cell_filenames);
 % disp(cell_session_names);
 
-for dataset_idx = 1:dataset_num
+for dataset_idx = [4,5,6]
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
     fprintf('=========================\n');
@@ -467,6 +467,8 @@ for dataset_idx = 1:dataset_num
                     save_folder = fullfile(root, 'Data', 'Working', 'raster');
                     check_path(save_folder);
                     save_path = fullfile(save_folder, save_name);
+                    fprintf('   - Saving to %s ... \n', save_path);
+                    fprintf('trial_num: %d\n', trial_num);
                     save(save_path,...
                         "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...
                         "session_name_full", "N", "cuetype", "cell_id", "channel", 'dt', '-v7.3');

@@ -1,14 +1,14 @@
-function raster_visualization(data, trial_borders)
+function f=raster_visualization(data, trial_borders, visible)
 %%   Raster Visualization Function
 %  This function takes in a 2D array of data and visualizes it as a raster plot.
 %  Inputs:
 %  - data: (N, T) array of raster. Values are binary (0 or 1).
 %  Outputs:
-%  - None. Displays a raster plot.
+%  - Figure handle of the raster plot.
 
 %% Main
 [N, T] = size(data);
-figure;
+f = figure("Visible", visible);
 hold on;
 for i = 1:N
     plot(data(i,:) + i - 0.5);
@@ -20,4 +20,4 @@ if exist('trial_borders', 'var')
 end
 hold off;
 xlabel("Time (ms)");
-ylabel("Neuron No.")
+ylabel("Neuron No.");
