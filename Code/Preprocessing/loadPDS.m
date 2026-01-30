@@ -61,11 +61,18 @@ end
 % disp(cell_filenames);
 % disp(cell_session_names);
 
+summary_all = cell(1, dataset_num);
+
 for dataset_idx = 1:dataset_num
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
     valid_times = all_valid_times{dataset_idx}; % session x (pre/post)
     fprintf('=========================\n');
+
+    summary = struct();
+    summary.dataset_name = dataset_name;
+    summary_session_num = session_num;
+    summary.sessions = cell(1, session_num);
 
     for session_idx = 1:session_num
         cortex_file = cortex_files{dataset_idx}{session_idx};
@@ -74,6 +81,8 @@ for dataset_idx = 1:dataset_num
         has_cortex = ~isempty(cortex_file);
         has_thalamus = ~isempty(thalamus_file);
         has_eyeID = ~isempty(eyeID_file);
+
+        summary_session = struct();
 
         fprintf('-------------------------\n');
         fprintf('Dataset(%d/%d): %s, Session(%d/%d):\n - Cortex file: %s\n - Thalamus file: %s\n - EyeID file: %s\n\n', ...

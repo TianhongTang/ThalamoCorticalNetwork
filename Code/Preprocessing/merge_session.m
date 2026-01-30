@@ -27,7 +27,7 @@ prepost_types = {'Pre', 'Post'};
 states = {'RestOpen', 'RestClose', 'Task'};
 
 tasks = {};
-for dataset_idx = [7]
+for dataset_idx = 1:dataset_num
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
     for session_idx = 1:session_num

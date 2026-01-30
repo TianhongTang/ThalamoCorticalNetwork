@@ -13,7 +13,7 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-USE_EXISTING_RESULTS = true; % if true, load existing results if available
+USE_EXISTING_RESULTS = false; % if true, load existing results if available
 result_folder = fullfile(root, 'Data', 'Working', 'Analysis', 'Synchrony');
 check_path(result_folder);
 result_name = sprintf('synchrony_results.mat');

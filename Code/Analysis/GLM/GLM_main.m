@@ -22,8 +22,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 gpuDeviceTable
 
-force_rebuild = false;
-force_retrain = false;
+force_rebuild = true;
+force_retrain = true;
 debug = false;
 
 training_tasks = {'Slayer', 'Zeppelin', 'Emperor'};

@@ -1,4 +1,4 @@
-%% check_spikes_fast.m - Quick visualization of spikes/rasters
+%% check_spikes_complete.m - Visualization of rasters
 
 clear;
 %% Get root folder
@@ -15,19 +15,24 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 % mode = 'spikes';
 % mode = 'raster';
-REPLOT = false;
+REPLOT = true;
 
+% load metadata
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
 metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');  
 load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums');
+
+% select states to plot
 states = {'RestOpen', 'RestClose'};
 prepost = {'Pre', 'Post'};
 area_types = {'Full', 'Cortex'};
 aligns = { '', 'AlignFirst', 'AlignLast', 'AlignLongest'};
+
+% main loop
 for dataset_idx = 1:dataset_num
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
-    for session_idx = 1:session_num
+    parfor session_idx = 1:session_num
         fprintf('=========================\n');
         fprintf('Dataset: %s, Session: %d/%d\n', dataset_name, session_idx, session_num);
         for state_idx = 1:length(states)
@@ -59,7 +64,22 @@ for dataset_idx = 1:dataset_num
                             fprintf('Data file not found: %s\n', data_path);
                             continue;
                         end
-                        load(data_path, "rasters");
+                        d = load(data_path, "rasters", "cell_area");
+                        rasters = d.rasters;
+                        cell_area = d.cell_area;
+                        plot_colors = zeros(numel(cell_area), 3);
+                        for i = 1:numel(cell_area)
+                            switch cell_area{i}
+                                case 'Thalamus'
+                                    plot_colors(i, :) = [1, 0, 1];
+                                case 'ACC'
+                                    plot_colors(i, :) = [0, 0, 1]; % blue
+                                case 'VLPFC'
+                                    plot_colors(i, :) = [1, 0, 0]; % red
+                                otherwise
+                                    plot_colors(i, :) = [0, 0, 0]; % black
+                            end
+                        end
 
                         % Smooth kernel
                         myGaussian = @(x, mu, sigma) exp(-((x - mu).^2) / (2*sigma^2)) / (sigma*sqrt(2*pi));
@@ -70,7 +90,8 @@ for dataset_idx = 1:dataset_num
                         session_info_folder = fullfile(root, 'Data', 'Working', 'Meta');
                         data_name = sprintf('all_session_info_KZ.mat');
                         data_path = fullfile(session_info_folder, data_name);
-                        load(data_path, 'all_session_info');
+                        d = load(data_path, 'all_session_info');
+                        all_session_info = d.all_session_info;
                         session_info = all_session_info(session_idx);
                         neuron_info = session_info.neuronList;
                         thal_filter = cellfun(@(x) strcmp(x, 'Thalamus'), {neuron_info.NeuralTargetsAnatomy});
@@ -83,7 +104,7 @@ for dataset_idx = 1:dataset_num
                         %% plot raster
                         % raster_visualization(rasters{1}(thal_filter, :));
                         % raster_visualization(rasters{1}(:, :), trial_borders);
-                        f = raster_visualization(concatenated_rasters, trial_borders, 'off');
+                        f = raster_visualization(concatenated_rasters, plot_colors, trial_borders, 'off');
 
                         % save figure
                         figure_folder = fullfile(root, 'Figures', 'Rasters_PDS');

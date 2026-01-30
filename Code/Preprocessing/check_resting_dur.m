@@ -469,6 +469,9 @@ for dataset_idx = 1:dataset_num
                 end % area loop
                 fprintf(' - State %s last spike time: %.3f s\n\n', state, state_last_spike);
                 max_eyeID = max(eyeID.eCloseOffset_t);
+                if isempty(max_eyeID)
+                    max_eyeID = 0;
+                end
                 fprintf(' - EyeID max time: %.3f s\n\n', max_eyeID);
                 valid_time = min(state_last_spike, max_eyeID);
                 fprintf(' - Valid resting time duration: %.3f s\n\n', valid_time);
