@@ -20,11 +20,6 @@ metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');
 metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');  
 load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_files', 'thalamus_files', 'eyeID_files');
 
-% load valid resting state durations
-resting_folder = fullfile(root, 'Data', 'Working', 'Meta');
-load_path = fullfile(resting_folder, 'resting_valid_durations.mat');
-load(load_path, 'all_valid_times');
-
 areas = {'ACC', 'VLPFC', 'Thalamus'};
 area_num = length(areas);
 cell_session_names = cell(1, area_num);
@@ -60,12 +55,13 @@ end
 
 % disp(cell_filenames);
 % disp(cell_session_names);
+all_valid_times = cell(dataset_num, 1);
 
 for dataset_idx = 1:dataset_num
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
-    valid_times = all_valid_times{dataset_idx}; % session x (pre/post)
     fprintf('=========================\n');
+    valid_times = zeros(session_num, 2); % session x (pre/post)
 
     for session_idx = 1:session_num
         cortex_file = cortex_files{dataset_idx}{session_idx};
@@ -104,70 +100,76 @@ for dataset_idx = 1:dataset_num
             end
         end
 
-        for area_idx = 1:area_num
-            area = areas{area_idx};
-            folder_name = fullfile(root, 'Data', 'Experimental', 'PDS', area);
+        states = {'Task', 'RestOpen', 'RestClose'};
+        for state_idx = 2:3
+            state = states{state_idx};
 
-            if strcmp(area, 'Thalamus')
-                session_filename = thalamus_file;
-                if ~has_thalamus
-                    fprintf(' - No Thalamus file, skip %s %s session%d\n\n', dataset_name, area, session_idx);
-                    continue;
-                end
-            else
-                session_filename = cortex_file;
-                if ~has_cortex
-                    fprintf(' - No Cortex file, skip %s %s session%d\n\n', dataset_name, area, session_idx);
+            if strcmp(state, 'RestOpen') || strcmp(state, 'RestClose')
+                if ~has_eyeID
+                    fprintf('   - No EyeID file, skip %s %s %s session%d\n\n', dataset_name, area, state, session_idx);
                     continue;
                 end
             end
-            session_file_idx = strcmp(cell_session_names{area_idx}, session_filename);
-            N = sum(session_file_idx);
-            cell_id = cell_ids{area_idx}(session_file_idx);
-            file_names = cell_filenames{area_idx}(session_file_idx);
 
-            % area_cellnames = cell_filenames{area_idx};
-            % disp(area_cellnames);
-            % disp(file_names);
+            % task trials
+            subsession_types = {'Pre', 'Post'};
             
-            fprintf(' - Area: %s, Cell num: %d\n', area, N);
+            % simrec have different taskIDs than other two
+            if contains(dataset_name, 'Noinj')
+                taskIDs = [1, 2];
+            else
+                taskIDs = [1.1, 1.2];
+            end
+            
+            for subsession_idx = 1:2
+                subsession = subsession_types{subsession_idx};
+                taskID = taskIDs(subsession_idx);
 
-            states = {'Task', 'RestOpen', 'RestClose'};
-            for state_idx = 1:3
-                state = states{state_idx};
-
-                if strcmp(state, 'RestOpen') || strcmp(state, 'RestClose')
-                    if ~has_eyeID
-                        fprintf('   - No EyeID file, skip %s %s %s session%d\n\n', dataset_name, area, state, session_idx);
-                        continue;
-                    end
+                if ~has_post && strcmp(subsession, 'Post')
+                    fprintf('   - No Post session for EyeID, skip %s %s %s session%d\n\n', dataset_name, area, subsession, session_idx);
+                    continue;
                 end
-
-                % task trials
-                subsession_types = {'Pre', 'Post'};
                 
-                % simrec have different taskIDs than other two
-                if contains(dataset_name, 'Noinj')
-                    taskIDs = [1, 2];
+                if strcmp(subsession, 'Pre')
+                    eyeID = eyeID_pre;
                 else
-                    taskIDs = [1.1, 1.2];
+                    eyeID = eyeID_post;
                 end
-                
-                for subsession_idx = 1:2
-                    subsession = subsession_types{subsession_idx};
-                    taskID = taskIDs(subsession_idx);
-
-                    if ~has_post && strcmp(subsession, 'Post')
-                        fprintf('   - No Post session for EyeID, skip %s %s %s session%d\n\n', dataset_name, area, subsession, session_idx);
-                        continue;
-                    end
                     
-                    if strcmp(subsession, 'Pre')
-                        eyeID = eyeID_pre;
-                    else
-                        eyeID = eyeID_post;
-                    end
+                fprintf(" - Loading: %s, %s...\n", subsession, state);
 
+                state_last_spike = Inf;
+
+                for area_idx = 1:area_num
+                    area = areas{area_idx};
+                    folder_name = fullfile(root, 'Data', 'Experimental', 'PDS', area);
+
+                    if strcmp(area, 'Thalamus')
+                        session_filename = thalamus_file;
+                        if ~has_thalamus
+                            fprintf(' - No Thalamus file, skip %s %s session%d\n\n', dataset_name, area, session_idx);
+                            continue;
+                        end
+                        if strcmp(subsession, 'Post')
+                            continue;
+                        end
+                    else
+                        session_filename = cortex_file;
+                        if ~has_cortex
+                            fprintf(' - No Cortex file, skip %s %s session%d\n\n', dataset_name, area, session_idx);
+                            continue;
+                        end
+                    end
+                    session_file_idx = strcmp(cell_session_names{area_idx}, session_filename);
+                    N = sum(session_file_idx);
+                    cell_id = cell_ids{area_idx}(session_file_idx);
+                    file_names = cell_filenames{area_idx}(session_file_idx);
+
+                    % area_cellnames = cell_filenames{area_idx};
+                    % disp(area_cellnames);
+                    % disp(file_names);
+                    
+                    fprintf('   - Area: %s, Cell num: %d\n', area, N);
                     % Loading a single session&state starts here
 
                     trial_num    = NaN;
@@ -177,12 +179,12 @@ for dataset_idx = 1:dataset_num
                     cuetype      = NaN;
                     channel      = NaN;
                     trial_len    = NaN;
-                    
-                    fprintf("   - Loading: %s, %s...\n", subsession, state);
                     max_duration  = 0;
                     min_duration  = 9999;
                     max_trial_len = 0;
                     min_trial_len = 999999;
+                    
+                    area_last_spike = 0;
 
                     % loop over neurons to check consistency
                     first_neuron = true;
@@ -195,34 +197,34 @@ for dataset_idx = 1:dataset_num
                         % ---choose trials
                         if strcmp(state, 'Task')
                             if first_neuron
-                                % taskID counting
-                                fprintf('   - TaskID counts:\n');
-                                all_taskIDs = unique(PDS.taskID);
-                                taskID_counts = zeros(length(all_taskIDs), 1);
-                                for t = 1:length(all_taskIDs)
-                                    taskID_counts(t) = sum(PDS.taskID==all_taskIDs(t));
-                                    fprintf('     - TaskID %.1f: %d trials\n', all_taskIDs(t), taskID_counts(t));
-                                end
-                                fprintf('\n');
+                                % % taskID counting
+                                % fprintf('   - TaskID counts:\n');
+                                % all_taskIDs = unique(PDS.taskID);
+                                % taskID_counts = zeros(length(all_taskIDs), 1);
+                                % for t = 1:length(all_taskIDs)
+                                %     taskID_counts(t) = sum(PDS.taskID==all_taskIDs(t));
+                                %     fprintf('     - TaskID %.1f: %d trials\n', all_taskIDs(t), taskID_counts(t));
+                                % end
+                                % fprintf('\n');
                             end
                             
                             % taskID fix: NaN, 1000, 1001 to 1.1, 1.1, 1.2, due to old data saving issue.
                             if any(isnan(PDS.taskID))
-                                if first_neuron
-                                    fprintf("     - %d NaN found in task ID, file: %s \n", sum(isnan(PDS.taskID)), file_name);
-                                end
+                                % if first_neuron
+                                %     fprintf("     - %d NaN found in task ID, file: %s \n", sum(isnan(PDS.taskID)), file_name);
+                                % end
                                 PDS.taskID(isnan(PDS.taskID)) = 1.1;
                             end
                             if any(PDS.taskID==1000)
-                                if first_neuron
-                                    fprintf("     - %d 1000 found in task ID, file: %s \n", sum(PDS.taskID==1000), file_name);
-                                end
+                                % if first_neuron
+                                %     fprintf("     - %d 1000 found in task ID, file: %s \n", sum(PDS.taskID==1000), file_name);
+                                % end
                                 PDS.taskID(PDS.taskID==1000) = 1.1;
                             end
                             if any(PDS.taskID==1001)
-                                if first_neuron
-                                    fprintf("     - %d 1001 found in task ID, file: %s \n", sum(PDS.taskID==1001), file_name);
-                                end
+                                % if first_neuron
+                                %     fprintf("     - %d 1001 found in task ID, file: %s \n", sum(PDS.taskID==1001), file_name);
+                                % end
                                 PDS.taskID(PDS.taskID==1001) = 1.2;
                             end
 
@@ -237,12 +239,12 @@ for dataset_idx = 1:dataset_num
                             selected_trial = choice_trials;
                             selected_spikes = PDS.sptimes(selected_trial);
 
-                            if first_neuron
-                            fprintf('   - Total trials: %d.\n', length(PDS.taskID));
-                            fprintf('     - Valid trials (good, taskID %.1f): %d.\n', taskID, sum(valid_trials));
-                            fprintf('     - Pav trials: %d.\n', sum(pav_trials));
-                            fprintf('     - Choice trials: %d.\n\n', sum(choice_trials));
-                            end
+                            % if first_neuron
+                            % fprintf('   - Total trials: %d.\n', length(PDS.taskID));
+                            % fprintf('     - Valid trials (good, taskID %.1f): %d.\n', taskID, sum(valid_trials));
+                            % fprintf('     - Pav trials: %d.\n', sum(pav_trials));
+                            % fprintf('     - Choice trials: %d.\n\n', sum(choice_trials));
+                            % end
 
                         end
 
@@ -343,19 +345,12 @@ for dataset_idx = 1:dataset_num
                             % -resting state eye open
                             selected_start = eyeID.eCloseOnset_t - eyeID.eOpenDur;
                             selected_end = eyeID.eCloseOnset_t;
-                            max_valid_time = valid_times(session_idx, subsession_idx);
-                            valid_trials = selected_end <= max_valid_time;
-                            selected_start = selected_start(valid_trials);
-                            selected_end = selected_end(valid_trials);
 
                         case 'RestClose'
                             % -resting state eye close
                             selected_start = eyeID.eCloseOnset_t;
                             selected_end = eyeID.eCloseOnset_t + eyeID.eCloseDur;
-                            max_valid_time = valid_times(session_idx, subsession_idx);
-                            valid_trials = selected_end <= max_valid_time;
-                            selected_start = selected_start(valid_trials);
-                            selected_end = selected_end(valid_trials);
+                            
                         end
 
                         max_dur_cell = max(selected_end - selected_start);
@@ -398,6 +393,7 @@ for dataset_idx = 1:dataset_num
 
                         channel(i) = PDS.channel;
                         % spikes & rasters for each trial
+                        last_spike_time = 0;
                         for j=1:trial_num
                             if strcmp(state, 'Task')
                                 spike_trial = selected_spikes{j};
@@ -428,66 +424,62 @@ for dataset_idx = 1:dataset_num
                                 end
                             end
 
-                            % only keep spikes from cue to reward,
-                            % align to cue.
-                            spike_trial = spike_trial(spike_trial>selected_start(j) & spike_trial<selected_end(j));
-                            spike_trial = spike_trial - selected_start(j);
+                            last_spike_time = max([last_spike_time; spike_trial(:)]);
+
+                            % % only keep spikes from cue to reward,
+                            % % align to cue.
+                            % spike_trial = spike_trial(spike_trial>selected_start(j) & spike_trial<selected_end(j));
+                            % spike_trial = spike_trial - selected_start(j);
                             
-                            % auto fit start and end
-                            trial_duration = selected_end(j) - selected_start(j);
+                            % % auto fit start and end
+                            % trial_duration = selected_end(j) - selected_start(j);
 
-                            % fixed trial duration
-                            % trial_duration = 1;
+                            % % fixed trial duration
+                            % % trial_duration = 1;
 
-                            trial_edges = 0:dt:trial_duration;
-                            trial_B = length(trial_edges) - 1;
-                            trial_len(j) = trial_B;
+                            % trial_edges = 0:dt:trial_duration;
+                            % trial_B = length(trial_edges) - 1;
+                            % trial_len(j) = trial_B;
 
-                            if trial_B > max_trial_len
-                                max_trial_len = trial_B;
-                            end
-                            if trial_B < min_trial_len
-                                min_trial_len = trial_B;
-                            end
+                            % if trial_B > max_trial_len
+                            %     max_trial_len = trial_B;
+                            % end
+                            % if trial_B < min_trial_len
+                            %     min_trial_len = trial_B;
+                            % end
 
-                            % Convert spike times to raster
-                            spikes{i, j} = spike_trial;
-                            raster = histcounts(spike_trial, trial_edges);
-                            raster(raster>1) = 1;
-                            if isnan(rasters{j})
-                                rasters{j} = zeros(N, trial_B);
-                            end
-                            rasters{j}(i, :) = raster;
-                            firing_rates{j}(i) = mean(raster);
-                        end
+                            % % Convert spike times to raster
+                            % spikes{i, j} = spike_trial;
+                            % raster = histcounts(spike_trial, trial_edges);
+                            % raster(raster>1) = 1;
+                            % if isnan(rasters{j})
+                            %     rasters{j} = zeros(N, trial_B);
+                            % end
+                            % rasters{j}(i, :) = raster;
+                            % firing_rates{j}(i) = mean(raster);
+                        end % trial loop
+                        fprintf('     - Neuron %d/%d processed. Area: %s, last spike time: %.3f s\n', i, N, area, last_spike_time);
+                        
+                        area_last_spike = max(last_spike_time, area_last_spike);
+                    end % neuron loop
+                    fprintf('   - Area %s last spike time: %.3f s\n', area, area_last_spike);
+                    if N>0
+                        state_last_spike = min(area_last_spike, state_last_spike); % all three areas have spikes up to this time
                     end
+                end % area loop
+                fprintf(' - State %s last spike time: %.3f s\n\n', state, state_last_spike);
+                max_eyeID = max(eyeID.eCloseOffset_t);
+                fprintf(' - EyeID max time: %.3f s\n\n', max_eyeID);
+                valid_time = min(state_last_spike, max_eyeID);
+                fprintf(' - Valid resting time duration: %.3f s\n\n', valid_time);
+                valid_times(session_idx, subsession_idx) = valid_time;
+            end % subsession loop
+        end % state loop
+    end % session loop
+    all_valid_times{dataset_idx} = valid_times;
+end % dataset loop
 
-                    fprintf('   - Loaded %d neurons, %d trials.\n', N, trial_num);
-                    fprintf('   - max duration: %d, min duration: %d\n', max_duration, min_duration);
-                    fprintf('   - max length: %d, min length: %d\n\n', ceil(max_duration/dt), ceil(min_duration/dt));
-                    
-                    % output
-                    % if isnan(n_trial)
-                    %     trial_len = NaN;
-                    % else
-                    %     trial_len = ones(1, n_trial) * B;% fix this
-                    % end
-
-                    % save
-                    session_name_save = [dataset_name, subsession, state, area];
-                    session_name_full = sprintf('%s_%d', session_name_save, session_idx);
-                    save_name = sprintf('raster_%s_%d.mat', session_name_save, session_idx);
-                    save_folder = fullfile(root, 'Data', 'Working', 'raster');
-                    check_path(save_folder);
-                    save_path = fullfile(save_folder, save_name);
-                    fprintf('   - Saving to %s ... \n', save_path);
-                    fprintf('trial_num: %d\n', trial_num);
-                    save(save_path,...
-                        "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...
-                        "session_name_full", "N", "cuetype", "cell_id", "channel", 'dt', '-v7.3');
-                end
-            % todo: load resting state
-            end
-        end
-    end
-end
+%% Save results
+save_folder = fullfile(root, 'Data', 'Working', 'Meta');
+save_path = fullfile(save_folder, 'resting_valid_durations.mat');
+save(save_path, 'all_valid_times', '-v7.3');
