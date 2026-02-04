@@ -26,7 +26,7 @@ force_rebuild = true;
 force_retrain = true;
 debug = false;
 
-training_tasks = {'Slayer', 'Zeppelin', 'Emperor'};
+training_tasks = {'Slayer'};
 
 kernel = 'DeltaPure';
 reg = struct();

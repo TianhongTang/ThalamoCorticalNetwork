@@ -2,7 +2,7 @@
 
 clear;
 %% Get root folder
-code_depth = 4;
+code_depth = 3;
 script_path = mfilename('fullpath');
 root = script_path;
 for i = 1:code_depth
@@ -13,6 +13,11 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
+
+result_folder = fullfile(root, 'Data', 'Working', 'Analysis', 'Synchrony');
+result_name = sprintf('synchrony_results.mat');
+result_path = fullfile(result_folder, result_name);
+load(result_path, 'tasks');
 
 % fig 1: thalamus within area synchrony
 f = figure("Position", [100, 100, 1200, 600], "Visible", "off");
@@ -28,17 +33,20 @@ for plot_idx = 1:2 % 1: chi, 2: Pearson's r
     % dummy plot to create legend
     x = [NaN, NaN];
     y = [NaN, NaN];
-    % scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [1,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Slayer');
-    % scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,1], 'MarkerEdgeColor', 'none', 'DisplayName', 'Zeppelin');
-    scatter(x, y, 50, 's', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Emperor Saline');
-    scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Emperor Muscimol');
+    scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [1,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Slayer');
+    scatter(x, y, 50, 's', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,1], 'MarkerEdgeColor', 'none', 'DisplayName', 'Zeppelin');
+    scatter(x, y, 50, '^', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Emperor');
+    % scatter(x, y, 50, 's', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Emperor Saline');
+    % scatter(x, y, 50, 'o', 'filled', 'MarkerFaceAlpha', 0.6, 'MarkerFaceColor', [0,0,0], 'MarkerEdgeColor', 'none', 'DisplayName', 'Emperor Muscimol');
+
 
     for i = 1:length(tasks)
         task = tasks{i};
         if strcmp(task.filter_type, 'Area') && ...
         length(task.area_filter) == 1 && ...
         strcmp(task.area_filter{1}, 'Thalamus') && ...
-        ~task.across_area && strcmp(task.dataset(1:6), 'Empero')
+        ~task.across_area 
+        % && strcmp(task.dataset(1:6), 'Empero')
             task_filter(i) = true;
             % plot on figure
             if plot_idx == 1
@@ -55,38 +63,43 @@ for plot_idx = 1:2 % 1: chi, 2: Pearson's r
             nan_filter = ~isnan(x) & ~isnan(y);
             x = x(nan_filter);
             y = y(nan_filter);
-            if plot_idx == 2
-                x_err = x_err(nan_filter);
-                y_err = y_err(nan_filter);
-                x_neg = x - x_err;
-                x_pos = x + x_err;
-                y_neg = y - y_err;
-                y_pos = y + y_err;
-                errorbar(x, y, y_err, y_err, x_err, x_err, 'Color',...
-                 [0, 0, 0, 0.3], 'LineStyle', 'none', 'CapSize', 5, 'HandleVisibility','off');
-            end
+
+            % Error bars for Pearson's r
+            % if plot_idx == 2
+            %     x_err = x_err(nan_filter);
+            %     y_err = y_err(nan_filter);
+            %     x_neg = x - x_err;
+            %     x_pos = x + x_err;
+            %     y_neg = y - y_err;
+            %     y_pos = y + y_err;
+            %     errorbar(x, y, y_err, y_err, x_err, x_err, 'Color',...
+            %      [0, 0, 0, 0.3], 'LineStyle', 'none', 'CapSize', 5, 'HandleVisibility','off');
+            % end
 
             % markers for different datasets
             switch task.dataset(1:6)
                 case 'Slayer' % Slayer
                     color = [1, 0, 0]; % red
+                    marker = 'o'; % circle
                 case 'Zeppel' % Zeppelin
                     color = [0, 0, 1]; % blue
+                    marker = 's'; % square
                 case 'Empero' % Emperor
                     color = [0, 0, 0]; % black
+                    marker = '^'; % triangle
                 otherwise 
                     color = [0.5, 0.5, 0.5]; % gray
             end
-            switch task.dataset(end-2:end)
-                case 'Mus' % Muscimol
-                    marker = 'o'; % circle
-                case 'Sal' % Saline
-                    marker = 's'; % square
-                case 'inj' % No injection
-                    marker = 'd'; % diamond
-                otherwise
-                    marker = '^'; % triangle
-            end
+            % switch task.dataset(end-2:end)
+            %     case 'Mus' % Muscimol
+            %         marker = 'o'; % circle
+            %     case 'Sal' % Saline
+            %         marker = 's'; % square
+            %     case 'inj' % No injection
+            %         marker = 'd'; % diamond
+            %     otherwise
+            %         marker = '^'; % triangle
+            % end
             % marker = 'o'; % for now, use circle for all
 
             scatter(x, y, 50, marker, 'filled', 'MarkerFaceAlpha', 0.6,...

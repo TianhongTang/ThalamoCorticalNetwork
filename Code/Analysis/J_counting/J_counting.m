@@ -20,7 +20,7 @@ metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');
 load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_files', 'thalamus_files', 'eyeID_files');
 
 % session_types = {'EmperorSal', 'EmperorMus'};
-session_types = {'SlayerSal', 'SlayerMus'};
+session_types = {'SlayerSal', 'SlayerMus', 'EmperorSal', 'EmperorMus'};
 kernel = 'DeltaPure';
 reg = 'L2=0_2';
 epoch = '3000';
@@ -45,6 +45,12 @@ for session_type_idx = 1:length(session_types)
         case 'KZ'
             % load filtered sessions for KZ
             folder_name = fullfile(root, 'Data', 'Working', 'filtered_sessions');
+            states = {'RestOpen', 'RestClose'};
+        case 'SlayerSal'
+            sessions = [1,3,4,5];
+            states = {'RestOpen', 'RestClose'};
+        case 'SlayerMus'
+            sessions = 1:8;
             states = {'RestOpen', 'RestClose'};
         case 'EmperorSal'
             sessions = 1:3;
@@ -87,7 +93,7 @@ for session_type_idx = 1:length(session_types)
 
                 % load model data
                 folder_name = fullfile(root, 'Data', 'Working', 'GLM_models');
-                file_name = sprintf('GLM_%s%s%sCortexAlignLast_s%d_shuffle0_%s_%s_epoch%s_fold0.mat', ...
+                file_name = sprintf('GLM_%s%s%sCortexAlignLongest_s%d_shuffle0_%s_%s_epoch%s_fold0.mat', ...
                     session_type, prepost, state, session_idx_file, kernel, reg, epoch); 
                 file_path = fullfile(folder_name, file_name);
                 load(file_path, 'model_par', 'model_err', 'N');
