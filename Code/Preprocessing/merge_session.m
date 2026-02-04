@@ -62,7 +62,7 @@ for dataset_idx = 1:dataset_num
                     elseif strcmp(merge_type, 'Full')
                         task.areas = {'ACC', 'VLPFC', 'Thalamus'};
                     end
-                    tasks{end+1} = task;
+                    tasks{end+1} = task; %#ok<SAGROW>
                 end
             end
         end
@@ -70,7 +70,7 @@ for dataset_idx = 1:dataset_num
 end
 
 %% run tasks
-task_num = length(tasks);
+task_num = numel(tasks);
 total_tic = tic;
 for task_idx = 1:task_num
     task = tasks{task_idx};
@@ -80,6 +80,7 @@ for task_idx = 1:task_num
     prepost = task.prepost;
     state = task.state;
     areas = task.areas;
+    area_num = numel(areas);
 
     fprintf('===================\n');
     fprintf('Merging Task %d/%d: session%d, %s...\n\n', ...
@@ -93,8 +94,10 @@ for task_idx = 1:task_num
     trial_num = NaN;
     trial_len = NaN;
     borders = []; % area borders. Marking the beginning of each area.
+    sort_ranges = zeros(0, 2);
+    sort_idx = zeros(1, 0);
 
-    for area_idx = 1:length(areas)
+    for area_idx = 1:area_num
         area = areas{area_idx};
         % load area data
         folder_name = fullfile(root, 'Data', 'Working', 'raster');
@@ -102,14 +105,14 @@ for task_idx = 1:task_num
             dataset_name, prepost, state, area, session_idx);
         area_file = fullfile(folder_name, file_name);
 
-        borders = [borders, N+1];
+        borders = [borders, N+1]; %#ok<AGROW>
         % check if data exists
         if ~isfile(area_file)
             if ALLOW_MISSING_AREA
                 fprintf('Warning: Missing file %s. Skipping area %s.\n', area_file, area);
                 continue;
             else
-                error('File not found: %s', area_file);
+                error('File not found: %s', area_file); %#ok<UNRCH>
             end
         end
         data = load(area_file);
@@ -140,16 +143,20 @@ for task_idx = 1:task_num
                     'trial info not match! Area: %s, Dataset: %s, state: %s', area, dataset_name, state);
             end
         end
+        cell_area = [cell_area, repmat({area}, 1, data.N)]; %#ok<AGROW>
+        cell_id = [cell_id, data.cell_id]; %#ok<AGROW>
+        spikes = [spikes;data.spikes]; %#ok<AGROW>
+        channel = [channel, data.channel]; %#ok<AGROW>
+        sort_ranges = [sort_ranges; N+1, N+data.N]; %#ok<AGROW>
+        [~, sort_idx(N+1:N+data.N)] = sort(data.channel);
+        
         N = N+data.N;
-        cell_area = [cell_area, repmat({area}, 1, data.N)];
-        cell_id = [cell_id, data.cell_id];
-        spikes = [spikes;data.spikes];
-        channel = [channel, data.channel];
         for i=1:trial_num
             rasters{1, i} = [rasters{1, i}; data.rasters{1, i}];
             firing_rates{1, i} = [firing_rates{1, i}; data.firing_rates{1, i}];
         end
     end
+
     % save data
     save_folder = fullfile(root, 'Data', 'Working', 'raster');
     check_path(save_folder);
@@ -164,6 +171,12 @@ for task_idx = 1:task_num
     save_name = sprintf('borders_%s%s_%d.mat', dataset_name, merge_type, session_idx);
     save_path = fullfile(save_folder, save_name);
     save(save_path, "borders");
+    % save sort index file
+    save_folder = fullfile(root, 'Data', 'Working', 'sort_idx');
+    check_path(save_folder);
+    save_name = sprintf('sortidx_%s%s_%d.mat', dataset_name, merge_type, session_idx);
+    save_path = fullfile(save_folder, save_name);
+    save(save_path, "area_num", "areas", "sort_ranges", "sort_idx", "-v7.3");
     
     toc;
 end
