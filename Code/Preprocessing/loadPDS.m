@@ -14,6 +14,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 dt=0.001;
+SKIP_EXISTING = true;
 
 % load dataset metadata
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
