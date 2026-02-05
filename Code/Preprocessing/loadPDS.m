@@ -167,6 +167,18 @@ for dataset_idx = 1:dataset_num
                     subsession = subsession_types{subsession_idx};
                     taskID = taskIDs(subsession_idx);
 
+                    % skip if existing
+                    session_name_save = [dataset_name, subsession, state, area];
+                    session_name_full = sprintf('%s_%d', session_name_save, session_idx);
+                    save_name = sprintf('raster_%s_%d.mat', session_name_save, session_idx);
+                    save_folder = fullfile(root, 'Data', 'Working', 'raster');
+                    check_path(save_folder);
+                    save_path = fullfile(save_folder, save_name);
+                    if isfile(save_path) && SKIP_EXISTING
+                        fprintf('   - Merged file already exists for %s %s %s session%d. Skipping...\n\n', dataset_name, area, subsession, session_idx);
+                        continue;
+                    end
+
                     if ~has_post && strcmp(subsession, 'Post')
                         fprintf('   - No Post session for EyeID, skip %s %s %s session%d\n\n', dataset_name, area, subsession, session_idx);
                         continue;

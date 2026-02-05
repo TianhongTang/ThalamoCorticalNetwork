@@ -1,4 +1,4 @@
-%% check_spikes_complete.m - Visualization of rasters
+%% check_spikes_fast.m - Quick visualization of spikes/rasters
 
 clear;
 %% Get root folder
@@ -15,24 +15,19 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 % mode = 'spikes';
 % mode = 'raster';
-REPLOT = false;
+REPLOT = true;
 
-% load metadata
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
 metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');  
 load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums');
-
-% select states to plot
 states = {'RestOpen', 'RestClose'};
 prepost = {'Pre', 'Post'};
 area_types = {'Full', 'Cortex'};
 aligns = { '', 'AlignFirst', 'AlignLast', 'AlignLongest'};
-
-% main loop
 for dataset_idx = 1:dataset_num
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
-    parfor session_idx = 1:session_num
+    for session_idx = 1:session_num
         fprintf('=========================\n');
         fprintf('Dataset: %s, Session: %d/%d\n', dataset_name, session_idx, session_num);
         for state_idx = 1:length(states)
@@ -64,27 +59,7 @@ for dataset_idx = 1:dataset_num
                             fprintf('Data file not found: %s\n', data_path);
                             continue;
                         end
-                        d = load(data_path, "rasters", "cell_area", "channel", "N");
-                        rasters = d.rasters;
-                        cell_area = d.cell_area;
-                        channel = d.channel;
-                        N = d.N;
-
-                        sortidx_folder = fullfile(root, 'Data', 'Working', 'sort_idx');
-                        sortidx_name = sprintf('sortidx_%s%s%s_%d.mat', dataset_name, prepost_str, area_type, session_idx);
-                        sortidx_path = fullfile(sortidx_folder, sortidx_name);
-                        if ~isfile(sortidx_path)
-                            fprintf('Sort index file not found: %s\n', sortidx_path);
-                            continue;
-                        end
-                        sort_idx = load(sortidx_path).sort_idx;
-
-                        % apply sorting
-                        for r_idx = 1:length(rasters)
-                            rasters{r_idx} = rasters{r_idx}(sort_idx, :);
-                        end
-
-                        % assign colors based on cell area
+                        load(data_path, "rasters", "cell_area");
                         plot_colors = zeros(numel(cell_area), 3);
                         for i = 1:numel(cell_area)
                             switch cell_area{i}
@@ -108,8 +83,7 @@ for dataset_idx = 1:dataset_num
                         session_info_folder = fullfile(root, 'Data', 'Working', 'Meta');
                         data_name = sprintf('all_session_info_KZ.mat');
                         data_path = fullfile(session_info_folder, data_name);
-                        d = load(data_path, 'all_session_info');
-                        all_session_info = d.all_session_info;
+                        load(data_path, 'all_session_info');
                         session_info = all_session_info(session_idx);
                         neuron_info = session_info.neuronList;
                         thal_filter = cellfun(@(x) strcmp(x, 'Thalamus'), {neuron_info.NeuralTargetsAnatomy});

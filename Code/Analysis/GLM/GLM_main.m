@@ -26,13 +26,13 @@ force_rebuild = true;
 force_retrain = true;
 debug = false;
 
-training_tasks = {'Slayer'};
+training_tasks = {'Zeppelin', 'Emperor'};
 
-kernel = 'DeltaPure';
-reg = struct();
-reg.l1=0;
-reg.l2=0.2;
-reg.name='L2=0_2';
+% kernel = 'DeltaPure';
+% reg = struct();
+% reg.l1=0;
+% reg.l2=0.2;
+% reg.name='L2=0_2';
 
 tasks = {};
 
