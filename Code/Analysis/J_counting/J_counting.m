@@ -159,4 +159,32 @@ for session_type_idx = 1:length(session_types)
     file_name = sprintf('Jcount_%s.mat', session_type);
     file_path = fullfile(folder_name, file_name);
     save(file_path, 'J_count', 'J_count_by_area', 'J_ratio', 'J_ratio_by_area', 'max_count', 'max_count_by_area', 'session_num', 'kernel', 'reg', 'epoch');
+    
+    % % Export to Excel
+    % excel_mat = zeros(session_num*state_num*2, n_conn_kernel*2*2); % (session*state*prepost, kernel*within/across*posneg)
+    % row_idx = 1;
+    % for session_idx = 1:session_num
+    %     for state_idx = 1:state_num
+    %         for prepost_idx = 1:2
+    %             for kernel_idx = 1:n_conn_kernel
+    %                 % within-area positive
+    %                 excel_mat(row_idx, (kernel_idx-1)*4 + 1) = J_ratio_by_area(1, session_idx, 1, kernel_idx, state_idx, prepost_idx);
+    %                 % within-area negative
+    %                 excel_mat(row_idx, (kernel_idx-1)*4 + 2) = J_ratio_by_area(1, session_idx, 2, kernel_idx, state_idx, prepost_idx);
+    %                 % across-area positive
+    %                 excel_mat(row_idx, (kernel_idx-1)*4 + 3) = J_ratio_by_area(2, session_idx, 1, kernel_idx, state_idx, prepost_idx);
+    %                 % across-area negative
+    %                 excel_mat(row_idx, (kernel_idx-1)*4 + 4) = J_ratio_by_area(2, session_idx, 2, kernel_idx, state_idx, prepost_idx);
+    %             end
+    %             row_idx = row_idx + 1;
+    %         end
+    %     end
+    % end
+
+    % excel_folder = fullfile(root, 'Data', 'Working', 'J_count', 'Excel');
+    % check_path(excel_folder);
+    % excel_file = sprintf('Jcount_%s.xlsx', session_type);
+    % excel_path = fullfile(excel_folder, excel_file);
+    % writematrix(excel_mat, excel_path, 'Sheet', 'J_ratio_by_area');
+
 end
