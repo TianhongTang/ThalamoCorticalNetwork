@@ -15,7 +15,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 % mode = 'spikes';
 % mode = 'raster';
-REPLOT = true;
+REPLOT = false;
 
 % load metadata
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
@@ -70,28 +70,14 @@ for dataset_idx = 1:dataset_num
                         channel = d.channel;
                         N = d.N;
 
-                        border_folder = fullfile(root, 'Data', 'Working', 'border');
-                        border_name = sprintf('border_%s%s%s_%d.mat', dataset_name, prepost_str, area_type, session_idx);
-                        border_path = fullfile(border_folder, border_name);
-                        if ~isfile(border_path)
-                            fprintf('Border file not found: %s\n', border_path);
+                        sortidx_folder = fullfile(root, 'Data', 'Working', 'sort_idx');
+                        sortidx_name = sprintf('sortidx_%s%s%s_%d.mat', dataset_name, prepost_str, area_type, session_idx);
+                        sortidx_path = fullfile(sortidx_folder, sortidx_name);
+                        if ~isfile(sortidx_path)
+                            fprintf('Sort index file not found: %s\n', sortidx_path);
                             continue;
                         end
-                        borders = load(border_path).borders;
-
-                        % sort cells by channels, ascending, for each area
-                        % TODO: Move to merging step
-                        range_num = numel(borders);
-                        sort_ranges = zeros(range_num, 2);
-                        sort_idx = zeros(1, N);
-                        sort_ranges(:, 1) = borders.';
-                        sort_ranges(1:end-1, 2) = borders(2:end).' - 1;
-                        sort_ranges(end, 2) = N;
-                        for range_idx = 1:range_num
-                            range_start = sort_ranges(range_idx, 1);
-                            range_end = sort_ranges(range_idx, 2);
-                            [~, sort_idx(range_start:range_end)] = sort(channel(range_start:range_end));
-                        end
+                        sort_idx = load(sortidx_path).sort_idx;
 
                         % apply sorting
                         for r_idx = 1:length(rasters)

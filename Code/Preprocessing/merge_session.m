@@ -13,6 +13,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 ALLOW_MISSING_AREA = true;
+SKIP_EXISTING = true; % TODO: not implemented
 
 % load data
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
@@ -81,6 +82,19 @@ for task_idx = 1:task_num
     state = task.state;
     areas = task.areas;
     area_num = numel(areas);
+
+    % check if merged file already exists
+    save_folder = fullfile(root, 'Data', 'Working', 'raster');
+    check_path(save_folder);
+    save_name = sprintf('raster_%s_%d.mat', [dataset_name, prepost, state, merge_type], session_idx);
+    session_name = sprintf('%s_%d', [dataset_name, prepost, state, merge_type], session_idx);
+    save_path = fullfile(save_folder, save_name);
+
+    if isfile(save_path) && SKIP_EXISTING
+        fprintf('Merged file already exists for Task %d/%d: session%d, %s. Skipping...\n', ...
+            task_idx, task_num, session_idx, [dataset_name, prepost, state, merge_type]);
+        continue;
+    end
 
     fprintf('===================\n');
     fprintf('Merging Task %d/%d: session%d, %s...\n\n', ...
@@ -175,7 +189,7 @@ for task_idx = 1:task_num
     % save sort index file
     save_folder = fullfile(root, 'Data', 'Working', 'sort_idx');
     check_path(save_folder);
-    save_name = sprintf('sortidx_%s%s_%d.mat', dataset_name, merge_type, session_idx);
+    save_name = sprintf('sortidx_%s%s%s_%d.mat', dataset_name, prepost, merge_type, session_idx);
     save_path = fullfile(save_folder, save_name);
     save(save_path, "area_num", "areas", "sort_ranges", "sort_idx", "-v7.3");
     

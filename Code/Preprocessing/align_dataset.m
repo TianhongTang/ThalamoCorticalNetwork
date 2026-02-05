@@ -13,6 +13,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 STATUS_LOG = false;
+SKIP_EXISTING = true;
 
 % load data
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
@@ -132,6 +133,17 @@ for task_idx = 1:task_num
             end
             % raster file and border file
             if STATUS_LOG, fprintf('Loading...'); end %#ok<UNRCH>
+            
+            % if already exists, skip
+            full_name = [dataset_name, prepost, state, area_type, 'Align', modes{mode_idx}];
+            save_folder = fullfile(root, 'Data', 'Working', 'raster');
+            check_path(save_folder);
+            file_name = sprintf('raster_%s_%d.mat', full_name, session_idx);
+            file_path = fullfile(save_folder, file_name);
+            if isfile(file_path) && SKIP_EXISTING
+                fprintf('   - Already exists for %s %s %s session%d. Skipping...\n\n', dataset_name, area_type, modes{mode_idx}, session_idx);
+                continue;
+            end
                 
             folder_name = fullfile(root, 'Data', 'Working', 'raster');
             file_name = sprintf('raster_%s_%d.mat', [dataset_name, prepost, state, area_type], session_idx);
