@@ -49,5 +49,4 @@ for st_idx = 1:length(session_types)
             end
         end
     end
-
 end

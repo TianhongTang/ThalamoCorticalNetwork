@@ -27,6 +27,7 @@ for kernel_idx = 1:3
 
     total_count = zeros(4, 2); % (tile, x/y)
     total_max_count = zeros(4); % (tile)
+    total_disagreement = zeros(4, 2); % (tile, n01/n10)
 
     for session_type_idx = 1:session_type_num
         session_type = session_types{session_type_idx};
@@ -69,26 +70,30 @@ for kernel_idx = 1:3
 
                 x = squeeze(J_ratio(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)); % Eyes Open
                 y = squeeze(J_ratio(area_type_idx, :, posneg_idx, kernel_idx, 2, 1)); % Eyes Closed
-                max_count = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)); % (session, state, prepost)
-                filter = max_count > 0;
+                xy_max_count = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)); % (session, state, prepost)
+                filter = xy_max_count > 0;
                 if sum(filter) == 0
                     continue; % skip if no connections
                 end
                 x = x(filter);
                 y = y(filter);
-                max_count = max_count(filter);
-                marker_size = log(max_count) * 10; % marker size by log of max count
+                xy_max_count = xy_max_count(filter);
+                marker_size = log(xy_max_count) * 10; % marker size by log of max count
             
                 scatter(x, y, marker_size, color, marker, 'filled', 'MarkerFaceAlpha', 0.5, 'HandleVisibility', 'off');
 
                 % accumulate totals for this tile
                 x_count = sum(squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1))); % total count across sessions
                 y_count = sum(squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, 2, 1)));
-                max_count = sum(squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)));
+                xy_max_count = sum(squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)));
+                disagree_01 = sum(squeeze(disagreement_resting(area_type_idx, :, posneg_idx, kernel_idx, 1, 1))); % count of connections present in Open but not Closed
+                disagree_10 = sum(squeeze(disagreement_resting(area_type_idx, :, posneg_idx, kernel_idx, 2, 1))); % count of connections present in Closed but not Open
                 total_count(tile_idx, 1) = total_count(tile_idx, 1) + x_count;
                 total_count(tile_idx, 2) = total_count(tile_idx, 2) + y_count;
-                total_max_count(tile_idx) = total_max_count(tile_idx) + max_count;
-
+                total_max_count(tile_idx) = total_max_count(tile_idx) + xy_max_count;
+                total_disagreement(tile_idx, 1) = total_disagreement(tile_idx, 1) + disagree_01;
+                total_disagreement(tile_idx, 2) = total_disagreement(tile_idx, 2) + disagree_10;
+                
                 % update data limits
                 data_limits(tile_idx, 1) = min([data_limits(tile_idx, 1), min(x), min(y)]);
                 data_limits(tile_idx, 2) = max([data_limits(tile_idx, 2), max(x), max(y)]);
@@ -153,6 +158,13 @@ for kernel_idx = 1:3
                 text(text_x, text_y - 0.05 * lim_range, sprintf('Closed: %.2f%% (%d / %d)', py * 100, total_count(tile_idx, 2), max_count), 'HorizontalAlignment', 'left', 'FontSize', 10);
                 text(text_x, text_y - 0.1 * lim_range, text_str, 'HorizontalAlignment', 'left', 'FontSize', 10, 'Color', text_color);
             end
+
+            % Alternative statistics: McNemar's test
+            n01 = total_disagreement(tile_idx, 1); % Open yes, Closed no
+            n10 = total_disagreement(tile_idx, 2); % Open no, Closed yes
+
+            
+
             
             % legend
             hold on;
