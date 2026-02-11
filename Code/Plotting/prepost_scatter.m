@@ -1,4 +1,4 @@
-%% resting_state_scatter.m - Scatter plot of connection density, eyes open vs. closed
+%% prepost_scatter.m - Scatter plot of connection density, pre vs post.
 % Used dataset: SlayerMus-Pre, SlayerSal-Pre, ZeppelinNoinj-Pre, ZeppelinMus-Pre, ZeppelinSal-Pre,
 % EmperorMus-Pre, EmperorSal-Pre. (Slayer Noinj does not have eyeID)
 
@@ -15,7 +15,7 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-session_types = {'SlayerMus', 'SlayerSal', 'ZeppelinNoinj', 'ZeppelinMus', 'ZeppelinSal', 'EmperorMus', 'EmperorSal'};
+session_types = {'SlayerMus', 'SlayerSal', 'ZeppelinMus', 'ZeppelinSal', 'EmperorMus', 'EmperorSal'};
 % session_types = {'SlayerMus', 'SlayerSal', 'EmperorMus', 'EmperorSal'};
 session_type_num = length(session_types);
 for kernel_idx = 1:3
