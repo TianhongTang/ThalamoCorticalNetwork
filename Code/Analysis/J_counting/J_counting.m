@@ -20,7 +20,8 @@ metadata_path = fullfile(metadata_folder, 'PDS_dataset_info.mat');
 load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_files', 'thalamus_files', 'eyeID_files');
 
 % session_types = {'EmperorSal', 'EmperorMus'};
-session_types = {'SlayerSal', 'SlayerMus', 'ZeppelinNoinj', 'ZeppelinMus', 'ZeppelinSal', 'EmperorSal', 'EmperorMus'};
+
+mode = 'Cortex'; % Cortex: Pre and Post; Full: only Pre
 
 kernel = 'DeltaPure';
 reg = 'L2=0_2';
@@ -29,9 +30,15 @@ area_names = {'ACC', 'VLPFC', 'Thalamus'};
 filter_threshold = 1;
 % states = {'RestOpen', 'RestClose'};
 % state_num = length(states);
-% prepost_types = {'Pre', 'Post'};
-prepost_types = {'Pre'};
-area_type = 'Full';
+if strcmp(mode, 'Cortex') %#ok<*UNRCH>
+    session_types = {'SlayerSal', 'SlayerMus', 'ZeppelinMus', 'ZeppelinSal', 'EmperorSal', 'EmperorMus'};
+    prepost_types = {'Pre', 'Post'};
+    area_type = 'Cortex';
+elseif strcmp(mode, 'Full') %#ok<*UNRCH>
+    session_types = {'SlayerSal', 'SlayerMus', 'ZeppelinNoinj', 'ZeppelinMus', 'ZeppelinSal', 'EmperorSal', 'EmperorMus'};
+    prepost_types = {'Pre'};
+    area_type = 'Full';
+end
 align = 'AlignLast';
 
 for session_type_idx = 1:length(session_types)
@@ -326,7 +333,7 @@ for session_type_idx = 1:length(session_types)
     % save results
     folder_name = fullfile(root, 'Data', 'Working', 'J_count');
     check_path(folder_name);
-    file_name = sprintf('Jcount_%s.mat', session_type);
+    file_name = sprintf('Jcount_%s_%s.mat', mode, session_type);
     file_path = fullfile(folder_name, file_name);
     save(file_path, 'J_count', 'J_count_by_area', 'J_ratio', 'J_ratio_by_area', 'max_count', 'max_count_by_area',...
         'disagreement_resting', 'disagreement_prepost', 'disagreement_resting_by_area', 'disagreement_prepost_by_area',...

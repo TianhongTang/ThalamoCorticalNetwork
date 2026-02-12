@@ -32,7 +32,7 @@ for kernel_idx = 1:3
     for session_type_idx = 1:session_type_num
         session_type = session_types{session_type_idx};
         folder_name = fullfile(root, 'Data', 'Working', 'J_count');
-        file_name = sprintf('Jcount_%s.mat', session_type);
+        file_name = sprintf('Jcount_Full_%s.mat', session_type);
         file_path = fullfile(folder_name, file_name);
         load(file_path, 'J_count', 'J_count_by_area', 'J_ratio', 'J_ratio_by_area', 'max_count', 'max_count_by_area',...
         'disagreement_resting', 'disagreement_prepost', 'disagreement_resting_by_area', 'disagreement_prepost_by_area',...
