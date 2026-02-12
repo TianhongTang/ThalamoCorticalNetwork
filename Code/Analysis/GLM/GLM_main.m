@@ -34,7 +34,13 @@ training_tasks = {'Zeppelin', 'Emperor'};
 % reg.l2=0.2;
 % reg.name='L2=0_2';
 
-tasks = {};
+failed_list = {};
+skipped = 0;
+failed = 0;
+success = 0;
+
+total_time = 0;
+total_task_num = 0;
 
 for training_idx = 1:length(training_tasks)
     training_task = training_tasks{training_idx};
@@ -50,14 +56,7 @@ for training_idx = 1:length(training_tasks)
     load(training_task_path, 'tasks');
     task_num = length(tasks);
     fprintf('Loaded training task: %s, with %d sessions.\n', training_task, task_num);
-
-    % run tasks
-    failed_list = {};
-    skipped = 0;
-    failed = 0;
-    success = 0;
-
-    total_time = 0;
+    total_task_num = total_task_num + task_num;
 
     % run each session
     for task_idx = 1:task_num
@@ -179,19 +178,20 @@ for training_idx = 1:length(training_tasks)
         catch ME
             fprintf("Failed: %s\n", ME.message);
             failed = failed + 1;
-            failed_list{end+1} = {dataset_name, int2str(session_idx), ME.message};
+            failed_list{end+1} = {dataset_name, int2str(session_idx), ME.message}; %#ok<SAGROW> 
             if debug
-                rethrow(ME);
+                rethrow(ME); %#ok<*UNRCH>
             end
         end
     end
     
-    fprintf("Total: %d, Success: %d, Skipped: %d, Failed: %d\n", task_num, success, skipped, failed);
-    % save failed_list
-    folder = fullfile(root, 'Data', 'Working', 'log');
-    check_path(folder);
-    save(fullfile(folder, 'failed_list.mat'), 'failed_list');
-    for i=1:numel(failed_list)
-        fprintf("Failed: %s, %s, %s\n", failed_list{i}{1}, failed_list{i}{2}, failed_list{i}{3});
-    end
+end
+
+fprintf("Total: %d, Success: %d, Skipped: %d, Failed: %d\n", total_task_num, success, skipped, failed);
+% save failed_list
+folder = fullfile(root, 'Data', 'Working', 'log');
+check_path(folder);
+save(fullfile(folder, 'failed_list.mat'), 'failed_list');
+for i=1:numel(failed_list)
+    fprintf("Failed: %s, %s, %s\n", failed_list{i}{1}, failed_list{i}{2}, failed_list{i}{3});
 end
