@@ -44,6 +44,7 @@ for control_idx = 1:length(controls)
             folder_name = fullfile(root, 'Data', 'Working', 'J_count');
             file_name = sprintf('Jcount_Cortex_%s.mat', session_type);
             file_path = fullfile(folder_name, file_name);
+            % J_count: (within/across, session, posneg, kernel, state, prepost)
             load(file_path, 'J_count', 'J_count_by_area', 'J_ratio', 'J_ratio_by_area', 'max_count', 'max_count_by_area',...
             'disagreement_resting', 'disagreement_prepost', 'disagreement_resting_by_area', 'disagreement_prepost_by_area',...
             'session_num', 'kernel', 'reg', 'epoch');
@@ -79,8 +80,12 @@ for control_idx = 1:length(controls)
                             color = 'm';
                         end
 
+                        % all areas
                         x = squeeze(J_ratio(area_type_idx, :, posneg_idx, kernel_idx, state_idx, 1)); % Pre
                         y = squeeze(J_ratio(area_type_idx, :, posneg_idx, kernel_idx, state_idx, 2)); % Post
+
+                        
+
                         xy_max_count = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, state_idx, 1));
                         filter = xy_max_count > 0;
                         if sum(filter) == 0
