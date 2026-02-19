@@ -22,11 +22,11 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 gpuDeviceTable
 
-force_rebuild = true;
-force_retrain = true;
+force_rebuild = false;
+force_retrain = false;
 debug = false;
 
-training_tasks = {'Zeppelin', 'Emperor'};
+training_tasks = {'Emperor'};
 
 % kernel = 'DeltaPure';
 % reg = struct();

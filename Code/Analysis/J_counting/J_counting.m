@@ -21,7 +21,7 @@ load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_file
 
 % session_types = {'EmperorSal', 'EmperorMus'};
 
-mode = 'Cortex'; % Cortex: Pre and Post; Full: only Pre
+mode = 'Full'; % Cortex: Pre and Post; Full: only Pre
 
 kernel = 'DeltaPure';
 reg = 'L2=0_2';
@@ -73,7 +73,7 @@ for session_type_idx = 1:length(session_types)
             sessions = 1:1;
             states = {'RestOpen', 'RestClose'};
         case 'EmperorSal'
-            sessions = 1:3;
+            sessions = 1:4;
             states = {'RestOpen', 'RestClose'};
         case 'EmperorMus'
             sessions = 1:2;
@@ -109,11 +109,11 @@ for session_type_idx = 1:length(session_types)
             state = states{state_idx};
             for session_idx = 1:session_num
                 session_idx_file = sessions(session_idx);
-                fprintf('Processing session %d/%d, state %s, prepost %s\n', session_idx, session_num, state, prepost);
+                fprintf('Processing %s, session %d/%d, state %s, prepost %s\n', session_type, session_idx, session_num, state, prepost);
                 
                 % load border info, get area num. borders: starting index of each area
                 folder_name = fullfile(root, 'Data', 'Working', 'border');
-                file_name = sprintf('borders_%sPre%s_%d.mat', session_type, area_type, session_idx_file);
+                file_name = sprintf('borders_%s%s_%d.mat', session_type, area_type, session_idx_file);
                 file_path = fullfile(folder_name, file_name);
                 load(file_path, 'borders');
                 area_num = length(borders);

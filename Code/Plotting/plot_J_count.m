@@ -39,7 +39,7 @@ for session_type_idx = 1:session_type_num
     
     % load J count data
     folder_name = fullfile(root, 'Data', 'Working', 'J_count');
-    file_name = sprintf('Jcount_%s.mat', session_type);
+    file_name = sprintf('Jcount_Cortex_%s.mat', session_type);
     file_path = fullfile(folder_name, file_name);
     % J_count: (area i, area j, session, posneg, kernel, state, prepost)
     % J_count_by_area: (within/across, session, posneg, kernel, state, prepost)
@@ -60,8 +60,8 @@ for session_type_idx = 1:session_type_num
                 ax = nexttile;
 
                 % merge all sessions
-                counts = squeeze(J_count_by_area(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
-                max_counts = squeeze(max_count_by_area(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
                 counts = squeeze(sum(counts, 1)); % (state, prepost)
                 max_counts = squeeze(sum(max_counts, 1)); % (state, prepost)
                 counts = counts(selected_state_idx, :);
@@ -150,12 +150,12 @@ for session_type_idx = 1:session_type_num
     figure_name = sprintf('J_count_%s.png', session_type);
     figure_path = fullfile(folder_name, figure_name);
     saveas(f, figure_path);
-    set(f, 'PaperUnits', 'inches');
-    set(f, 'PaperPosition', [0 0 12 12]);
-    set(f, 'PaperSize', [12 12]);
-    pdf_name = sprintf('J_count_%s.pdf', session_type);
-    pdf_path = fullfile(folder_name, pdf_name);
-    print(f, '-painters', '-dpdf', pdf_path);
+    % set(f, 'PaperUnits', 'inches');
+    % set(f, 'PaperPosition', [0 0 12 12]);
+    % set(f, 'PaperSize', [12 12]);
+    % pdf_name = sprintf('J_count_%s.pdf', session_type);
+    % pdf_path = fullfile(folder_name, pdf_name);
+    % print(f, '-painters', '-dpdf', pdf_path);
 
     % figure 2: post/pre ratios with confidence intervals and tests
     f = figure('Position', [100, 100, 800, 800], 'Visible', 'off');
@@ -175,8 +175,8 @@ for session_type_idx = 1:session_type_num
                 nexttile;
 
                 % merge all sessions
-                counts = squeeze(J_count_by_area(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
-                max_counts = squeeze(max_count_by_area(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
                 counts = squeeze(sum(counts, 1)); % (state, prepost)
                 max_counts = squeeze(sum(max_counts, 1)); % (state, prepost)
                 counts = counts(selected_state_idx, :);
@@ -295,9 +295,9 @@ for session_type_idx = 1:session_type_num
     figure_name = sprintf('J_count_ratio_%s.png', session_type);
     figure_path = fullfile(folder_name, figure_name);
     saveas(f, figure_path);
-    pdf_name = sprintf('J_count_ratio_%s.pdf', session_type);
-    pdf_path = fullfile(folder_name, pdf_name);
-    print(f, '-painters', '-dpdf', pdf_path);
+    % pdf_name = sprintf('J_count_ratio_%s.pdf', session_type);
+    % pdf_path = fullfile(folder_name, pdf_name);
+    % print(f, '-painters', '-dpdf', pdf_path);
 
 end
 
