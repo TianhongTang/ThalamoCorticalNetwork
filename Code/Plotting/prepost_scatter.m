@@ -26,8 +26,11 @@ controls = {'Mus', 'Sal'};
 for control_idx = 1:length(controls)
     control = controls{control_idx};
     for kernel_idx = 1:3
-        f = figure('Position', [100, 100, 800, 1600], 'Visible', 'off');
-        t = tiledlayout(4, 2, 'TileSpacing', 'Compact', 'Padding', 'Compact'); % 4 rows (Within/Across Area x Positive/Negative), 2 columns (Eyes Open/Closed)
+        f = figure('Visible', 'off');
+        f.Visible = 'off';
+        % set(f, 'Units', 'normalized');
+        set(f, 'Position', [100, 100, 1600, 800]);
+        t = tiledlayout(2, 4, 'TileSpacing', 'Compact', 'Padding', 'Compact'); % 4 rows (Within/Across Area x Positive/Negative), 2 columns (Eyes Open/Closed)
 
         data_limits = zeros(8, 2); % (tile, [min, max])
         data_limits(:, 1) = inf;  data_limits(:, 2) = -inf; 
@@ -60,7 +63,7 @@ for control_idx = 1:length(controls)
                     for state_idx = 1:2 % 1: Eyes Open, 2: Eyes Closed
                         state = states{state_idx};
                         % select tile
-                        tile_idx =(area_type_idx - 1) * 4 + (posneg_idx - 1) * 2 + state_idx; % calculate tile index based on area type, posneg, and state
+                        tile_idx =(area_type_idx - 1) * 2 + (state_idx - 1) * 4 + posneg_idx; % calculate tile index based on area type, posneg, and state
                         nexttile(tile_idx); % row: area type, col: posneg
                         hold on;
 
@@ -122,7 +125,7 @@ for control_idx = 1:length(controls)
         for area_type_idx = 1:2
             for posneg_idx = 1:2
                 for state_idx = 1:2
-                    tile_idx = (area_type_idx - 1) * 4 + (posneg_idx - 1) * 2 + state_idx;
+                    tile_idx = (area_type_idx - 1) * 2 + (state_idx - 1) * 4 + posneg_idx;
 
                     % calculate limits
                     lim_range = data_limits(tile_idx, 2) - data_limits(tile_idx, 1);
@@ -175,7 +178,7 @@ for control_idx = 1:length(controls)
                         text_y = lim_max - 0.15 * lim_range;
                         text(text_x, text_y, sprintf('Pre: %.2f%% (%d / %d)', px * 100, total_count(tile_idx, 1), max_count), 'HorizontalAlignment', 'left', 'FontSize', 10);
                         text(text_x, text_y - 0.05 * lim_range, sprintf('Post: %.2f%% (%d / %d)', py * 100, total_count(tile_idx, 2), max_count), 'HorizontalAlignment', 'left', 'FontSize', 10);
-                        text(text_x, text_y - 0.1 * lim_range, text_str, 'HorizontalAlignment', 'left', 'FontSize', 10, 'Color', text_color);
+                        % text(text_x, text_y - 0.1 * lim_range, text_str, 'HorizontalAlignment', 'left', 'FontSize', 10, 'Color', text_color);
                     end
 
                     % Alternative statistics: McNemar's test
@@ -199,7 +202,7 @@ for control_idx = 1:length(controls)
                     text_y = lim_max - 0.15 * lim_range;
                     % text(text_x, text_y, sprintf('Pre: %.2f%% (%d / %d)', px * 100, total_count(tile_idx, 1), max_count), 'HorizontalAlignment', 'left', 'FontSize', 10);
                     % text(text_x, text_y - 0.05 * lim_range, sprintf('Post: %.2f%% (%d / %d)', py * 100, total_count(tile_idx, 2), max_count), 'HorizontalAlignment', 'left', 'FontSize', 10);
-                    text(text_x, text_y - 0.15 * lim_range, text_str, 'HorizontalAlignment', 'left', 'FontSize', 10, 'Color', text_color);
+                    text(text_x, text_y - 0.1 * lim_range, text_str, 'HorizontalAlignment', 'left', 'FontSize', 10, 'Color', text_color);
 
                     % legend
                     hold on;
@@ -223,7 +226,8 @@ for control_idx = 1:length(controls)
         save_path = fullfile(root, 'Figures', 'Scatters');
         check_path(save_path);
         save_file_name = sprintf('PrePostScatter_%s_Kernel%d.png', control, kernel_idx);
-        saveas(f, fullfile(save_path, save_file_name));
+        % saveas(f, fullfile(save_path, save_file_name));
+        print(f, fullfile(save_path, save_file_name), '-dpng', '-r500');
         close(f);
     end
 end
