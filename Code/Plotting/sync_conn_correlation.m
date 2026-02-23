@@ -27,10 +27,7 @@ for kernel_idx = 1:3
 
     total_count = zeros(4, 2); % (tile, x/y)
     total_max_count = zeros(4); % (tile)
-    total_disagreement = zeros(4, 2); % (tile, n10/n01)
-
-    total_conn_count_debug_ctx = [0, 0, 0, 0]; % (within pos, within neg, across pos, across neg)
-    total_conn_count_debug_full = [0, 0, 0, 0]; % (within pos, within neg, across pos, across neg)
+    total_disagreement = zeros(4, 2); % (tile, n01/n10)
 
     for session_type_idx = 1:session_type_num
         session_type = session_types{session_type_idx};
@@ -51,9 +48,6 @@ for kernel_idx = 1:3
         for area_type_idx = 1:2
             area_type = area_types{area_type_idx};
             for posneg_idx = 1:2
-
-                debug_idx = (area_type_idx - 1) * 2 + posneg_idx;
-
                 posneg = posneg_types{posneg_idx};
                 tile_idx = posneg_idx + (area_type_idx - 1) * 2;
                 nexttile(tile_idx); % row: area type, col: posneg
@@ -74,92 +68,38 @@ for kernel_idx = 1:3
                     color = 'm';
                 end
 
-                % % all areas
-                % x = squeeze(J_ratio(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)); % Eyes Open
-                % y = squeeze(J_ratio(area_type_idx, :, posneg_idx, kernel_idx, 2, 1)); % Eyes Closed
-                % xy_max_count = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)); % (session, state, prepost)
-                % cortex only
-                if area_type_idx == 1 % within area
-                    x_count = squeeze(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, 1, 1)+J_count_by_area(2, 2, :, posneg_idx, kernel_idx, 1, 1)); % Eyes Open
-                    y_count = squeeze(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, 2, 1)+J_count_by_area(2, 2, :, posneg_idx, kernel_idx, 2, 1)); % Eyes Closed
-                    xy_max_count = squeeze(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, 1, 1)+max_count_by_area(2, 2, :, posneg_idx, kernel_idx, 1, 1)); % (session, state, prepost)
-                    x = x_count ./ xy_max_count; % connection density
-                    y = y_count ./ xy_max_count;
-                    disagree_10 = squeeze(disagreement_resting_by_area(1, 1, 1, :, posneg_idx, kernel_idx, 1) + disagreement_resting_by_area(1, 2, 2, :, posneg_idx, kernel_idx, 1)); % count of connections present in Open but not Closed
-                    disagree_01 = squeeze(disagreement_resting_by_area(2, 1, 1, :, posneg_idx, kernel_idx, 1) + disagreement_resting_by_area(2, 2, 2, :, posneg_idx, kernel_idx, 1)); % count of connections present in Closed but not Open
-                else % across area
-                    x_count = squeeze(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, 1, 1)+J_count_by_area(2, 1, :, posneg_idx, kernel_idx, 1, 1)); % Eyes Open
-                    y_count = squeeze(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, 2, 1)+J_count_by_area(2, 1, :, posneg_idx, kernel_idx, 2, 1)); % Eyes Closed
-                    xy_max_count = squeeze(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, 1, 1)+max_count_by_area(2, 1, :, posneg_idx, kernel_idx, 1, 1)); % (session, state, prepost)
-                    x = x_count ./ xy_max_count; % connection density
-                    y = y_count ./ xy_max_count;
-                    disagree_10 = squeeze(disagreement_resting_by_area(1, 1, 2, :, posneg_idx, kernel_idx, 1) + disagreement_resting_by_area(1, 2, 1, :, posneg_idx, kernel_idx, 1)); % count of connections present in Open but not Closed
-                    disagree_01 = squeeze(disagreement_resting_by_area(2, 1, 2, :, posneg_idx, kernel_idx, 1) + disagreement_resting_by_area(2, 2, 1, :, posneg_idx, kernel_idx, 1)); % count of connections present in Closed but not Open
-                end
-
+                x = squeeze(J_ratio(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)); % Eyes Open
+                y = squeeze(J_ratio(area_type_idx, :, posneg_idx, kernel_idx, 2, 1)); % Eyes Closed
+                xy_max_count = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)); % (session, state, prepost)
                 filter = xy_max_count > 0;
                 if sum(filter) == 0
                     continue; % skip if no connections
                 end
-                filtered_session_num = sum(filter);
                 x = x(filter);
                 y = y(filter);
-                x_count = x_count(filter);
-                y_count = y_count(filter);
                 xy_max_count = xy_max_count(filter);
-                disagree_10 = disagree_10(filter);
-                disagree_01 = disagree_01(filter);
                 marker_size = log(xy_max_count) * 10; % marker size by log of max count
             
                 scatter(x, y, marker_size, color, marker, 'filled', 'MarkerFaceAlpha', 0.5, 'HandleVisibility', 'off');
 
                 % accumulate totals for this tile
-                total_count(tile_idx, 1) = total_count(tile_idx, 1) + sum(x_count);
-                total_count(tile_idx, 2) = total_count(tile_idx, 2) + sum(y_count);
-                total_max_count(tile_idx) = total_max_count(tile_idx) + sum(xy_max_count);
-                total_disagreement(tile_idx, 1) = total_disagreement(tile_idx, 1) + sum(disagree_10);
-                total_disagreement(tile_idx, 2) = total_disagreement(tile_idx, 2) + sum(disagree_01);
+                x_count = sum(squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1))); % total count across sessions
+                y_count = sum(squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, 2, 1)));
+                xy_max_count = sum(squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, 1, 1)));
+                disagree_01 = sum(squeeze(disagreement_resting(1, area_type_idx, :, posneg_idx, kernel_idx, 1))); % count of connections present in Open but not Closed
+                disagree_10 = sum(squeeze(disagreement_resting(2, area_type_idx, :, posneg_idx, kernel_idx, 1))); % count of connections present in Closed but not Open
+                total_count(tile_idx, 1) = total_count(tile_idx, 1) + x_count;
+                total_count(tile_idx, 2) = total_count(tile_idx, 2) + y_count;
+                total_max_count(tile_idx) = total_max_count(tile_idx) + xy_max_count;
+                total_disagreement(tile_idx, 1) = total_disagreement(tile_idx, 1) + disagree_01;
+                total_disagreement(tile_idx, 2) = total_disagreement(tile_idx, 2) + disagree_10;
                 
                 % update data limits
                 data_limits(tile_idx, 1) = min([data_limits(tile_idx, 1), min(x), min(y)]);
                 data_limits(tile_idx, 2) = max([data_limits(tile_idx, 2), max(x), max(y)]);
-
-                % debug totals
-                av_count = sum(squeeze(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, 1, 1))); 
-                va_count = sum(squeeze(max_count_by_area(2, 1, :, posneg_idx, kernel_idx, 1, 1)));
-                at_count = sum(squeeze(max_count_by_area(1, 3, :, posneg_idx, kernel_idx, 1, 1)));
-                vt_count = sum(squeeze(max_count_by_area(2, 3, :, posneg_idx, kernel_idx, 1, 1)));
-                ta_count = sum(squeeze(max_count_by_area(3, 1, :, posneg_idx, kernel_idx, 1, 1)));
-                tv_count = sum(squeeze(max_count_by_area(3, 2, :, posneg_idx, kernel_idx, 1, 1)));
-                aa_count = sum(squeeze(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, 1, 1)));
-                vv_count = sum(squeeze(max_count_by_area(2, 2, :, posneg_idx, kernel_idx, 1, 1)));
-                tt_count = sum(squeeze(max_count_by_area(3, 3, :, posneg_idx, kernel_idx, 1, 1)));
-                fprintf('Debug: %s, %s, Kernel %d - AV: %d, VA: %d, AT: %d, VT: %d, TA: %d, TV: %d, AA: %d, VV: %d, TT: %d\n', session_type, posneg, kernel_idx, av_count, va_count, at_count, vt_count, ta_count, tv_count, aa_count, vv_count, tt_count);
-                if area_type_idx == 2 % within area
-                    total_conn_count_debug_ctx(debug_idx) = total_conn_count_debug_ctx(debug_idx) + av_count + va_count;
-                    total_conn_count_debug_full(debug_idx) = total_conn_count_debug_full(debug_idx) + av_count + va_count + at_count + vt_count + ta_count + tv_count;
-                else % across area
-                    total_conn_count_debug_ctx(debug_idx) = total_conn_count_debug_ctx(debug_idx) + aa_count + vv_count;
-                    total_conn_count_debug_full(debug_idx) = total_conn_count_debug_full(debug_idx) + aa_count + vv_count + tt_count;
-                end
-
-                % Print info
-                fprintf('%s, %s, %s: Count Open = %d, Count Closed = %d, Max Count = %d, Disagree Open Only = %d, Disagree Closed Only = %d\n', ...
-                    session_type, area_type, posneg, sum(x_count), sum(y_count), sum(xy_max_count), sum(disagree_10), sum(disagree_01));
-                fprintf('Session number: %d\n', session_num);
-                for i = 1:filtered_session_num
-                    fprintf('Session %d: Open = %.2f%%(%d+%d=%d/%d), Closed = %.2f%%(%d+%d=%d/%d)\n', i,...
-                    x(i)*100, disagree_10(i), (x_count(i)-disagree_10(i)), x_count(i), xy_max_count(i),...
-                    y(i)*100, disagree_01(i), (y_count(i)-disagree_01(i)), y_count(i), xy_max_count(i));
-                end
             end
         end
     end
-    fprintf('Debug Totals for Kernel %d:\n', kernel_idx);
-    fprintf('Within Positive: %d (Ctx), %d (Full)\n', total_conn_count_debug_ctx(1), total_conn_count_debug_full(1));
-    fprintf('Within Negative: %d (Ctx), %d (Full)\n', total_conn_count_debug_ctx(2), total_conn_count_debug_full(2));
-    fprintf('Across Positive: %d (Ctx), %d (Full)\n', total_conn_count_debug_ctx(3), total_conn_count_debug_full(3));
-    fprintf('Across Negative: %d (Ctx), %d (Full)\n', total_conn_count_debug_ctx(4), total_conn_count_debug_full(4));
     sgtitle(sprintf('Connection Density Scatter Plot (Kernel %d)', kernel_idx));
 
     % Axes settings for each tile
@@ -262,7 +202,7 @@ for kernel_idx = 1:3
     end
 
     % Save figure
-    save_path = fullfile(root, 'Figures', 'Scatters');
+    save_path = fullfile(root, 'Figures', 'RestingStateScatters');
     check_path(save_path);
     save_file_name = sprintf('RestingStateScatter_Kernel%d.png', kernel_idx);
     saveas(f, fullfile(save_path, save_file_name));
