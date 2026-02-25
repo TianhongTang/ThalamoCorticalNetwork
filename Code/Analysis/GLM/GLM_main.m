@@ -24,6 +24,7 @@ gpuDeviceTable
 
 force_rebuild = false;
 force_retrain = false;
+force_replot = false;
 debug = false;
 
 training_tasks = {'Emperor'};
@@ -154,7 +155,7 @@ for training_idx = 1:length(training_tasks)
                         fprintf("Skip. \n");
                         continue;
                     end
-                    GLM_multi_kernel_crossval(dataset_name, session_idx, kernel_name, shuffle_id, max_epoch, reg, 1, 5e-3, fold_idx);
+                    GLM_multi_kernel_crossval(dataset_name, session_idx, kernel_name, shuffle_id, max_epoch, reg, 2, 5e-3, fold_idx);
                 end
                 toc;
             end
@@ -162,11 +163,18 @@ for training_idx = 1:length(training_tasks)
             %% plot
             fprintf("Plotting\n");
             tic;
-            channel_folder = fullfile(root, 'Data', 'Working', 'raster');
-            channel_file = sprintf('raster_%s_%d.mat', dataset_name, session_idx);
-            channel_path = fullfile(channel_folder, channel_file);
-            load(channel_path, "channel");
-            plot_GLM_sorted(dataset_name, border_name, session_idx, kernel_name, max_epoch, reg, shuffle_size, "idx", channel);
+            target_folder = fullfile(root, 'Figures', 'GLM_models', dataset_name);
+            target_file = sprintf('GLMpar_%s_%d_%s_%s_epoch%d_sorted.png', dataset_name, session_idx, kernel_name, reg.name, max_epoch);
+            target_path = fullfile(target_folder, target_file);
+            if isfile(target_path) && ~force_replot
+                fprintf("Skip plotting. \n");
+            else
+                channel_folder = fullfile(root, 'Data', 'Working', 'raster');
+                channel_file = sprintf('raster_%s_%d.mat', dataset_name, session_idx);
+                channel_path = fullfile(channel_folder, channel_file);
+                load(channel_path, "channel");
+                plot_GLM_sorted(dataset_name, border_name, session_idx, kernel_name, max_epoch, reg, shuffle_size, "idx", channel);
+            end
             toc;
 
             if skip_flag

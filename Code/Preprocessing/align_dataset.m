@@ -1,4 +1,5 @@
 %% Align raster files of all states to the same duration
+% Also discard short resting epochs.
 
 %% Get root folder
 code_depth = 3;
@@ -13,7 +14,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 STATUS_LOG = false;
-SKIP_EXISTING = true;
+SKIP_EXISTING = false;
+resting_dur_threshold = 15; % minimum duration in seconds for resting epochs to be included in the analysis
 
 % load data
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
@@ -100,7 +102,7 @@ for task_idx = 1:task_num
         fprintf('Loading %s ... \n', raster_path);
         load(raster_path, 'trial_num', 'trial_len', 'N');
 
-        trial_filter = (trial_len > align_kernel_len);
+        trial_filter = (trial_len > align_kernel_len) & (trial_len > resting_dur_threshold*1000); % only include trials longer than kernel length and threshold
         trial_len = trial_len(trial_filter);
         trial_num = sum(trial_filter);
 
@@ -135,7 +137,7 @@ for task_idx = 1:task_num
             if STATUS_LOG, fprintf('Loading...'); end %#ok<UNRCH>
             
             % if already exists, skip
-            full_name = [dataset_name, prepost, state, area_type, 'Align', modes{mode_idx}];
+            full_name = [dataset_name, prepost, state, area_type, 'Align', modes{mode_idx}, num2str(resting_dur_threshold)];
             save_folder = fullfile(root, 'Data', 'Working', 'raster');
             check_path(save_folder);
             file_name = sprintf('raster_%s_%d.mat', full_name, session_idx);
@@ -163,7 +165,7 @@ for task_idx = 1:task_num
             current_eff_dur = 0;
             
             % Exclude short trials
-            trial_filter = (trial_len > align_kernel_len);
+            trial_filter = (trial_len > align_kernel_len) & (trial_len > resting_dur_threshold*1000); % only include trials longer than kernel length and threshold
             trial_len = trial_len(trial_filter);
             rasters = rasters(trial_filter);
             trial_num = sum(trial_filter);
@@ -227,7 +229,7 @@ for task_idx = 1:task_num
                 firing_rates{i} = mean(rasters{i}, 2);
             end
 
-            full_name = [dataset_name, prepost, state, area_type, 'Align', mode];
+            full_name = [dataset_name, prepost, state, area_type, 'Align', mode, num2str(resting_dur_threshold)];
             if STATUS_LOG, fprintf('Saving %s...\n', full_name); end %#ok<UNRCH>
             save_folder = fullfile(root, 'Data', 'Working', 'raster');
             check_path(save_folder);

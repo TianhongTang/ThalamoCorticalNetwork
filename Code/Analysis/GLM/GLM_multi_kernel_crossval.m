@@ -5,6 +5,8 @@ function GLM_multi_kernel_crossval(dataset_name, session, kernel_name, shuffle_i
 %%%% dataset: "../GLM_data/[dataset_name]/
 %%%%   GLMdata_[dataset_name]_[session]_[shuffle_id]_[kernel_name].mat"
 
+DEBUG = true;
+
 %% default parameters
 if nargin < 7
     log_level=2;
@@ -76,7 +78,16 @@ else
 end 
 
 % filter: ignore 0 firing rate neurons in inference
-raster_filter = sum(raster, 2)>0;
+raster_filter = sum(raster, 2)>0 & sum(raster_test, 2)>0;
+% repeat_filter: remove exactly same neurons
+for i=1:N
+    for j=i+1:N
+        if (all(raster(i, :)==raster(j, :)) && sum(raster(i, :)) > 0)||(all(raster_test(i, :)==raster_test(j, :)) && sum(raster_test(i, :)) > 0)
+            raster_filter(j) = false;
+        end
+    end
+end
+
 % N_original = N;
 % raster_original = raster;
 N_filtered = sum(raster_filter);
@@ -88,7 +99,7 @@ predjs_PS_test = predjs_PS_test(raster_filter, :, :);
 predjs_conn_test = predjs_conn_test(raster_filter, :, :);
 
 % Initial condition (can be better):
-par0=zeros(N_filtered, 1 + n_PS_kernel + N_filtered*n_conn_kernel); 
+par0=randn(N_filtered, 1 + n_PS_kernel + N_filtered*n_conn_kernel)*0.01; 
 
 % Adam solver
 beta1 = 0.9;
@@ -115,6 +126,7 @@ beta1_t = 1;
 beta2_t = 1;
 fprintf("Ready\n");
 for epoch=1:max_epoch
+    fprintf("Epoch %d/%d\n", epoch, max_epoch);
     if (mod(epoch, 100)==0 && log_level==1)||log_level==2
         [loss, grad, err] = minuslogL_grad_hess_fun(par,B_train,N_filtered, ...
             n_PS_kernel,n_conn_kernel,raster,predjs_PS,predjs_conn,logfacts,reg); 
