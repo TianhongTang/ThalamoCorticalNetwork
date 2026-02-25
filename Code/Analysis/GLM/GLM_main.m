@@ -155,7 +155,7 @@ for training_idx = 1:length(training_tasks)
                         fprintf("Skip. \n");
                         continue;
                     end
-                    GLM_multi_kernel_crossval(dataset_name, session_idx, kernel_name, shuffle_id, max_epoch, reg, 2, 5e-3, fold_idx);
+                    GLM_multi_kernel_crossval(dataset_name, session_idx, kernel_name, shuffle_id, max_epoch, reg, 1, 5e-3, fold_idx);
                 end
                 toc;
             end
