@@ -21,7 +21,7 @@ load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_file
 
 % session_types = {'EmperorSal', 'EmperorMus'};
 
-mode = 'Cortex'; % Cortex: Pre and Post; Full: only Pre
+mode = 'Full'; % Cortex: Pre and Post; Full: only Pre
 
 kernel = 'DeltaPure';
 reg = 'L2=0_2';

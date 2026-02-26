@@ -26,7 +26,7 @@ prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
 state_num = length(states);
-align = 'AlignLast';
+align = 'AlignLast15';
 area_type = 'Cortex';
 prepost = 'Post';
 mode_str = sprintf('_separate_%d', threshold);
@@ -173,7 +173,7 @@ for control_idx = 1:3
         %% by session
         nexttile(dataset_idx*2);
         % nexttile(2);
-        hist_borders = 0:25:650;
+        hist_borders = 0:15:650;
         % two colors for two states, overlayed histogram with some transparency
         durations_Slayer = session_durations{control_idx, 2}/1000;
         durations_Zeppelin = session_durations{control_idx+3, 2}/1000;
