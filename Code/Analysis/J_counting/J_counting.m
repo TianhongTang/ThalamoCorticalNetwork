@@ -21,7 +21,7 @@ load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_file
 
 % session_types = {'EmperorSal', 'EmperorMus'};
 
-mode = 'Full'; % Cortex: Pre and Post; Full: only Pre
+mode = 'Cortex'; % Cortex: Pre and Post; Full: only Pre
 
 kernel = 'DeltaPure';
 reg = 'L2=0_2';
@@ -38,8 +38,12 @@ elseif strcmp(mode, 'Full') %#ok<*UNRCH>
     session_types = {'SlayerSal', 'SlayerMus', 'ZeppelinNoinj', 'ZeppelinMus', 'ZeppelinSal', 'EmperorSal', 'EmperorMus'};
     prepost_types = {'Pre'};
     area_type = 'Full';
+elseif strcmp(mode, 'Test') %#ok<*UNRCH>
+    session_types = {'Test'};
+    prepost_types = {'Pre', 'Post'};
+    area_type = 'Test';
 end
-align = 'AlignLast';
+align = 'AlignLast15';
 
 for session_type_idx = 1:length(session_types)
     session_type = session_types{session_type_idx};
@@ -76,6 +80,9 @@ for session_type_idx = 1:length(session_types)
             sessions = 1:4;
             states = {'RestOpen', 'RestClose'};
         case 'EmperorMus'
+            sessions = 1:6;
+            states = {'RestOpen', 'RestClose'};
+        case 'Test'
             sessions = 1:2;
             states = {'RestOpen', 'RestClose'};
     end

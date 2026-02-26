@@ -19,6 +19,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 % session_types = {'Muscimol', 'Saline'};
 % session_types = {'EmperorMus', 'EmperorSal'};
 session_types = {'SlayerSal', 'SlayerMus', 'EmperorSal', 'EmperorMus'};
+% session_types = {'Test'};
 session_type_num = length(session_types);
 kernel_num = 3;
 
@@ -60,8 +61,16 @@ for session_type_idx = 1:session_type_num
                 ax = nexttile;
 
                 % merge all sessions
-                counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
-                max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                % counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                % max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                if strcmp(area_type, 'Within Area')
+                    counts = squeeze(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                    max_counts = squeeze(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                elseif strcmp(area_type, 'Across Area')
+                    counts = squeeze(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                    max_counts = squeeze(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                end
+                
                 counts = squeeze(sum(counts, 1)); % (state, prepost)
                 max_counts = squeeze(sum(max_counts, 1)); % (state, prepost)
                 counts = counts(selected_state_idx, :);
@@ -175,8 +184,16 @@ for session_type_idx = 1:session_type_num
                 nexttile;
 
                 % merge all sessions
-                counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
-                max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                % counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                % max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                if strcmp(area_type, 'Within Area')
+                    counts = squeeze(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                    max_counts = squeeze(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                elseif strcmp(area_type, 'Across Area')
+                    counts = squeeze(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                    max_counts = squeeze(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                end
+                
                 counts = squeeze(sum(counts, 1)); % (state, prepost)
                 max_counts = squeeze(sum(max_counts, 1)); % (state, prepost)
                 counts = counts(selected_state_idx, :);
@@ -285,6 +302,17 @@ for session_type_idx = 1:session_type_num
                     y_limits = 0;
                 end
                 ylim([0, max(30, max(y_limits) + 5)]);
+
+                % text annotations for counts and ratios
+                current_x_lim = xlim;
+                current_y_lim = ylim;
+                text_x = current_x_lim(1) + 0.05 * range(current_x_lim);
+                text_y_start = current_y_lim(1) + 0.95 * range(current_y_lim);
+                text_y_step = 0.05 * range(current_y_lim);
+                text(text_x, text_y_start, sprintf('Pre Open: %.2f%% (%d / %d)', ratio(1, 1)*100, counts(1, 1), max_counts(1, 1)));
+                text(text_x, text_y_start - text_y_step, sprintf('Post Open: %.2f%% (%d / %d)', ratio(1, 2)*100, counts(1, 2), max_counts(1, 2)));
+                text(text_x, text_y_start - 2*text_y_step, sprintf('Pre Close: %.2f%% (%d / %d)', ratio(2, 1)*100, counts(2, 1), max_counts(2, 1)));
+                text(text_x, text_y_start - 3*text_y_step, sprintf('Post Close: %.2f%% (%d / %d)', ratio(2, 2)*100, counts(2, 2), max_counts(2, 2)));
             end
         end
     end

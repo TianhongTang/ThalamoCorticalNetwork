@@ -36,7 +36,7 @@ end
 
 for session_type_idx = 1:session_type_num
     session_type = session_types{session_type_idx};
-
+    
     % load J count data
     folder_name = fullfile(root, 'Data', 'Working', 'J_count');
     file_name = sprintf('Jcount_Full_%s.mat', session_type);
@@ -44,114 +44,118 @@ for session_type_idx = 1:session_type_num
     % J_count: (area i, area j, session, posneg, kernel, state, prepost)
     % J_count_by_area: (within/across, session, posneg, kernel, state, prepost)
     load(file_path, 'J_count', 'J_count_by_area', 'J_ratio', 'J_ratio_by_area', 'max_count', 'max_count_by_area', 'session_num'); 
-% 
-%     % bar plot
-%     f = figure('Position', [100, 100, 800, 800], 'Visible', 'off');
-%     t = tiledlayout(4, 3, 'TileSpacing', 'Compact', 'Padding', 'Compact');
-% 
-%     area_types = {'Within Area', 'Across Area'};
-%     posneg_types = {'Positive', 'Negative'};
-% 
-%     for area_type_idx = 1:2
-%         area_type = area_types{area_type_idx};
-%         for posneg_idx = 1:2
-%             posneg = posneg_types{posneg_idx};
-%             for kernel_idx = 1:kernel_num
-%                 ax = nexttile;
-% 
-%                 % merge all sessions
-%                 counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, 1)); % (session, state)
-%                 max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, 1)); % (session, state)
-%                 counts = squeeze(sum(counts, 1)); % (state)
-%                 max_counts = squeeze(sum(max_counts, 1)); % (state)
-%                 counts = counts(selected_state_idx);
-%                 max_counts = max_counts(selected_state_idx);
-% 
-%                 num_states = size(counts, 1);
-%                 ratios = zeros(num_states, 1);
-%                 ratio_ci = zeros(num_states, 2);
-%                 p_vals = zeros(num_states, 1);
-%                 pre_successes = zeros(num_states, 1);
-%                 pre_trials = zeros(num_states, 1);
-%                 post_successes = zeros(num_states, 1);
-%                 post_trials = zeros(num_states, 1);
-% 
-%                 % for state_idx = 1:num_states
-%                 %     successes_pre = counts(state_idx);
-%                 %     trials_pre = max_counts(state_idx);
-%                 % 
-%                 %     [ratio_val, ci_high, ci_low, p_val] = ratio_of_proportions(successes_post, trials_post, successes_pre, trials_pre);
-%                 %     ratios(state_idx) = ratio_val;
-%                 %     ratio_ci(state_idx, :) = [ci_low, ci_high];
-%                 %     p_vals(state_idx) = p_val;
-%                 % 
-%                 %     pre_successes(state_idx) = successes_pre;
-%                 %     pre_trials(state_idx) = trials_pre;
-%                 % end
-% 
-%                 b = bar(ratios, 'FaceColor', [1, 1, 1], 'BarWidth', 0.6);
-%                 hold on;
-%                 lower_err = ratios - ratio_ci(:, 1);
-%                 upper_err = ratio_ci(:, 2) - ratios;
-%                 errorbar(1:num_states, ratios, lower_err, upper_err, 'k', 'LineStyle', 'none', 'LineWidth', 1);
-% 
-%                 for state_idx = 1:num_states
-%                     stars = significanceStars(p_vals(state_idx));
-%                     if ~isempty(stars)
-%                         star_y = ratios(state_idx) + upper_err(state_idx) + 0.05;
-%                         text(state_idx, star_y, stars, 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', 'k');
-%                     end
-%                 end
-% 
-%                 yline(1, 'k--', 'LineWidth', 1, 'HandleVisibility', 'off');
-%                 y_upper = ratios + upper_err;
-%                 y_upper = y_upper(isfinite(y_upper));
-%                 if isempty(y_upper)
-%                     y_upper = ratios(isfinite(ratios));
-%                 end
-%                 if isempty(y_upper)
-%                     y_upper = 1;
-%                 end
-%                 max_y = max(y_upper);
-% 
-%                 % if num_states == 2
-%                 %     [p_pair, pair_valid] = ratio_ttest(post_successes, post_trials, pre_successes, pre_trials);
-%                 %     if pair_valid
-%                 %         y_line = max_y + 0.1;
-%                 %         plot([1, 2], [y_line, y_line], 'k-', 'LineWidth', 1, 'HandleVisibility', 'off');
-%                 %         star_pair = significanceStars(p_pair);
-%                 %         if isempty(star_pair)
-%                 %             label_text = 'N.S.';
-%                 %         else
-%                 %             label_text = star_pair;
-%                 %         end
-%                 %         text(1.5, y_line + 0.05, label_text, 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', 'k');
-%                 %         max_y = max(max_y, y_line + 0.05);
-%                 %     end
-%                 % end
-% 
-%                 hold off;
-%                 xticks(1:num_states);
-%                 xticklabels(state_names(selected_state_idx));
-%                 ylabel('Post / Pre ratio');
-%                 title(sprintf('%s - %s - Kernel %d', area_type, posneg, kernel_idx));
-%                 ylim([0, max(3, max_y + 0.2)]);
-%             end
-%         end
-%     end
-% 
-%     % save figure
-%     folder_name = fullfile(root, 'Figures', 'J_count');
-%     check_path(folder_name);
-%     figure_name = sprintf('J_count_pre_%s.png', session_type);
-%     figure_path = fullfile(folder_name, figure_name);
-%     saveas(f, figure_path);
-%     % set(f, 'PaperUnits', 'inches');
-%     % set(f, 'PaperPosition', [0 0 12 12]);
-%     % set(f, 'PaperSize', [12 12]);
-%     % pdf_name = sprintf('J_count_%s.pdf', session_type);
-%     % pdf_path = fullfile(folder_name, pdf_name);
-%     % print(f, '-painters', '-dpdf', pdf_path);
+
+    % area_types = {'Within Area', 'Across Area'};
+    % posneg_types = {'Positive', 'Negative'};
+
+    % % bar plot
+    % f = figure('Position', [100, 100, 800, 800], 'Visible', 'off');
+    % t = tiledlayout(4, 3, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+    
+    % for area_type_idx = 1:2
+    %     area_type = area_types{area_type_idx};
+    %     for posneg_idx = 1:2
+    %         posneg = posneg_types{posneg_idx};
+    %         for kernel_idx = 1:kernel_num
+    %             ax = nexttile;
+
+    %             % merge all sessions
+    %             counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, 1)); % (session, state, pre)
+    %             max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, 1)); % (session, state, pre)
+    %             counts = squeeze(sum(counts, 1)); % (state)
+    %             max_counts = squeeze(sum(max_counts, 1)); % (state)
+    %             counts = counts(selected_state_idx);
+    %             max_counts = max_counts(selected_state_idx);
+
+    %             num_states = size(counts, 1);
+    %             ratios = zeros(num_states, 1);
+    %             ratio_ci = zeros(num_states, 2);
+    %             p_vals = zeros(num_states, 1);
+    %             pre_successes = zeros(num_states, 1);
+    %             pre_trials = zeros(num_states, 1);
+    %             post_successes = zeros(num_states, 1);
+    %             post_trials = zeros(num_states, 1);
+
+    %             for state_idx = 1:num_states
+    %                 successes_pre = counts(state_idx);
+    %                 trials_pre = max_counts(state_idx);
+    %                 % successes_post = counts(state_idx, 2);
+    %                 % trials_post = max_counts(state_idx, 2);
+
+    %                 % [ratio_val, ci_high, ci_low, p_val] = ratio_of_proportions(successes_post, trials_post, successes_pre, trials_pre);
+    %                 % ratios(state_idx) = ratio_val;
+    %                 % ratio_ci(state_idx, :) = [ci_low, ci_high];
+    %                 % p_vals(state_idx) = p_val;
+
+    %                 pre_successes(state_idx) = successes_pre;
+    %                 pre_trials(state_idx) = trials_pre;
+    %                 % post_successes(state_idx) = successes_post;
+    %                 % post_trials(state_idx) = trials_post;
+    %             end
+
+    %             b = bar(ratios, 'FaceColor', [1, 1, 1], 'BarWidth', 0.6);
+    %             hold on;
+    %             lower_err = ratios - ratio_ci(:, 1);
+    %             upper_err = ratio_ci(:, 2) - ratios;
+    %             errorbar(1:num_states, ratios, lower_err, upper_err, 'k', 'LineStyle', 'none', 'LineWidth', 1);
+
+    %             for state_idx = 1:num_states
+    %                 stars = significanceStars(p_vals(state_idx));
+    %                 if ~isempty(stars)
+    %                     star_y = ratios(state_idx) + upper_err(state_idx) + 0.05;
+    %                     text(state_idx, star_y, stars, 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', 'k');
+    %                 end
+    %             end
+
+    %             yline(1, 'k--', 'LineWidth', 1, 'HandleVisibility', 'off');
+    %             y_upper = ratios + upper_err;
+    %             y_upper = y_upper(isfinite(y_upper));
+    %             if isempty(y_upper)
+    %                 y_upper = ratios(isfinite(ratios));
+    %             end
+    %             if isempty(y_upper)
+    %                 y_upper = 1;
+    %             end
+    %             max_y = max(y_upper);
+
+    %             % if num_states == 2
+    %             %     [p_pair, pair_valid] = ratio_ttest(post_successes, post_trials, pre_successes, pre_trials);
+    %             %     if pair_valid
+    %             %         y_line = max_y + 0.1;
+    %             %         plot([1, 2], [y_line, y_line], 'k-', 'LineWidth', 1, 'HandleVisibility', 'off');
+    %             %         star_pair = significanceStars(p_pair);
+    %             %         if isempty(star_pair)
+    %             %             label_text = 'N.S.';
+    %             %         else
+    %             %             label_text = star_pair;
+    %             %         end
+    %             %         text(1.5, y_line + 0.05, label_text, 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', 'k');
+    %             %         max_y = max(max_y, y_line + 0.05);
+    %             %     end
+    %             % end
+
+    %             hold off;
+    %             xticks(1:num_states);
+    %             xticklabels(state_names(selected_state_idx));
+    %             ylabel('Post / Pre ratio');
+    %             title(sprintf('%s - %s - Kernel %d', area_type, posneg, kernel_idx));
+    %             ylim([0, max(3, max_y + 0.2)]);
+    %         end
+    %     end
+    % end
+
+    % % save figure
+    % folder_name = fullfile(root, 'Figures', 'J_count');
+    % check_path(folder_name);
+    % figure_name = sprintf('J_count_pre_%s.png', session_type);
+    % figure_path = fullfile(folder_name, figure_name);
+    % saveas(f, figure_path);
+    % % set(f, 'PaperUnits', 'inches');
+    % % set(f, 'PaperPosition', [0 0 12 12]);
+    % % set(f, 'PaperSize', [12 12]);
+    % % pdf_name = sprintf('J_count_pre_%s.pdf', session_type);
+    % % pdf_path = fullfile(folder_name, pdf_name);
+    % % print(f, '-painters', '-dpdf', pdf_path);
 
     % figure 2: post/pre ratios with confidence intervals and tests
     f = figure('Position', [100, 100, 800, 800], 'Visible', 'off');
@@ -159,15 +163,9 @@ for session_type_idx = 1:session_type_num
     set(f, 'PaperUnits', 'inches');
     set(f, 'PaperPosition', [0 0 12 12]);
     set(f, 'PaperSize', [12 12]);
-    
+
     area_types = {'Within Area', 'Across Area'};
     posneg_types = {'Positive', 'Negative'};
-
-    % Fix: across area counting
-    J_count(1, :, :, :, :, :) = J_count_by_area(1, 1, :, :, :, :, :) + J_count_by_area(2, 2, :, :, :, :, :);
-    J_count(2, :, :, :, :, :) = J_count_by_area(1, 2, :, :, :, :, :) + J_count_by_area(2, 1, :, :, :, :, :);
-    max_count(1, :, :, :, :, :) = max_count_by_area(1, 1, :, :, :, :, :) + max_count_by_area(2, 2, :, :, :, :, :);
-    max_count(2, :, :, :, :, :) = max_count_by_area(1, 2, :, :, :, :, :) + max_count_by_area(2, 1, :, :, :, :, :);
     
     for area_type_idx = 1:2
         area_type = area_types{area_type_idx};
@@ -175,16 +173,24 @@ for session_type_idx = 1:session_type_num
             posneg = posneg_types{posneg_idx};
             for kernel_idx = 1:kernel_num
                 nexttile;
-    
+
                 % merge all sessions
-                counts_sessions = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, 1)); % (session, state)
-                max_counts_sessions = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, 1)); % (session, state)
-                counts = squeeze(sum(counts_sessions, 1)); % (state)
-                max_counts = squeeze(sum(max_counts_sessions, 1)); % (state)
+                % counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, 1)); % (session, state, prepost)
+                % max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, 1)); % (session, state, prepost)
+                if strcmp(area_type, 'Within Area')
+                    counts = squeeze(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                    max_counts = squeeze(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                elseif strcmp(area_type, 'Across Area')
+                    counts = squeeze(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                    max_counts = squeeze(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                end
+                
+                counts = squeeze(sum(counts)); % (state, prepost)
+                max_counts = squeeze(sum(max_counts)); % (state, prepost)
                 counts = counts(selected_state_idx);
                 max_counts = max_counts(selected_state_idx);
-                ratio = counts ./ max_counts; % (state)
-                CI = zeros(2, numel(ratio)); % (low/high, state)
+                ratio = counts ./ max_counts; % (state, prepost)
+                CI = zeros(2, numel(ratio)); % (low/high, state, prepost)
                 for state_idx = 1:numel(ratio)
                     M = counts(state_idx);
                     N = max_counts(state_idx);
@@ -194,7 +200,7 @@ for session_type_idx = 1:session_type_num
                 end
                 CI_low = squeeze(CI(1, :)) * 100; % lower CI bound (% units)
                 CI_high = squeeze(CI(2, :)) * 100; % upper CI bound (% units)
-    
+
                 % bar plot of ratios, with error bars
                 bar_data = ratio * 100;
                 b = bar(bar_data);
@@ -204,12 +210,10 @@ for session_type_idx = 1:session_type_num
                 lower_err = bar_data - CI_low;
                 upper_err = CI_high - bar_data;
                 x_points = zeros(size(bar_data));
-                for prepost_idx = 1:1
-                    x = b(prepost_idx).XEndPoints;
-                    errorbar(x, bar_data, lower_err, upper_err, 'k', 'LineStyle', 'none', 'LineWidth', 1);
-                    x_points = x.';
-                end
-    
+                x = b.XEndPoints;
+                errorbar(x, bar_data(:), lower_err(:), upper_err(:), 'k', 'LineStyle', 'none', 'LineWidth', 1);
+                x_points(:) = x;
+
                 % % significance annotations for pre vs post using two-proportion z-test
                 % for state_idx = 1:size(bar_data, 1)
                 %     success_pre = counts(state_idx, 1);
@@ -232,9 +236,9 @@ for session_type_idx = 1:session_type_num
                 %         text(x_mid, star_y, stars, 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', 'k');
                 %     end
                 % end
-    
+
                 max_y = max(bar_data + upper_err, [], 'all');
-    
+
                 if size(bar_data, 2) == 2
                     % statistical comparison between the two states (e.g., Task vs RestClose)
                     success_state1_pre = counts(1);
@@ -268,7 +272,7 @@ for session_type_idx = 1:session_type_num
                     %     max_y = max(max_y, y_line + 1);
                     % end
                 end
-    
+
                 hold off;
                 xticks(1:length(selected_state_idx));
                 xticklabels(state_names(selected_state_idx));
@@ -285,6 +289,15 @@ for session_type_idx = 1:session_type_num
                     y_limits = 0;
                 end
                 ylim([0, max(30, max(y_limits) + 5)]);
+
+                % text annotations for counts and ratios
+                current_x_lim = xlim;
+                current_y_lim = ylim;
+                text_x = current_x_lim(1) + 0.05 * range(current_x_lim);
+                text_y_start = current_y_lim(1) + 0.95 * range(current_y_lim);
+                text_y_step = 0.05 * range(current_y_lim);
+                text(text_x, text_y_start, sprintf('Pre Open: %.2f%% (%d / %d)', ratio(1)*100, counts(1), max_counts(1)));
+                text(text_x, text_y_start - 1*text_y_step, sprintf('Pre Close: %.2f%% (%d / %d)', ratio(2)*100, counts(2), max_counts(2)));
             end
         end
     end
@@ -298,6 +311,7 @@ for session_type_idx = 1:session_type_num
     % pdf_name = sprintf('J_count_ratio_%s.pdf', session_type);
     % pdf_path = fullfile(folder_name, pdf_name);
     % print(f, '-painters', '-dpdf', pdf_path);
+
 end
 
 function [p_low, p_high] = wilsonCI(M, N, alpha)

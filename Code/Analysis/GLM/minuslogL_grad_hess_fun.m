@@ -155,9 +155,17 @@ if nargout > 2
             hess = hess + diag([zeros(1, 1+n_PS_kernel), 2*reg.l2*ones(1, (N-1)*n_conn_kernel)]); % (1 + n_PS + (N-1)*n_conn, 1 + n_PS + (N-1)*n_conn)
             hess_total_total = hess_total_total + hess;
         end
+
+        diag_inv_hess = diag(inv(hess_minuslogL_total));
+        diag_inv_hess_total = diag(inv(hess_total_total));
+
+        stable_filter = diag_inv_hess > 0;
+        stable_filter_total = diag_inv_hess_total > 0;
+        diag_inv_hess(~stable_filter) = Inf;
+        diag_inv_hess_total(~stable_filter_total) = Inf;
         
-        err_i = sqrt(diag(inv(hess_minuslogL_total))); % (1 + n_PS + (N-1)*n_conn)
-        err_i_total = sqrt(diag(inv(hess_total_total))); % (1 + n_PS + (N-1)*n_conn)
+        err_i = sqrt(diag_inv_hess); % (1 + n_PS + (N-1)*n_conn)
+        err_i_total = sqrt(diag_inv_hess_total); % (1 + n_PS + (N-1)*n_conn)
         
         for k = 1:n_conn_kernel
             % put back zero to self-connections
