@@ -15,7 +15,8 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-session_types = {'SlayerMus', 'SlayerSal', 'ZeppelinNoinj', 'ZeppelinMus', 'ZeppelinSal', 'EmperorMus', 'EmperorSal'};
+% session_types = {'SlayerMus', 'SlayerSal', 'ZeppelinNoinj', 'ZeppelinMus', 'ZeppelinSal', 'EmperorMus', 'EmperorSal'};
+session_types = {'SlayerMus', 'SlayerSal'};
 % session_types = {'SlayerMus', 'SlayerSal', 'EmperorMus', 'EmperorSal'};
 session_type_num = length(session_types);
 for kernel_idx = 1:3
