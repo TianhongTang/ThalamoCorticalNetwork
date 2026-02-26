@@ -126,7 +126,7 @@ beta1_t = 1;
 beta2_t = 1;
 fprintf("Ready\n");
 for epoch=1:max_epoch
-    fprintf("Epoch %d/%d\n", epoch, max_epoch);
+    % fprintf("Epoch %d/%d\n", epoch, max_epoch);
     if (mod(epoch, 100)==0 && log_level==1)||log_level==2
         [loss, grad, err] = minuslogL_grad_hess_fun(par,B_train,N_filtered, ...
             n_PS_kernel,n_conn_kernel,raster,predjs_PS,predjs_conn,logfacts,reg); 

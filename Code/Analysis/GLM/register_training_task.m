@@ -25,7 +25,7 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast15';
+align = 'AlignLast10';
 
 
 tasks = cell(0, 1);
@@ -115,7 +115,7 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast15';
+align = 'AlignLast10';
 
 
 tasks = cell(0, 1);
@@ -201,7 +201,7 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast15';
+align = 'AlignLast10';
 
 tasks = cell(0, 1);
 task_idx = 0;
