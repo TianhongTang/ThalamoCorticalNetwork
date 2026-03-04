@@ -21,7 +21,7 @@ load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums', 'cortex_file
 
 % session_types = {'EmperorSal', 'EmperorMus'};
 
-mode = 'Full'; % Cortex: Pre and Post; Full: only Pre
+mode = 'Cortex'; % Cortex: Pre and Post; Full: only Pre
 
 kernel = 'DeltaPure';
 reg = 'L2=0_2';
@@ -43,7 +43,7 @@ elseif strcmp(mode, 'Test') %#ok<*UNRCH>
     prepost_types = {'Pre', 'Post'};
     area_type = 'Test';
 end
-align = 'AlignLast15';
+align = 'AlignLast10';
 
 for session_type_idx = 1:length(session_types)
     session_type = session_types{session_type_idx};
@@ -133,6 +133,13 @@ for session_type_idx = 1:length(session_types)
                 file_path = fullfile(folder_name, file_name);
                 load(file_path, 'model_par', 'model_err', 'N');
                 borders = [borders_raw, N+1]; % add end border
+
+                % skip nan sessions
+                if all(isnan(model_par(:)))
+                    fprintf('Warning: All NaN model parameters for %s, session %d, state %s, prepost %s. Skipping...\n', ...
+                        session_type, session_idx, state, prepost);
+                    continue;
+                end
 
                 for kernel_idx = 1:n_conn_kernel
                     % extract full J matrix

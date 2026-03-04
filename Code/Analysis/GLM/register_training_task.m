@@ -83,8 +83,8 @@ for dataset_idx = [1, 2, 3]
                     config.crossval_fold_num = 3;
                     reg = struct();
                     reg.l1 = 0;
-                    reg.l2 = 0.2;
-                    reg.name = 'L2=0_2';
+                    reg.l2 = 1;
+                    reg.name = 'L2=1';
                     config.reg = reg;
                     config.shuffle_size = 0;
                     task.config = config;
@@ -169,8 +169,8 @@ for dataset_idx = [4, 5, 6]
                     config.crossval_fold_num = 3;
                     reg = struct();
                     reg.l1 = 0;
-                    reg.l2 = 0.2;
-                    reg.name = 'L2=0_2';
+                    reg.l2 = 1;
+                    reg.name = 'L2=1';
                     config.reg = reg;
                     config.shuffle_size = 0;
                     task.config = config;
@@ -254,8 +254,8 @@ for dataset_idx = [7, 8, 9]
                     config.crossval_fold_num = 3;
                     reg = struct();
                     reg.l1 = 0;
-                    reg.l2 = 0.2;
-                    reg.name = 'L2=0_2';
+                    reg.l2 = 1;
+                    reg.name = 'L2=1';
                     config.reg = reg;
                     config.shuffle_size = 0;
                     task.config = config;

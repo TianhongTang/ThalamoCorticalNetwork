@@ -27,7 +27,6 @@ force_retrain = false;
 force_replot = false;
 debug = false;
 
-% training_tasks = {'Emperor'};
 training_tasks = {'Slayer', 'Zeppelin', 'Emperor'};
 
 % kernel = 'DeltaPure';
