@@ -168,9 +168,9 @@ if nargout > 2
         err_i_total = sqrt(diag_inv_hess_total); % (1 + n_PS + (N-1)*n_conn)
         
         for k = 1:n_conn_kernel
-            % put back zero to self-connections
-            err_i = [err_i(1:(1+n_PS_kernel+(k-1)*N+i-1)); 0; err_i((1+n_PS_kernel+(k-1)*N+i):end)]; % (1 + n_PS + N*n_conn)
-            err_i_total = [err_i_total(1:(1+n_PS_kernel+(k-1)*N+i-1)); 0; err_i_total((1+n_PS_kernel+(k-1)*N+i):end)]; % (1 + n_PS + N*n_conn)
+            % put back Inf to self-connections
+            err_i = [err_i(1:(1+n_PS_kernel+(k-1)*N+i-1)); Inf; err_i((1+n_PS_kernel+(k-1)*N+i):end)]; % (1 + n_PS + N*n_conn)
+            err_i_total = [err_i_total(1:(1+n_PS_kernel+(k-1)*N+i-1)); Inf; err_i_total((1+n_PS_kernel+(k-1)*N+i):end)]; % (1 + n_PS + N*n_conn)
         end
         err.minuslogL(i, :) = err_i;
         err.total(i, :) = err_i_total;

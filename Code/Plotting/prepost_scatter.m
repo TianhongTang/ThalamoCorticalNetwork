@@ -38,6 +38,7 @@ for control_idx = 1:length(controls)
         total_count = zeros(8, 2); % (tile, x/y)
         total_max_count = zeros(8); % (tile)
         total_disagreement = zeros(8, 2); % (tile, n01/n10)
+        total_data = cell(8, 2); % (tile, x/y)
 
         for session_type_idx = 1:session_type_num
             session_type = session_types{session_type_idx};

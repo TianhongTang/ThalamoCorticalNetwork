@@ -25,7 +25,7 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast10';
+align = 'AlignLast15';
 
 
 tasks = cell(0, 1);
@@ -83,8 +83,8 @@ for dataset_idx = [1, 2, 3]
                     config.crossval_fold_num = 3;
                     reg = struct();
                     reg.l1 = 0;
-                    reg.l2 = 1;
-                    reg.name = 'L2=1';
+                    reg.l2 = 0.2;
+                    reg.name = 'L2=0_2';
                     config.reg = reg;
                     config.shuffle_size = 0;
                     task.config = config;
@@ -115,7 +115,7 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast10';
+align = 'AlignLast15';
 
 
 tasks = cell(0, 1);
@@ -169,8 +169,8 @@ for dataset_idx = [4, 5, 6]
                     config.crossval_fold_num = 3;
                     reg = struct();
                     reg.l1 = 0;
-                    reg.l2 = 1;
-                    reg.name = 'L2=1';
+                    reg.l2 = 0.2;
+                    reg.name = 'L2=0_2';
                     config.reg = reg;
                     config.shuffle_size = 0;
                     task.config = config;
@@ -201,7 +201,7 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast10';
+align = 'AlignLast15';
 
 tasks = cell(0, 1);
 task_idx = 0;
@@ -254,8 +254,8 @@ for dataset_idx = [7, 8, 9]
                     config.crossval_fold_num = 3;
                     reg = struct();
                     reg.l1 = 0;
-                    reg.l2 = 1;
-                    reg.name = 'L2=1';
+                    reg.l2 = 0.2;
+                    reg.name = 'L2=0_2';
                     config.reg = reg;
                     config.shuffle_size = 0;
                     task.config = config;

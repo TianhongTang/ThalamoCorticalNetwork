@@ -18,10 +18,10 @@ addpath(fullfile(root, 'Code', 'Utils'));
 % session_types = {'Muscimol', 'Saline', 'Simulated'};
 % session_types = {'Muscimol', 'Saline'};
 % session_types = {'EmperorMus', 'EmperorSal'};
-% animal_names = {'Slayer', 'Emperor', 'Zeppelin'};
-animal_names = {'Slayer', 'Emperor'};
+animal_names = {'Slayer', 'Emperor', 'Zeppelin'};
+% animal_names = {'Slayer', 'Emperor'};
 control_names = {'Sal', 'Mus'};
-session_types = {'SlayerSal', 'SlayerMus', 'EmperorSal', 'EmperorMus'};
+session_types = {'SlayerSal', 'SlayerMus', 'EmperorSal', 'EmperorMus', 'ZeppelinSal', 'ZeppelinMus'};
 % session_types = {'Test'};
 animal_num = numel(animal_names);
 control_num = numel(control_names);
@@ -81,15 +81,19 @@ for animal_idx = 1:animal_num
 
                     % compute significant connection counts
                     if strcmp(area_type, 'Within Area')
-                        counts = squeeze(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
-                        max_counts = squeeze(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                        counts = permute(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5])...
+                        +permute(J_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5]); % (session, state, prepost)
+                        max_counts = permute(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5])...
+                        +permute(max_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5]); % (session, state, prepost)
                     elseif strcmp(area_type, 'Across Area')
-                        counts = squeeze(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
-                        max_counts = squeeze(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                        counts = permute(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5])...
+                        +permute(J_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5]); % (session, state, prepost)
+                        max_counts = permute(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5])...
+                        +permute(max_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5]); % (session, state, prepost)
                     end
                     
-                    counts = squeeze(sum(counts, 1)); % (state, prepost)
-                    max_counts = squeeze(sum(max_counts, 1)); % (state, prepost)
+                    counts = permute(sum(counts, 1), [2,3,1]); % (state, prepost)
+                    max_counts = permute(sum(max_counts, 1), [2,3,1]); % (state, prepost)
                     counts = counts(selected_state_idx, :);
                     max_counts = max_counts(selected_state_idx, :);
 
@@ -108,8 +112,15 @@ for animal_idx = 1:animal_num
                         trials_pre = max_counts(state_idx, 1);
                         successes_post = counts(state_idx, 2);
                         trials_post = max_counts(state_idx, 2);
+                        if trials_post == 0 || trials_pre == 0
+                            ratio_val = 0;
+                            ci_low = 0;
+                            ci_high = 0;
+                            p_val = 1;
+                        else
+                            [ratio_val, ci_high, ci_low, p_val] = ratio_of_proportions(successes_post, trials_post, successes_pre, trials_pre);
+                        end
 
-                        [ratio_val, ci_high, ci_low, p_val] = ratio_of_proportions(successes_post, trials_post, successes_pre, trials_pre);
                         ratios(state_idx) = ratio_val;
                         ratio_ci(state_idx, :) = [ci_low, ci_high];
                         p_vals(state_idx) = p_val;
@@ -206,15 +217,19 @@ for animal_idx = 1:animal_num
                     % counts = squeeze(J_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
                     % max_counts = squeeze(max_count(area_type_idx, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
                     if strcmp(area_type, 'Within Area')
-                        counts = squeeze(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
-                        max_counts = squeeze(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                        counts = permute(J_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5])...
+                        +permute(J_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5]); % (session, state, prepost)
+                        max_counts = permute(max_count_by_area(1, 1, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5])...
+                        +permute(max_count_by_area(2, 2, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5]); % (session, state, prepost)
                     elseif strcmp(area_type, 'Across Area')
-                        counts = squeeze(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(J_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
-                        max_counts = squeeze(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :))+squeeze(max_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :)); % (session, state, prepost)
+                        counts = permute(J_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5])...
+                        +permute(J_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5]); % (session, state, prepost)
+                        max_counts = permute(max_count_by_area(1, 2, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5])...
+                        +permute(max_count_by_area(2, 1, :, posneg_idx, kernel_idx, :, :), [3,6,7,1,2,4,5]); % (session, state, prepost)
                     end
                     
-                    counts = squeeze(sum(counts, 1)); % (state, prepost)
-                    max_counts = squeeze(sum(max_counts, 1)); % (state, prepost)
+                    counts = permute(sum(counts, 1), [2, 3, 1]); % (state, prepost)
+                    max_counts = permute(sum(max_counts, 1), [2, 3, 1]); % (state, prepost)
                     counts = counts(selected_state_idx, :);
                     max_counts = max_counts(selected_state_idx, :);
                     ratio = counts ./ max_counts; % (state, prepost)
@@ -228,8 +243,8 @@ for animal_idx = 1:animal_num
                             CI(2, state_idx, prepost_idx) = p_high;
                         end
                     end
-                    CI_low = squeeze(CI(1, :, :)) * 100; % lower CI bound (% units)
-                    CI_high = squeeze(CI(2, :, :)) * 100; % upper CI bound (% units)
+                    CI_low = permute(CI(1, :, :), [2, 3, 1]) * 100; % lower CI bound (% units)
+                    CI_high = permute(CI(2, :, :), [2, 3, 1]) * 100; % upper CI bound (% units)
 
                     % save plotted data for saline correction
                     counts_control(area_type_idx, posneg_idx, kernel_idx, :, :) = counts;

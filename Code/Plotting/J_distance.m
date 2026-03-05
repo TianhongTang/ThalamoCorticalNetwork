@@ -160,7 +160,7 @@ for training_idx = 1:length(training_tasks)
         end
         % all sessions scatter
         f = figure('Position', [100, 100, 1200, 800], 'Visible', 'off');
-        scatter(dist_areas{area_idx}, J_areas{area_idx}, 3, 'filled', 'MarkerFaceAlpha', 0.5);
+        scatter(all_dist, all_J, 3, 'filled', 'MarkerFaceAlpha', 0.5);
         xlabel('Channel Distance');
         ylabel('J Value');
         title(sprintf('%s - All Sessions', training_task));

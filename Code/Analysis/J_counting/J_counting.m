@@ -158,6 +158,12 @@ for session_type_idx = 1:length(session_types)
                             % count significant positive and negative connections
                             pos_mat = data_mat > filter_threshold * error_mat;
                             neg_mat = data_mat < -filter_threshold * error_mat;
+                            if i == j
+                                % exclude self-connections on diagonal
+                                pos_mat = pos_mat & ~eye(i_num);
+                                neg_mat = neg_mat & ~eye(i_num);
+                            end
+                            
                             pos_count = sum(pos_mat, "all");
                             neg_count = sum(neg_mat, "all");
                             J_count_by_area(i, j, session_idx, 1, kernel_idx, state_idx, prepost_idx) = pos_count;
@@ -173,6 +179,14 @@ for session_type_idx = 1:length(session_types)
                                     max_count(1, session_idx, 1, kernel_idx, state_idx, prepost_idx) + i_num * (i_num - 1);
                                 max_count(1, session_idx, 2, kernel_idx, state_idx, prepost_idx) = ...
                                     max_count(1, session_idx, 2, kernel_idx, state_idx, prepost_idx) + i_num * (i_num - 1);
+
+                                if i_num * (i_num - 1) < pos_count + neg_count
+                                    fprintf('Warning: pos_count + neg_count exceeds maximum possible connections for area %d, session %d, state %s, prepost %s. Check filtering threshold or model parameters.\n', ...
+                                        i, session_idx, state, prepost);
+                                    fprintf('i_num: %d, pos_count: %d, neg_count: %d\n', i_num, pos_count, neg_count);
+                                    fprintf('pos_count: %d, neg_count: %d, max_count: %d\n', pos_count, neg_count, i_num * (i_num - 1));
+                                    disp(data_mat);
+                                end
                             else
                                 max_count_by_area(i, j, session_idx, 1, kernel_idx, state_idx, prepost_idx) = i_num * j_num;
                                 max_count_by_area(i, j, session_idx, 2, kernel_idx, state_idx, prepost_idx) = i_num * j_num;
@@ -184,6 +198,14 @@ for session_type_idx = 1:length(session_types)
                                     max_count(2, session_idx, 1, kernel_idx, state_idx, prepost_idx) + i_num * j_num;
                                 max_count(2, session_idx, 2, kernel_idx, state_idx, prepost_idx) = ...
                                     max_count(2, session_idx, 2, kernel_idx, state_idx, prepost_idx) + i_num * j_num;
+
+                                if i_num * j_num < pos_count + neg_count
+                                    fprintf('Warning: pos_count + neg_count exceeds maximum possible connections for area %d-%d, session %d, state %s, prepost %s. Check filtering threshold or model parameters.\n', ...
+                                        i, j, session_idx, state, prepost);
+                                    fprintf('i_num: %d, j_num: %d, pos_count: %d, neg_count: %d\n', i_num, j_num, pos_count, neg_count);
+                                    fprintf('pos_count: %d, neg_count: %d, max_count: %d\n', pos_count, neg_count, i_num * j_num);
+                                    disp(data_mat);
+                                end
                             end
 
                             % record disagreement for McNemar's test

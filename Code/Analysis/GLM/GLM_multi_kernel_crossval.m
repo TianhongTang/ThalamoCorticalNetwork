@@ -101,6 +101,15 @@ predjs_conn_test = predjs_conn_test(raster_filter, :, :);
 % Initial condition (can be better):
 par0=randn(N_filtered, 1 + n_PS_kernel + N_filtered*n_conn_kernel)*0.01; 
 
+% self connection filter
+self_filter = false(N_filtered, 1 + n_PS_kernel + N_filtered*n_conn_kernel);
+for i=1:N_filtered
+    for k=1:n_conn_kernel
+        self_filter(i, i + 1 + n_PS_kernel + (k-1)*N_filtered)=true;
+    end
+end
+par0(self_filter) = 0;
+
 % Adam solver
 beta1 = 0.9;
 beta2 = 0.999;
