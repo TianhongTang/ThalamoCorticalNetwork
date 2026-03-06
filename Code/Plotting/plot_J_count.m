@@ -43,8 +43,8 @@ end
 for animal_idx = 1:animal_num
     saline_data = NaN;
     muscimol_data = NaN;
+    animal_name = animal_names{animal_idx};
     for control_idx = 1:control_num
-        animal_name = animal_names{animal_idx};
         control_name = control_names{control_idx};
         session_type = sprintf('%s%s', animal_name, control_name);
 
@@ -381,11 +381,11 @@ for animal_idx = 1:animal_num
     save(save_path, 'saline_data', 'muscimol_data');
 
     %% Saline correction
-    f = figure('Position', [100, 100, 800, 800], 'Visible', 'off');
-    t = tiledlayout(4, 3, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+    f = figure('Position', [100, 100, 1200, 800], 'Visible', 'off');
+    t = tiledlayout(4, 6, 'TileSpacing', 'Compact', 'Padding', 'Compact');
     set(f, 'PaperUnits', 'inches');
-    set(f, 'PaperPosition', [0 0 12 12]);
-    set(f, 'PaperSize', [12 12]);
+    set(f, 'PaperPosition', [0 0 18 12]);
+    set(f, 'PaperSize', [18 12]);
 
     area_types = {'Within Area', 'Across Area'};
     posneg_types = {'Positive', 'Negative'};
@@ -399,29 +399,57 @@ for animal_idx = 1:animal_num
 
                 counts_sal = saline_data.counts(area_type_idx, posneg_idx, kernel_idx, :, :);
                 max_counts_sal = saline_data.max_counts(area_type_idx, posneg_idx, kernel_idx, :, :);
-                CI_sal = saline_data.CI(area_type_idx, posneg_idx, kernel_idx, :, :, :);
+                % CI_sal = saline_data.CI(area_type_idx, posneg_idx, kernel_idx, :, :, :);
                 counts_sal = permute(counts_sal, [4, 5, 1, 2, 3]);
                 max_counts_sal = permute(max_counts_sal, [4, 5, 1, 2, 3]);
-                CI_sal = permute(CI_sal, [4, 5, 6, 1, 2, 3]);
+                % CI_sal = permute(CI_sal, [4, 5, 6, 1, 2, 3]);
                 ratio_sal = counts_sal ./ max_counts_sal; % (state, prepost)
 
                 counts_mus = muscimol_data.counts(area_type_idx, posneg_idx, kernel_idx, :, :);
                 max_counts_mus = muscimol_data.max_counts(area_type_idx, posneg_idx, kernel_idx, :, :);
-                CI_mus = muscimol_data.CI(area_type_idx, posneg_idx, kernel_idx, :, :, :);
+                % CI_mus = muscimol_data.CI(area_type_idx, posneg_idx, kernel_idx, :, :, :);
                 counts_mus = permute(counts_mus, [4, 5, 1, 2, 3]);
                 max_counts_mus = permute(max_counts_mus, [4, 5, 1, 2, 3]);
-                CI_mus = permute(CI_mus, [4, 5, 6, 1, 2, 3]);
+                % CI_mus = permute(CI_mus, [4, 5, 6, 1, 2, 3]);
                 ratio_mus = counts_mus ./ max_counts_mus; % (state, prepost)
 
+                CI_mus = zeros(2, 2);
+                CI_sal = zeros(2, 2);
+                for state_idx = 1:size(ratio_sal, 1)
+                    mus_count_pre = counts_mus(state_idx, 1);
+                    mus_count_post = counts_mus(state_idx, 2);
+                    mus_max_count_pre = max_counts_mus(state_idx, 1);
+                    mus_max_count_post = max_counts_mus(state_idx, 2);
+
+                    [ratio_val, ci_high, ci_low, p_val] = ratio_of_proportions(mus_count_post, mus_max_count_post, mus_count_pre, mus_max_count_pre);
+                    CI_mus(:, state_idx) = [ci_low; ci_high];
+
+                    sal_count_pre = counts_sal(state_idx, 1);
+                    sal_count_post = counts_sal(state_idx, 2);
+                    sal_max_count_pre = max_counts_sal(state_idx, 1);
+                    sal_max_count_post = max_counts_sal(state_idx, 2);
+                    [ratio_val, ci_high, ci_low, p_val] = ratio_of_proportions(sal_count_post, sal_max_count_post, sal_count_pre, sal_max_count_pre);
+                    CI_sal(:, state_idx) = [ci_low; ci_high];
+                end
+
                 % calculate saline-corrected ratios
-                effect_sal = ratio_sal(:, 2)/ratio_sal(:, 1); % Post relative to Pre. size: (state)
+                effect_sal = ratio_sal(:, 2)./ratio_sal(:, 1); % Post relative to Pre. size: (state)
                 effect_mus = ratio_mus(:, 2)./ratio_mus(:, 1); % Post relative to Pre. size: (state)
                 effect_corrected = effect_mus - effect_sal; % saline-corrected effect size. size: (state)
+                CI_corrected = sqrt(CI_mus.^2 + CI_sal.^2); % simplified error propagation for subtraction
 
                 all_effects = [effect_mus, effect_sal, effect_corrected];
+                all_CI = cat(3, CI_mus, CI_sal, CI_corrected);
+                disp(size(all_effects));
+                disp(size(all_CI));
 
                 % bar plot of ratios, with error bars
-                bar_data = all_effects;
+                bar_data = all_effects(:, 1:2);
+                CI_low = permute(all_CI(1, :, 1:2), [2, 3, 1]);
+                CI_high = permute(all_CI(2, :, 1:2), [2, 3, 1]);
+                lower_err = bar_data - CI_low;
+                upper_err = CI_high - bar_data;
+
                 b = bar(bar_data, 'FaceColor', 'flat');
                 set(b, 'BarWidth', 0.6);
                 % set(b, 'BarWidth', 0.6, 'FaceColor', [0.7, 0.7, 0.7]);
@@ -431,11 +459,12 @@ for animal_idx = 1:animal_num
                 x_points = zeros(size(bar_data));
                 colors = [1, 0.3, 1;  % magenta for muscimol
                           0.4, 0.4, 0.4;  % gray for saline
-                          0.2, 0.2, 0.9]; % blue for corrected
-                for effect_idx = 1:size(bar_data, 2)
+                          0.3, 0.1, 0.8]; % blue for corrected
+                for effect_idx = 1:2
                     x = b(effect_idx).XEndPoints;
+                    % b(effect_idx).CData = colors(effect_idx, :);
                     b(effect_idx).FaceColor = colors(effect_idx, :);
-                    % errorbar(x, bar_data(:, effect_idx), lower_err(:, effect_idx), upper_err(:, effect_idx), 'k', 'LineStyle', 'none', 'LineWidth', 1);
+                    errorbar(x, bar_data(:, effect_idx), lower_err(:, effect_idx), upper_err(:, effect_idx), 'k', 'LineStyle', 'none', 'LineWidth', 1);
                     x_points(:, effect_idx) = x;
                 end
 
@@ -462,7 +491,7 @@ for animal_idx = 1:animal_num
                 %     end
                 % end
 
-                max_y = max(bar_data + upper_err, [], 'all');
+                max_y = max(bar_data, [], 'all');
 
                 % if size(bar_data, 1) == 2
                 %     % statistical comparison between the two states (e.g., Task vs RestClose)
@@ -506,8 +535,9 @@ for animal_idx = 1:animal_num
                 % xlabel('State');
                 ylabel('Post / Pre ratio');
                 title(sprintf('%s - %s - Kernel %d', area_type, posneg, kernel_idx));
-                legend({'Muscimol', 'Saline', 'Corrected'}, 'Location', 'Best');
-                y_limits = bar_data + upper_err;
+                % legend({'Muscimol', 'Saline', 'Corrected'}, 'Location', 'Best');
+                legend({'Muscimol', 'Saline'}, 'Location', 'Best');
+                y_limits = bar_data;
                 y_limits = y_limits(isfinite(y_limits));
                 if isempty(y_limits)
                     y_limits = bar_data(isfinite(bar_data));
@@ -515,7 +545,7 @@ for animal_idx = 1:animal_num
                 if isempty(y_limits)
                     y_limits = 0;
                 end
-                ylim([0, max(30, max(y_limits) + 5)]);
+                ylim([0, max(y_limits) + 5]);
 
                 % % text annotations for counts and ratios
                 % current_x_lim = xlim;
@@ -527,9 +557,136 @@ for animal_idx = 1:animal_num
                 % text(text_x, text_y_start - text_y_step, sprintf('Post Open: %.2f%% (%d / %d)', ratio(1, 2)*100, counts(1, 2), max_counts(1, 2)));
                 % text(text_x, text_y_start - 2*text_y_step, sprintf('Pre Close: %.2f%% (%d / %d)', ratio(2, 1)*100, counts(2, 1), max_counts(2, 1)));
                 % text(text_x, text_y_start - 3*text_y_step, sprintf('Post Close: %.2f%% (%d / %d)', ratio(2, 2)*100, counts(2, 2), max_counts(2, 2)));
+                            
+                % Corrected idx plot
+                nexttile;
+
+                % bar plot of ratios, with error bars
+                bar_data = all_effects(:, 3);
+                CI_low = permute(all_CI(1, :, 3), [2, 1, 3]);
+                CI_high = permute(all_CI(2, :, 3), [2, 1, 3]);
+                lower_err = bar_data - CI_low;
+                upper_err = CI_high - bar_data;
+
+                b = bar(bar_data, 'FaceColor', 'flat');
+                set(b, 'BarWidth', 0.6);
+                % set(b, 'BarWidth', 0.6, 'FaceColor', [0.7, 0.7, 0.7]);
+                hold on;
+                % lower_err = bar_data - CI_low;
+                % upper_err = CI_high - bar_data;
+                x_points = zeros(size(bar_data));
+                % colors = [1, 0.3, 1;  % magenta for muscimol
+                %           0.4, 0.4, 0.4;  % gray for saline
+                %           0.3, 0.1, 0.8]; % blue for corrected
+                for effect_idx = 1:2
+                    x = b.XEndPoints;
+                    % b(effect_idx).CData = colors(effect_idx, :);
+                    % b(effect_idx).FaceColor = colors(effect_idx, :);
+                    fprintf('x size: %d, bar_data size: %d\n', length(x), length(bar_data));
+
+                    % errorbar(x, bar_data, lower_err, upper_err, 'k', 'LineStyle', 'none', 'LineWidth', 1);
+                    x_points(:, effect_idx) = x;
+                end
+
+                % % significance annotations for pre vs post using two-proportion z-test
+                % for state_idx = 1:size(bar_data, 1)
+                %     success_pre = counts(state_idx, 1);
+                %     trials_pre = max_counts(state_idx, 1);
+                %     success_post = counts(state_idx, 2);
+                %     trials_post = max_counts(state_idx, 2);
+                %     p_val = twoProportionPValue(success_pre, trials_pre, success_post, trials_post);
+                %     stars = significanceStars(p_val);
+                %     if ~isempty(stars)
+                %         x_mid = mean(x_points(state_idx, :));
+                %         y_candidates = bar_data(state_idx, :) + upper_err(state_idx, :);
+                %         y_candidates = y_candidates(isfinite(y_candidates));
+                %         if isempty(y_candidates)
+                %             y_candidates = bar_data(state_idx, isfinite(bar_data(state_idx, :)));
+                %         end
+                %         if isempty(y_candidates)
+                %             y_candidates = 0;
+                %         end
+                %         star_y = max(y_candidates) + 1;
+                %         text(x_mid, star_y, stars, 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', 'k');
+                %     end
+                % end
+
+                max_y = max(bar_data, [], 'all');
+
+                % if size(bar_data, 1) == 2
+                %     % statistical comparison between the two states (e.g., Task vs RestClose)
+                %     success_state1_pre = counts(1, 1);
+                %     trials_state1_pre = max_counts(1, 1);
+                %     success_state1_post = counts(1, 2);
+                %     trials_state1_post = max_counts(1, 2);
+                %     success_state2_pre = counts(2, 1);
+                %     trials_state2_pre = max_counts(2, 1);
+                %     success_state2_post = counts(2, 2);
+                %     trials_state2_post = max_counts(2, 2);
+                %     % Pre comparison
+                %     p_val_pre = twoProportionPValue(success_state1_pre, trials_state1_pre, success_state2_pre, trials_state2_pre);
+                %     stars_pre = significanceStars(p_val_pre);
+                %     if ~isempty(stars_pre)
+                %         y_line = max_y + 3;
+                %         x1 = x_points(1, 1);
+                %         x2 = x_points(2, 1);
+                %         plot([x1, x2], [y_line, y_line], 'k-', 'LineWidth', 1);
+                %         text(mean([x1, x2]), y_line + 1, ['Pre ', stars_pre], 'HorizontalAlignment', 'center', 'FontWeight', 'bold');
+                %         max_y = max(max_y, y_line + 1);
+                %     end
+                %     % Post comparison
+                %     p_val_post = twoProportionPValue(success_state1_post, trials_state1_post, success_state2_post, trials_state2_post);
+                %     stars_post = significanceStars(p_val_post);
+                %     if ~isempty(stars_post)
+                %         y_line = max_y + 3;
+                %         x1 = x_points(1, 2);
+                %         x2 = x_points(2, 2);
+                %         plot([x1, x2], [y_line, y_line], 'k-', 'LineWidth', 1);
+                %         text(mean([x1, x2]), y_line + 1, ['Post ', stars_post], 'HorizontalAlignment', 'center', 'FontWeight', 'bold');
+                %         max_y = max(max_y, y_line + 1);
+                %     end
+                % end
+
+                % yline(1, 'k--', 'LineWidth', 1, 'HandleVisibility', 'off');
+
+                hold off;
+                xticks(1:length(selected_state_idx));
+                xticklabels(state_names(selected_state_idx));
+                % xlabel('State');
+                ylabel('Corrected Post / Pre ratio');
+                title(sprintf('Saline Corrected'));
+                % legend({'Muscimol', 'Saline', 'Corrected'}, 'Location', 'Best');
+                % legend({'Muscimol', 'Saline'}, 'Location', 'Best');
+                y_limits = bar_data;
+                y_limits = y_limits(isfinite(y_limits));
+                if isempty(y_limits)
+                    y_limits = bar_data(isfinite(bar_data));
+                end
+                if isempty(y_limits)
+                    y_limits = 0;
+                end
+                ylim([-(max(y_limits)*1.3), max(y_limits)*1.3]);
+
+                % % text annotations for counts and ratios
+                % current_x_lim = xlim;
+                % current_y_lim = ylim;
+                % text_x = current_x_lim(1) + 0.05 * range(current_x_lim);
+                % text_y_start = current_y_lim(1) + 0.95 * range(current_y_lim);
+                % text_y_step = 0.05 * range(current_y_lim);
+                % text(text_x, text_y_start, sprintf('Pre Open: %.2f%% (%d / %d)', ratio(1, 1)*100, counts(1, 1), max_counts(1, 1)));
+                % text(text_x, text_y_start - text_y_step, sprintf('Post Open: %.2f%% (%d / %d)', ratio(1, 2)*100, counts(1, 2), max_counts(1, 2)));
+                % text(text_x, text_y_start - 2*text_y_step, sprintf('Pre Close: %.2f%% (%d / %d)', ratio(2, 1)*100, counts(2, 1), max_counts(2, 1)));
+                % text(text_x, text_y_start - 3*text_y_step, sprintf('Post Close: %.2f%% (%d / %d)', ratio(2, 2)*100, counts(2, 2), max_counts(2, 2)));
+            
             end
         end
     end
+
+    save_folder = fullfile(root, 'Figures', 'J_count');
+    check_path(save_folder);
+    figure_name = sprintf('J_count_ratio_corrected_%s.png', animal_name);
+    figure_path = fullfile(save_folder, figure_name);  
+    saveas(f, figure_path);
 
 end
 

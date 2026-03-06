@@ -43,7 +43,7 @@ elseif strcmp(mode, 'Test') %#ok<*UNRCH>
     prepost_types = {'Pre', 'Post'};
     area_type = 'Test';
 end
-align = 'AlignLast10';
+align = 'AlignLast15';
 
 for session_type_idx = 1:length(session_types)
     session_type = session_types{session_type_idx};
