@@ -1,33 +1,51 @@
 # ThalamoCorticalNetwork
 
-
-### Working data structures
-
-#### raster: Rasterized spike data.
-Parameters: 
-    'session' [struct]
-        Specifies cell group. Cells in the same session should be the same.
-
-        'animal_name'
-        'session_name'
-        'session_idx'
-        'date': Experiment date. Format: 'MMDDYYYY'. 
-        'injection'
+## Abstract
 
 
-    'state' [struct]
-        Specifies state in a session (pre/post injection, resting/task, alignment...). 
+## Data File Structure
 
-        'prepost': 
 
-Data fields:
-    'meta': Meta data.
-        'N': Neuron number.
-        'trial_num': Trial number.
+### General File Format
 
-    'rasters' [cell] (1, trial_num) 
-        Cell array of rasters. Each cell is a (N, trial_len) binary matrix. The matrix is rasterized spikes in one trial. Time step = 1ms.
-    
-    'firing_rates': Firing rate of each trial. Unit: Hz.
-        size: (N, trial_num)
-    
+Each data file, except `metadata.mat`, is stored as a `[datatype]_##.mat` file containing two structs named `meta` and `data`. The file name consists of the type of the data followed by identification index constructed from its meta data.
+
+| Field | Description |
+|------|------|
+| meta | Meta data of the data. Also storaged in `metadata.mat`|
+| data | Large variables containing the data. |
+
+
+### Meta data file: `metadata.mat`
+Each field is a struct array for a data type. The field name is the type of the data. The struct array contains all meta data in the `.meta` field and the full file path of the data file.
+
+| Field | Description |
+|------|------|
+| raster | |
+|  |  |
+
+### Raster file: `raster_##.mat`
+
+#### meta
+
+| Field | Type | Description |
+|------|------|-------------|
+| animal_name | string | Animal identifier. |
+| session_name | string | Session name. |
+| session_idx | int | Session index. |
+| date | string | Recording date. Format: `MMDDYYYY`. |
+| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| prepost | string | Pre-injection(`pre`) or Post-injection(`post`). |
+| N | int | Number of neurons |
+| timestep | int | Time bin size |
+| bin_size | float | Time bin size in ms |
+|  |  |  |
+
+#### data
+
+| Field | Type | Shape | Description |
+|------|------|------|-------------|
+| rasters | cell | `{1, trial_num}` | Raster matrices. Each cell contains a (N, trial_len) binary matrix. |
+| trial_len | int | `(1, trial_num)` | Time bin number of each trial. |
+|  |  |  |
+|  |  |  |
