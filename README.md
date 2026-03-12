@@ -1,4 +1,7 @@
+[TOC] 
+
 # ThalamoCorticalNetwork
+
 
 ## Abstract
 
@@ -138,7 +141,135 @@ Extracted spike data from the array dataset.
 
 
 <!--------------------------------->
-### file: `_##.mat`
+### `shuffled_##.mat` - Shuffled raster file
+
+#### meta
+
+| Field | Type | Description |
+|------|------|-------------|
+| animal_name | string | Animal name. |
+| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| prepost | string | Pre-injection `pre` or Post-injection `post`. |
+| state | string | State identifier. |
+| area | string | Dataset brain area identifier. Merged area type `Full/Cortex` |
+| align | string | Alignment type. For aligned data only. |
+| session_idx | int | Session index. |
+| shuffle_mode | string | Shuffle mode. `None`: No shuffling. `Within trial`: Shuffle time bins within each trial. `Across trial`: Shuffle time bins in all trials. |
+| shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
+| kernel | string | GLM model kernel name. |
+| shuffle_seed | int | Random seed used in shuffling. |
+| file_name | string | File name. |
+| N | int | Number of neurons. |
+| trial_num | int | Number of trials. |
+
+#### data
+
+| Field | Type | Shape | Description |
+|------|------|------|-------------|
+| rasters | cell(int) | `{trial_num}(N, trial_len)` | Shuffled raster matrices. Each cell contains a binary matrix indicating whether the neuron fired a spike within a time bin. |
+| trial_len | int | `(trial_num)` | Time bin number for each trial. |
+| firing_rates | cell(double) | `{trial_num}(N)` | Mean firing rate for each trial. Each cell contains firing rates of neurons in Hz.|
+
+<!--------------------------------->
+### `crossval_##.mat` - Splitted raster groups for cross validation
+Rasters are splitted and assigned to folds for cross validation. For task sessions, each trial is assigned to a fold. For resting sessions, rasters are splitted into equal-length segments. Each segment is assigned to a splitted fold. Assignment details are stored in the field `data.assignments`.
+
+#### meta
+
+| Field | Type | Description |
+|------|------|-------------|
+| animal_name | string | Animal name. |
+| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| prepost | string | Pre-injection `pre` or Post-injection `post`. |
+| state | string | State identifier. |
+| area | string | Dataset brain area identifier. Merged area type `Full` or `Cortex` |
+| align | string | Alignment type. For aligned data only. |
+| session_idx | int | Session index. |
+| shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
+| file_name | string | File name. |
+| N | int | Number of neurons. |
+| fold_num | int | Number of splitted folds. |
+| assignment_num | int | Number of assignments. |
+|  |  |  |
+|  |  |  |
+
+#### data
+
+| Field | Type | Shape | Description |
+|------|------|------|-------------|
+| assignments | cell(struct) | {assignment_num} | Details of fold assignment. Fields: <br>`trial_index`: Index for the source trial. <br>`segment_index`: Index of the segment in the source trial. <br>`fold`: Fold index assigned to. <br> `length`: Segment length. |
+| fold_rasters | cell(cell)(int) | {fold_num}{segment_num}(N, fold_trial_len) | Raster segments. |
+| fold_trial_lens | cell(int) | {fold_num}(segment_num) | Duration of raster segments. |
+|  |  |  |  |
+
+
+<!--------------------------------->
+### `GLMdata_##.mat` - GLM training data
+Convolved and concatenated rasters.
+
+#### meta
+
+| Field | Type | Description |
+|------|------|-------------|
+| animal_name | string | Animal name. |
+| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| prepost | string | Pre-injection `pre` or Post-injection `post`. |
+| state | string | State identifier. |
+| area | string | Dataset brain area identifier. Merged area type `Full` or `Cortex` |
+| align | string | Alignment type. For aligned data only. |
+| session_idx | int | Session index. |
+| shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
+| kernel_name | string | Kernels used in GLM. |
+| file_name | string | File name. |
+| N | int | Number of neurons. |
+| fold_num | int | Number of cross validation folds. |
+
+#### data
+
+| Field | Type | Shape | Description |
+|------|------|------|-------------|
+| folds | cell(struct) | {fold_num} | Concatenated and convolved rasters of each cross validation fold. Fields: <br> `B`: `int`, Concatenated raster length. <br> `raster`: `int(N, B)`, Raster of the fold. <br> `predjs_conn`: `double(N, B, n_conn_kernel)`, raster convolved by connection kernels. <br> `predjs_PS`: `double(N, B, n_PS_kernel)`, raster convolved by post-spike kernels. |
+| kernel | struct | - | Kernel used in GLM. See `Kernel_##.mat`. |
+
+### `GLM_##.mat` - Trained GLM parameters
+
+#### meta
+
+| Field | Type | Description |
+|------|------|-------------|
+| animal_name | string | Animal name. |
+| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| prepost | string | Pre-injection `pre` or Post-injection `post`. |
+| state | string | State identifier. |
+| area | string | Dataset brain area identifier. Merged area type `Full` or `Cortex` |
+| align | string | Alignment type. For aligned data only. |
+| session_idx | int | Session index. |
+| shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
+| kernel_name | string | Kernels used in GLM. |
+| reg_name | struct | Regularization used in training. |
+| epoch | int | Epochs trained. |
+| fold_idx | int | Left out fold index. 0 is default for no cross validation models. |
+| file_name | string | File name. |
+| N | int | Number of neurons. |
+| fold_num | int | Number of cross validation folds. |
+| N | int | Number of neurons. |
+| N_filtered | int | Number of neurons after filtering out no-spike and ####(other criterions?)#### neurons. |
+
+#### data
+
+| Field | Type | Shape | Description |
+|------|------|------|-------------|
+| model_par |  |  |  |
+| model_err |  |  |  |
+| train_loss |  |  |  |
+| test_loss |  |  |  |
+| filter |  |  |  |
+| reg |  |  |  |
+| kernel |  |  |  |
+|  |  |  |  |
+
+
+### `_##.mat` - file
 
 #### meta
 
@@ -157,7 +288,26 @@ Extracted spike data from the array dataset.
 |  |  |  |  |
 
 
-### file: `_##.mat`
+### `_##.mat` - file
+
+#### meta
+
+| Field | Type | Description |
+|------|------|-------------|
+|  |  |  |
+|  |  |  |
+
+#### data
+
+| Field | Type | Shape | Description |
+|------|------|------|-------------|
+|  |  |  |  |
+|  |  |  |  |
+|  |  |  |  |
+|  |  |  |  |
+
+
+### `_##.mat` - file
 
 #### meta
 
