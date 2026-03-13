@@ -6,7 +6,10 @@
 ## Abstract
 
 
-## Data File Structure
+## Code Structure
+
+
+## Data Structure
 
 
 ### General File Format
@@ -259,17 +262,16 @@ Convolved and concatenated rasters.
 
 | Field | Type | Shape | Description |
 |------|------|------|-------------|
-| model_par |  |  |  |
-| model_err |  |  |  |
-| train_loss |  |  |  |
-| test_loss |  |  |  |
-| filter |  |  |  |
-| reg |  |  |  |
-| kernel |  |  |  |
-|  |  |  |  |
+| model_par | double | `(N, 1 + n_PS_kernel + N*n_conn_kernel)` | All parameters of the GLM. Consists of three parts: <br> First column: `h_i`, baseline activity of neuron i. <br> Next `n_PS_kernel` columns: `P_ik`, k-th post-spike kernel weight of neuron i. <br> Next `N*n_conn_kernel` columns: `J_ijk`, k-th connection kernel weight from neuron j to neuron i.|
+| model_err | struct | - | Standard error of `model_par`. Computed by the square root of inverse hessian. Fields: <br> `minuslogL`: Ignore regularization. <br> `total`: Include regularization. |
+| train_loss | struct | - | Training loss of the last epoch. Fields: `minuslogL`, `rag`, `total`. |
+| test_loss | struct | - | Testing loss of the last epoch. Fields: `minuslogL`, `rag`, `total`. |
+| filter | int | (N) | Binary filter for valid neurons. |
+| reg | struct | - | Regularization. Fields: <br> `name`: Regularization name. <br> `l1`: L1 regularization. <br> `l2`: L2 regularization. |
+| kernel | struct | - | Kernels used in GLM. See `kernel_##.mat`. |
 
 
-### `_##.mat` - file
+### `kernel_##.mat` - GLM kernel
 
 #### meta
 
