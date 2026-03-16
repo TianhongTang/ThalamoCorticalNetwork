@@ -25,19 +25,30 @@ data_folders = data_folders([data_folders.isdir] & ~startsWith({data_folders.nam
 metadata = struct();
 for i = 1:numel(data_folders)
     data_folder_name = data_folders(i).name;
+    if strcmp(data_folder_name, 'Meta')
+        continue; % skip metadata folder
+    end
+
     fprintf('Processing data folder: %s\n', data_folder_name);
     folder_path = fullfile(data_folder, data_folder_name);
     all_files = dir(fullfile(folder_path, '*.mat'));
+
+    metadata_entry = struct();
     for file_idx = 1:numel(all_files)
         file_name = all_files(file_idx).name;
         file_path = fullfile(folder_path, file_name);
-        metadata_entry = struct();
-        metadata_entry.file_name = file_name;
-        metadata_entry.folder_name = data_folder_name;
-        metadata_entry.file_path = file_path;
-        metadata_entry.processed_time = datetime('now');
-        metadata.(sprintf('entry_%d', numel(fieldnames(metadata)) + 1)) = metadata_entry;
+        f = load(file_path);
+        if ~isfield(f, 'meta')
+            warning('File %s does not contain meta variable. Skipping.', file_path);
+            continue;
+        end
+        meta = f.meta;
+        for field_name = fieldnames(meta)'
+            fname = field_name{1};
+            metadata_entry(file_idx).(fname) = meta.(fname);
+        end
     end
+    metadata.(data_folder_name) = metadata_entry;
 end
 
 current_time = datetime('now', 'Format', 'yyyyMMdd_HHmmss');
