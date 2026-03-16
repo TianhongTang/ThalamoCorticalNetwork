@@ -14,12 +14,12 @@
 
 ### General File Format
 
-Each data file, except `metadata.mat`, is stored as a `[datatype]_##.mat` file containing two structs named `meta` and `data`. The file name consists of the type of the data followed by the identification index constructed from its meta data.
+Each data file, except `metadata.mat`, is stored in a `[datatype]_##.mat` file containing two structs named `meta` and `data`. The file name consists of the type of the data followed by the identification index constructed from its meta data.
 
 | Field | Description |
 |------|------|
-| meta | Meta data of the data. Also storaged in `metadata.mat`|
-| data | Large variables containing the data. |
+| meta | Identification and description data. Also storaged in `metadata.mat` |
+| data | Large data matrices and variables. |
 
 **Data shape notation**: All 1-dimentional data with shape `(data_len)` is stored as row vectors with shape `(1, data_len)`.
 
@@ -40,17 +40,17 @@ Each field is a struct array for a data type. The field name is the type of the 
 | Field | Type | Description |
 |------|------|-------------|
 | animal_name | string | Animal name. |
-| session_name | string | Session full name as identifier. |
-| session_idx | int | Session index. |
-| date | string | Recording date. Format: `MMDDYYYY`. |
 | injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
-| prepost | string | Pre-injection `pre` or Post-injection `post`. |
-| N | int | Neuron number. |
-| dt | double | Time bin size in seconds. |
+| prepost | string | Pre-injection `Pre` or Post-injection `Post`. |
+| state | string | State identifier. |
 | area | string | Dataset brain area identifier. Single area `ACC/VLPFC/Thalamus` or merged area type `Full/Cortex` |
 | align | string | Alignment type. For aligned data only. |
+| session_idx | int | Session index. |
+| session_name | string | Session full name as identifier. |
+| date | string | Recording date. Format: `MMDDYYYY`. |
+| N | int | Neuron number. |
+| dt | double | Time bin size in seconds. |
 | trial_num | int | Total trial number. |
-| state | string | State identifier. |
 | file_name | string | File name. |
 |  |  |  |
 

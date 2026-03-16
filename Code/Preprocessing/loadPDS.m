@@ -495,6 +495,48 @@ for dataset_idx = 1:dataset_num
                     %     trial_len = ones(1, n_trial) * B;% fix this
                     % end
 
+                    % construct data file
+                    meta = struct();
+                    data = struct();
+
+                    if contains(dataset_name, 'Slayer')
+                        meta.animal_name = 'Slayer';
+                    elseif contains(dataset_name, 'Zeppelin')
+                        meta.animal_name = 'Zeppelin';
+                    elseif contains(dataset_name, 'Emperor')
+                        meta.animal_name = 'Emperor';
+                    end
+                    if contains(dataset_name, 'Mus')
+                        meta.injection = 'Muscimol';
+                    elseif contains(dataset_name, 'Sal')
+                        meta.injection = 'Saline';
+                    elseif contains(dataset_name, 'Noinj')
+                        meta.injection = 'No injection';
+                    end
+                    meta.prepost     = subsession;
+                    meta.state       = state;
+                    meta.area        = area;
+                    meta.align       = 'None';
+                    meta.session_idx = session_idx;
+                    meta.file_name    = generate_filename('raster', meta);
+                    meta.date        = eyeID_file(1:8);
+                    meta.N           = N;
+                    meta.dt          = dt;
+                    meta.trial_num   = trial_num;
+
+                    cell_area = cell(1, N);
+                    for i=1:N
+                        cell_area{i} = area;
+                    end
+
+                    data.rasters      = rasters;
+                    data.trial_len    = trial_len;
+                    data.cell_id      = cell_id;
+                    data.cell_area    = cell_area;
+                    data.channel      = channel;
+                    data.cuetype      = cuetype;
+                    data.firing_rates = firing_rates;
+
                     % save
                     session_name_save = [dataset_name, subsession, state, area];
                     session_name_full = sprintf('%s_%d', session_name_save, session_idx);
@@ -504,9 +546,10 @@ for dataset_idx = 1:dataset_num
                     save_path = fullfile(save_folder, save_name);
                     fprintf('   - Saving to %s ... \n', save_path);
                     fprintf('trial_num: %d\n', trial_num);
-                    save(save_path,...
-                        "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...
-                        "session_name_full", "N", "cuetype", "cell_id", "channel", 'dt', '-v7.3');
+                    save(save_path, 'meta', 'data', '-v7.3');
+                    % save(save_path,...
+                    %     "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...
+                    %     "session_name_full", "N", "cuetype", "cell_id", "channel", 'dt', '-v7.3');
                 end
             % todo: load resting state
             end
