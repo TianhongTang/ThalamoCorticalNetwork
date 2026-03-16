@@ -24,7 +24,7 @@ Each data file, except `metadata.mat`, is stored in a `[datatype]_##.mat` file c
 **Data shape notation**: All 1-dimentional data with shape `(data_len)` is stored as row vectors with shape `(1, data_len)`.
 
 
-### `metadata.mat` - Meta data file: 
+### `metadata.mat` - Meta data file
 Each field is a struct array for a data type. The field name is the type of the data. The struct array contains all meta data in the `.meta` field and the full file path of the data file.
 
 | Field | Description |
