@@ -518,11 +518,11 @@ for dataset_idx = 1:dataset_num
                     meta.area        = area;
                     meta.align       = 'None';
                     meta.session_idx = session_idx;
-                    meta.file_name    = generate_filename('raster', meta);
                     meta.date        = eyeID_file(1:8);
                     meta.N           = N;
                     meta.dt          = dt;
                     meta.trial_num   = trial_num;
+                    meta.file_name   = generate_filename('raster', meta);
 
                     cell_area = cell(1, N);
                     for i=1:N
@@ -538,14 +538,10 @@ for dataset_idx = 1:dataset_num
                     data.firing_rates = firing_rates;
 
                     % save
-                    session_name_save = [dataset_name, subsession, state, area];
-                    session_name_full = sprintf('%s_%d', session_name_save, session_idx);
-                    save_name = sprintf('raster_%s_%d.mat', session_name_save, session_idx);
                     save_folder = fullfile(root, 'Data', 'Working', 'raster');
                     check_path(save_folder);
-                    save_path = fullfile(save_folder, save_name);
+                    save_path = fullfile(save_folder, meta.file_name);
                     fprintf('   - Saving to %s ... \n', save_path);
-                    fprintf('trial_num: %d\n', trial_num);
                     save(save_path, 'meta', 'data', '-v7.3');
                     % save(save_path,...
                     %     "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...

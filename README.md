@@ -46,13 +46,11 @@ Each field is a struct array for a data type. The field name is the type of the 
 | area | string | Dataset brain area identifier. Single area `ACC/VLPFC/Thalamus` or merged area type `Full/Cortex` |
 | align | string | Alignment type. For aligned data only. |
 | session_idx | int | Session index. |
-| session_name | string | Session full name as identifier. |
 | date | string | Recording date. Format: `MMDDYYYY`. |
 | N | int | Neuron number. |
 | dt | double | Time bin size in seconds. |
 | trial_num | int | Total trial number. |
 | file_name | string | File name. |
-|  |  |  |
 
 #### data
 
@@ -65,8 +63,6 @@ Each field is a struct array for a data type. The field name is the type of the 
 | channel | double | `(N)` | Neuron location relative to the probe. 64 channels per probe. |
 | cuetype | cell(double) | `{trial_num}(cue_num)` | Cue type identifiers for each trial. Each cell contains all cue identifiers in the trial. For non-task sessions, cell contains an empty array. |
 | firing_rates | cell(double) | `{trial_num}(N)` | Mean firing rate for each trial. Each cell contains firing rates of neurons in Hz.|
-|  |  |  |  |
-|  |  |  |  |
 
 
 <!--------------------------------->
@@ -81,7 +77,6 @@ Each field is a struct array for a data type. The field name is the type of the 
 | area | string | Dataset brain area identifier. Merged area type `Full/Cortex` |
 | align | string | Alignment type. For aligned data only. |
 | session_idx | int | Session index. |
-| session_name | string | Session full name as identifier. |
 | N | int | Number of neurons. |
 | area_num | int | Number of brain areas. |
 | file_name | string | File name. |
