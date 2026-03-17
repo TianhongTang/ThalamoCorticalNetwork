@@ -1,5 +1,7 @@
 %% update_meta.m - Scan current data folder and update metadata.mat.
 
+% TODO: Compare new meta and current meta.
+
 clear;
 %% Get root folder
 code_depth = 3;
@@ -13,9 +15,9 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-metadata_folder = fullfile(root, 'Data', 'Meta');
-backup_folder = fullfile(root, 'Data', 'Meta', 'backup');
-data_folder = fullfile(root, 'Data', 'Working');
+data_folder     = fullfile(root, 'Data', 'Working');
+metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');
+backup_folder   = fullfile(root, 'Data', 'Working', 'Meta', 'backup');
 check_path(metadata_folder);
 check_path(backup_folder);
 
@@ -37,12 +39,13 @@ for i = 1:numel(data_folders)
     for file_idx = 1:numel(all_files)
         file_name = all_files(file_idx).name;
         file_path = fullfile(folder_path, file_name);
-        f = load(file_path);
-        if ~isfield(f, 'meta')
+        m = matfile(file_path);
+        vars = who(m);
+        if ~ismember('meta', vars)
             warning('File %s does not contain meta variable. Skipping.', file_path);
             continue;
         end
-        meta = f.meta;
+        meta = m.meta;
         for field_name = fieldnames(meta)'
             fname = field_name{1};
             metadata_entry(file_idx).(fname) = meta.(fname);
@@ -60,3 +63,5 @@ if isfile(fullfile(metadata_folder, 'metadata.mat'))
 else
     fprintf('No existing metadata found. No backup created.\n');
 end
+
+save(fullfile(metadata_folder, 'metadata.mat'), 'metadata', '-v7.3');

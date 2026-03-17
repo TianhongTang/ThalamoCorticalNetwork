@@ -51,13 +51,17 @@ for dataset_idx = 1:dataset_num
                         continue;
                     end
 
+                    [animal_name, injection] = split_dataset_name(dataset_name);
+
                     % construct tasks
-                    task = struct();
+                    task              = struct();
                     task.dataset_name = dataset_name;
-                    task.session_idx = session_idx;
-                    task.merge_type = merge_type;
-                    task.prepost = prepost;
-                    task.state = state;
+                    task.animal_name  = animal_name;
+                    task.injection    = injection;
+                    task.session_idx  = session_idx;
+                    task.merge_type   = merge_type;
+                    task.prepost      = prepost;
+                    task.state        = state;
                     if strcmp(merge_type, 'Cortex')
                         task.areas = {'ACC', 'VLPFC'};
                     elseif strcmp(merge_type, 'Full')
@@ -74,20 +78,29 @@ end
 task_num = numel(tasks);
 total_tic = tic;
 for task_idx = 1:task_num
-    task = tasks{task_idx};
+    task         = tasks{task_idx};
     dataset_name = task.dataset_name;
-    session_idx = task.session_idx;
-    merge_type = task.merge_type;
-    prepost = task.prepost;
-    state = task.state;
-    areas = task.areas;
-    area_num = numel(areas);
+    session_idx  = task.session_idx;
+    merge_type   = task.merge_type;
+    prepost      = task.prepost;
+    state        = task.state;
+    areas        = task.areas;
+    area_num     = numel(areas);
+
+    meta             = struct();
+    meta.animal_name = task.animal_name;
+    meta.injection   = task.injection;
+    meta.prepost     = prepost;
+    meta.state       = state;
+    meta.area        = merge_type;
+    meta.align       = 'None';
+    meta.session_idx = session_idx;
 
     % check if merged file already exists
     save_folder = fullfile(root, 'Data', 'Working', 'raster');
     check_path(save_folder);
-    save_name = sprintf('raster_%s_%d.mat', [dataset_name, prepost, state, merge_type], session_idx);
-    session_name = sprintf('%s_%d', [dataset_name, prepost, state, merge_type], session_idx);
+    save_name = generate_filename('raster', meta);
+    % session_name = sprintf('%s_%d', [dataset_name, prepost, state, merge_type], session_idx);
     save_path = fullfile(save_folder, save_name);
 
     if isfile(save_path) && SKIP_EXISTING
@@ -113,10 +126,12 @@ for task_idx = 1:task_num
 
     for area_idx = 1:area_num
         area = areas{area_idx};
+        area_meta = meta;
+        area_meta.area = area;
+
         % load area data
         folder_name = fullfile(root, 'Data', 'Working', 'raster');
-        file_name = sprintf('raster_%s%s%s%s_%d.mat', ...
-            dataset_name, prepost, state, area, session_idx);
+        file_name = generate_filename('raster', area_meta);
         area_file = fullfile(folder_name, file_name);
 
         borders = [borders, N+1]; %#ok<AGROW>
@@ -129,18 +144,16 @@ for task_idx = 1:task_num
                 error('File not found: %s', area_file); %#ok<UNRCH>
             end
         end
-        data = load(area_file);
-        % "rasters", "spikes", "firing_rates", "trial_num", "trial_len", ...
-        % "session_name_full", "N", "cuetype", "cell_id", "channel", 'dt'
+        area_data = load(area_file);
 
-        if data.N==0
+        if area_data.meta.N==0
             continue;
         end
 
         if isnan(trial_num)
-            trial_num = data.trial_num;
-            trial_len = data.trial_len;
-            cuetype = data.cuetype;
+            trial_num = area_data.meta.trial_num;
+            trial_len = area_data.meta.trial_len;
+            cuetype = area_data.meta.cuetype;
             rasters = cell(1, trial_num);
             firing_rates = cell(1, trial_num);
             spikes = cell(0, trial_num);
@@ -150,32 +163,32 @@ for task_idx = 1:task_num
                 firing_rates{1, i} = zeros(0, 1);
             end
         else
-            assert(trial_num == data.trial_num, ...
+            assert(trial_num == area_data.meta.trial_num, ...
                 'trial num not match! Area: %s, Dataset: %s, state: %s', area, dataset_name, state);
             if strcmp(state, 'Task')
-                assert(~((any(cuetype~=data.cuetype & ~isnan(cuetype))) || any(trial_len ~= data.trial_len)), ...
+                assert(~((any(cuetype~=area_data.data.cuetype & ~isnan(cuetype))) || any(trial_len ~= area_data.meta.trial_len)), ...
                     'trial info not match! Area: %s, Dataset: %s, state: %s', area, dataset_name, state);
             end
         end
-        cell_area = [cell_area, repmat({area}, 1, data.N)]; %#ok<AGROW>
-        cell_id = [cell_id, data.cell_id]; %#ok<AGROW>
-        spikes = [spikes;data.spikes]; %#ok<AGROW>
-        channel = [channel, data.channel]; %#ok<AGROW>
-        sort_ranges = [sort_ranges; N+1, N+data.N]; %#ok<AGROW>
-        [~, sort_idx(N+1:N+data.N)] = sort(data.channel);
-        sort_idx(N+1:N+data.N) = sort_idx(N+1:N+data.N) + N;
+        cell_area = [cell_area, repmat({area}, 1, area_data.data.N)]; %#ok<AGROW>
+        cell_id = [cell_id, area_data.data.cell_id]; %#ok<AGROW>
+        spikes = [spikes;area_data.data.spikes]; %#ok<AGROW>
+        channel = [channel, area_data.data.channel]; %#ok<AGROW>
+        sort_ranges = [sort_ranges; N+1, N+area_data.meta.N]; %#ok<AGROW>
+        [~, sort_idx(N+1:N+area_data.meta.N)] = sort(area_data.data.channel);
+        sort_idx(N+1:N+area_data.meta.N) = sort_idx(N+1:N+area_data.meta.N) + N;
         
-        N = N+data.N;
+        N = N+area_data.meta.N;
         for i=1:trial_num
-            rasters{1, i} = [rasters{1, i}; data.rasters{1, i}];
-            firing_rates{1, i} = [firing_rates{1, i}; data.firing_rates{1, i}];
+            rasters{1, i} = [rasters{1, i}; area_data.data.rasters{1, i}];
+            firing_rates{1, i} = [firing_rates{1, i}; area_data.data.firing_rates{1, i}];
         end
     end
 
     % save data
     save_folder = fullfile(root, 'Data', 'Working', 'raster');
     check_path(save_folder);
-    save_name = sprintf('raster_%s_%d.mat', [dataset_name, prepost, state, merge_type], session_idx);
+    save_name = generate_filename('raster', meta);
     session_name = sprintf('%s_%d', [dataset_name, prepost, state, merge_type], session_idx);
     save_path = fullfile(save_folder, save_name);
     save(save_path, 'N', "cell_id", "cuetype", "firing_rates", "trial_num",...

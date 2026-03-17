@@ -25,7 +25,7 @@ Each data file, except `metadata.mat`, is stored in a `[datatype]_##.mat` file c
 
 
 ### `metadata.mat` - Meta data file
-Each field is a struct array for a data type. The field name is the type of the data. The struct array contains all meta data in the `.meta` field and the full file path of the data file.
+Each field is a struct array for a data type. The field name is the type of the data. The struct array contains all meta data in the `.metadata` field and the full file path of the data file.
 
 | Field | Description |
 |------|------|
