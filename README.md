@@ -44,13 +44,20 @@ Each field is a struct array for a data type. The field name is the type of the 
 | prepost | string | Pre-injection `Pre` or Post-injection `Post`. |
 | state | string | State identifier. |
 | area | string | Dataset brain area identifier. Single area `ACC/VLPFC/Thalamus` or merged area type `Full/Cortex` |
-| align | string | Alignment type. For aligned data only. |
+| align | string | Alignment type. For unaligned data, this field is `'None'`. |
 | session_idx | int | Session index. |
 | date | string | Recording date. Format: `MMDDYYYY`. |
 | N | int | Neuron number. |
 | dt | double | Time bin size in seconds. |
 | trial_num | int | Total trial number. |
+| trial_len | int | Sorted `data.trial_len`. |
 | file_name | string | File name. |
+| max_len | int | Maximum trial length. |
+| min_len | int | Minimum trial length. |
+| ave_len | int | Average trial length. |
+| resting_dur_threshold | double | Minimum duration threshold for resting state trials. |
+| align_kernel (optional) | string | Kernel used to align data. |
+| align_kernel_len (optional) | string | Kernel length. |
 
 #### data
 
@@ -273,17 +280,17 @@ Convolved and concatenated rasters.
 
 | Field | Type | Description |
 |------|------|-------------|
-|  |  |  |
-|  |  |  |
+| kernel_name | string | Kernel name. |
+| n_conn_kernel | int | Number of connection kernels. |
+| n_PS_kernel | int | Number of post-spike kernels. |
+| kernel_len | int | Kernel length. |
 
 #### data
 
 | Field | Type | Shape | Description |
 |------|------|------|-------------|
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
+| conn_kernels | cell(double) | {n_conn_kernel}(kernel_len) | Weight of connection kernels. |
+| PS_kernels | cell(double) | {n_conn_kernel}(kernel_len) | Weight of post-spike kernels. |
 
 
 ### `_##.mat` - file

@@ -15,7 +15,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 STATUS_LOG = false;
 SKIP_EXISTING = true;
-resting_dur_thres hold = 10; % minimum duration in seconds for resting epochs to be included in the analysis
+resting_dur_threshold = 10; % minimum duration in seconds for resting epochs to be included in the analysis
 
 % load data
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  
@@ -32,7 +32,8 @@ kernel = 'DeltaPure';
 folder_name = fullfile(root, 'Data', 'Working', 'kernel');
 file_name = sprintf('kernel_%s.mat', kernel);
 file_path = fullfile(folder_name, file_name);
-load(file_path, 'kernel_len');
+load(file_path, 'meta');
+kernel_len = meta.kernel_len;
 align_kernel_name = kernel;
 align_kernel_len = kernel_len;
 
@@ -45,9 +46,12 @@ for dataset_idx = 1:dataset_num
         for area_idx = 1:length(area_types)
             area_type = area_types{area_idx};
             task = struct();
-            task.dataset_name = dataset_name;
-            task.area_type = area_type;
-            task.session_idx = session_idx;
+            task.dataset_name        = dataset_name;
+            task.area_type           = area_type;
+            task.session_idx         = session_idx;
+            [animal_name, injection] = split_dataset_name(dataset_name);
+            task.animal_name         = animal_name;
+            task.injection           = injection;
 
             prepost_states = {};
             for prepost_idx = 1:length(prepost_types)
@@ -80,9 +84,11 @@ end
 task_num = length(tasks);
 for task_idx = 1:task_num
     task = tasks{task_idx};
-    dataset_name = task.dataset_name;
-    session_idx = task.session_idx;
-    area_type = task.area_type;
+    dataset_name   = task.dataset_name;
+    animal_name    = task.animal_name;
+    injection      = task.injection;
+    session_idx    = task.session_idx;
+    area_type      = task.area_type;
     prepost_states = task.prepost_states;
     fprintf('----------------------------------------\n');
     fprintf('Task %d/%d: %s Session %d Area %s with %d prepost_states\n', ...
@@ -96,11 +102,22 @@ for task_idx = 1:task_num
         state = prepost_states{ps_idx}.state;
 
         % load length info
+        raster_info             = struct();
+        raster_info.animal_name = animal_name;
+        raster_info.injection   = injection;
+        raster_info.prepost     = prepost;
+        raster_info.state       = state;
+        raster_info.area        = area_type;
+        raster_info.align       = 'None';
+        raster_info.session_idx = session_idx;
+
         folder_name = fullfile(root, 'Data', 'Working', 'raster');
-        file_name = sprintf('raster_%s_%d.mat', [dataset_name, prepost, state, area_type], session_idx);
+        file_name = generate_filename('raster', raster_info);
         raster_path = fullfile(folder_name, file_name);
         fprintf('Loading %s ... \n', raster_path);
-        load(raster_path, 'trial_num', 'trial_len', 'N');
+        load(raster_path, 'meta', 'data');
+        trial_len = data.trial_len;
+        N = meta.N;
 
         trial_filter = (trial_len > align_kernel_len) & (trial_len > resting_dur_threshold*1000); % only include trials longer than kernel length and threshold
         trial_len = trial_len(trial_filter);
@@ -137,24 +154,38 @@ for task_idx = 1:task_num
             if STATUS_LOG, fprintf('Loading...'); end %#ok<UNRCH>
             
             % if already exists, skip
-            full_name = [dataset_name, prepost, state, area_type, 'Align', modes{mode_idx}, num2str(resting_dur_threshold)];
+            aligned_meta = struct();
+            aligned_meta.animal_name = animal_name;
+            aligned_meta.injection = injection;
+            aligned_meta.prepost = prepost;
+            aligned_meta.state = state;
+            aligned_meta.area = area_type;
+            aligned_meta.align = modes{mode_idx};
+            aligned_meta.session_idx = session_idx;
+
             save_folder = fullfile(root, 'Data', 'Working', 'raster');
             check_path(save_folder);
-            file_name = sprintf('raster_%s_%d.mat', full_name, session_idx);
+            file_name = generate_filename('raster', aligned_meta);
             file_path = fullfile(save_folder, file_name);
             if isfile(file_path) && SKIP_EXISTING
                 fprintf('   - Already exists for %s %s %s session%d. Skipping...\n\n', dataset_name, area_type, modes{mode_idx}, session_idx);
                 continue;
             end
-                
+            
+            % load unaligned data
+            unaligned_meta = aligned_meta;
+            unaligned_meta.align = 'None';
+            
             folder_name = fullfile(root, 'Data', 'Working', 'raster');
-            file_name = sprintf('raster_%s_%d.mat', [dataset_name, prepost, state, area_type], session_idx);
+            file_name = generate_filename('raster', unaligned_meta);
             raster_path = fullfile(folder_name, file_name);
-            load(raster_path, 'trial_num', 'cell_id', 'cell_area', 'channel', 'session_name', 'trial_len', 'rasters');
-            % folder_name = fullfile(root, 'Data', 'Working', 'border');
-            % file_name = sprintf('borders_%s_%d.mat', [dataset_name, prepost, area_type], session_idx);
-            % raster_path = fullfile(folder_name, file_name);
-            % load(raster_path, 'borders');
+            load(raster_path, 'meta', 'data');
+            unaligned_meta = meta;
+            unaligned_data = data;
+            trial_len      = data.trial_len;
+            rasters        = data.rasters;
+
+            % Align rasters
             if STATUS_LOG, fprintf('Done\n'); end %#ok<UNRCH>
 
             mode = modes{mode_idx};
@@ -220,22 +251,31 @@ for task_idx = 1:task_num
                 trial_len_aligned = fliplr(trial_len_aligned);
             end
 
-            rasters = raster_aligned;
-            trial_len = trial_len_aligned;
-            trial_num = numel(rasters);
-
             firing_rates = cell(1, trial_num);
             for i = 1:trial_num
                 firing_rates{i} = mean(rasters{i}, 2);
             end
 
-            full_name = [dataset_name, prepost, state, area_type, 'Align', mode, num2str(resting_dur_threshold)];
-            if STATUS_LOG, fprintf('Saving %s...\n', full_name); end %#ok<UNRCH>
+            % Save aligned data
+            % if STATUS_LOG, fprintf('Saving %s...\n', full_name); end %#ok<UNRCH>
+            
+            meta = unaligned_meta;
+            data = unaligned_data;
+
+            meta.align            = modes{mode_idx};
+            meta.align_kernel     = align_kernel_name;
+            meta.align_kernel_len = align_kernel_len;
+            meta.trial_num        = numel(raster_aligned);
+
+            data.rasters      = raster_aligned;
+            data.trial_len    = trial_len_aligned;
+            data.firing_rates = firing_rates;
+
             save_folder = fullfile(root, 'Data', 'Working', 'raster');
             check_path(save_folder);
-            file_name = sprintf('raster_%s_%d.mat', full_name, session_idx);
+            file_name = generate_filename('raster', meta);
             file_path = fullfile(save_folder, file_name);
-            save(file_path, 'N', 'trial_num', 'cell_id', 'cell_area', 'channel', 'session_name', 'trial_len', 'rasters', 'firing_rates');
+            save(file_path, 'meta', 'data', '-v7.3');
 
             if STATUS_LOG, fprintf('Done.\n'); end %#ok<UNRCH>
         end

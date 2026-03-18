@@ -71,6 +71,8 @@ switch data_type
                 align_code = 'Last';
             case 'Random'
                 align_code = 'Rand';
+            case 'Longest'
+                align_code = 'Longest';
             otherwise
                 error('Unknown align type: %s', meta.align);
         end
@@ -135,6 +137,8 @@ switch data_type
                 align_code = 'Last';
             case 'Random'
                 align_code = 'Rand';
+            case 'Longest'
+                align_code = 'Longest';
             otherwise
                 error('Unknown align type: %s', meta.align);
         end
@@ -211,6 +215,8 @@ switch data_type
                 align_code = 'Last';
             case 'Random'
                 align_code = 'Rand';
+            case 'Longest'
+                align_code = 'Longest';
             otherwise
                 error('Unknown align type: %s', meta.align);
         end
@@ -224,9 +230,14 @@ switch data_type
 
         filename = sprintf('sortidx_%s%s%s%s%s%s%s%d.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, criterion_code, meta.session_idx);
     
-    case 'crossval_split'
+    case 'kernel'
+        required_fields = {'kernel_name'};
+        check_required_fields(meta, required_fields);
+        filename = sprintf('kernel_%s.mat', meta.kernel_name);
 
     case 'GLM_data'
+    case 'GLM_model'
+    case 'crossval'
 
     otherwise
         error('Unknown data type: %s', data_type);

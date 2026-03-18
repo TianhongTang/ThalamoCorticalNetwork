@@ -1,5 +1,10 @@
-%% 
+%% generate_kernels.m - Generate kernels for GLM models
+% Each kernel set can contain multiple 'conn_kernel's (connection) 
+% and 'PS_kernel's (post-spike). All kernels must have same length,
+% add zeros to align all kernels.
 
+% kernel file: "conn_kernels", "PS_kernels",
+% "n_conn_kernel", "n_PS_kernel", "kernel_len"
 %% Get root folder
 code_depth = 3;
 script_path = mfilename('fullpath');
@@ -15,22 +20,14 @@ addpath(fullfile(root, 'Code', 'Utils'));
 % gaussian function
 gaus = @(x,mu,sig,amp,vo)amp*exp(-(((x-mu).^2)/(2*sig.^2)))+vo;
 
-%% kernel generate 
-% Each kernel set can contain multiple 'conn_kernel's (connection) 
-% and 'PS_kernel's (post-spike). All kernels must have same length,
-% add zeros to align all kernels.
-
-% kernel file: "conn_kernels", "PS_kernels",
-% "n_conn_kernel", "n_PS_kernel", "kernel_len"
-
-% exponential decay kernel
+%% exponential decay kernel
 tau1=10; % synaptic integration time constant (in ms)
 T1=3*tau1; % cutoff on the sum for the neuron total input
 tau_all1=0:T1;
 tt_start=1+T1;
 
 kernel = exp(-tau_all1./tau1);
-kernel(1) = 0; % remove simultanuous corr
+kernel(1) = 0; % remove simultanuous correlation
 kernel = kernel/sum(kernel); % Normalize
 
 conn_kernels = {kernel};
@@ -39,12 +36,19 @@ kernel_len=T1+1;
 
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
+
+% save kernel
 save_folder = fullfile(root, 'Data', 'Working', 'kernel');
 check_path(save_folder);
-save(fullfile(save_folder, 'kernel_expDecay10.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
 
-% zero-delay kernel
+meta = struct('kernel_name', 'expDecay10', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
+
+%% zero-delay kernel
 kernel = ones(1);
 conn_kernels = {kernel};
 PS_kernels = {};
@@ -52,10 +56,16 @@ kernel_len = 1;
 
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
-save(fullfile(save_folder, 'kernel_zeroDelay.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
 
-% gaussian kernel
+% save kernel
+meta = struct('kernel_name', 'zeroDelay', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
+
+%% gaussian kernel
 
 % multi-kernel group
 % expMulti200
@@ -76,12 +86,15 @@ k1(1)=0;
 k1 = k1/sum(k1);
 PS_kernels = {k1, k2};
 
-save(fullfile(save_folder, 'kernel_expMulti200.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+% save kernel
+meta = struct('kernel_name', 'expMulti200', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
 
-
-
-% steps 50
+%% steps 50
 conn_kernels = cell(1, 10);
 PS_kernels = cell(1, 10);
 for i=1:10
@@ -96,8 +109,13 @@ kernel_len = 50;
 
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
-save(fullfile(save_folder, 'kernel_steps50.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+
+% save kernel
+meta = struct('kernel_name', 'steps50', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
 
 % steps 25
 conn_kernels = cell(1, 5);
@@ -114,8 +132,14 @@ kernel_len = 25;
 
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
-save(fullfile(save_folder, 'kernel_steps25.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+
+% save kernel
+meta = struct('kernel_name', 'steps25', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
 
 %% ----------------expGauss60
 T = 60;
@@ -145,11 +169,16 @@ title('expGauss60');
 legend('Exponential', 'Gaussian');
 saveas(gcf, fullfile(save_folder, 'kernel_expGauss60.png'));
 
-% save kernel
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
-save(fullfile(save_folder, 'kernel_expGauss60.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+
+% save kernel
+meta = struct('kernel_name', 'expGauss60', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
 
 %% ----------------exp5Gauss5C## groups
 T = 60;
@@ -179,11 +208,16 @@ for center = [20, 30, 40]
     legend('Exponential', 'Gaussian');
     saveas(gcf, fullfile(save_folder, ['kernel_exp5Gauss5C', num2str(center), '.png']));
 
-    % save kernel
     n_conn_kernel=length(conn_kernels);
     n_PS_kernel=length(PS_kernels);
-    save(fullfile(save_folder, ['kernel_exp5Gauss5C', num2str(center), '.mat']), "conn_kernels", "PS_kernels", ...
-        "n_conn_kernel", "n_PS_kernel", "kernel_len");
+    
+    % save kernel
+    meta = struct('kernel_name', ['exp5Gauss5C', num2str(center)], 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+    data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+    save_name = generate_filename('kernel', meta);
+    meta.file_name = save_name;
+    save_path = fullfile(save_folder, save_name);
+    save(save_path, "meta", "data");
 
 %% ----------------Delta: 5ms exp, 10ms gauss centered at 40, 40ms gauss centered at 120
 T = 200;
@@ -218,11 +252,16 @@ k1(1)=0;
 k1 = k1/sum(k1);
 PS_kernels = {k1, k2, k3};
 
-% save kernel
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
-save(fullfile(save_folder, 'kernel_Delta.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+
+% save kernel
+meta = struct('kernel_name', 'Delta', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
 
 %% ----------------DeltaPure: 5ms exp, 10ms gauss centered at 40, 40ms gauss centered at 120, no self-connection
 T = 200;
@@ -255,11 +294,16 @@ saveas(gcf, fullfile(save_folder, 'kernel_DeltaPure.png'));
 
 PS_kernels = {};
 
-% save kernel
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
-save(fullfile(save_folder, 'kernel_DeltaPure.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+
+% save kernel
+meta = struct('kernel_name', 'DeltaPure', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
 end
 
 %% ----------------DoublePure: 5ms exp, 10ms gauss centered at 40, no self-connection
@@ -289,11 +333,16 @@ saveas(gcf, fullfile(save_folder, 'kernel_DoublePure.png'));
 
 PS_kernels = {};
 
-% save kernel
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
-save(fullfile(save_folder, 'kernel_DoublePure.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+
+% save kernel
+meta = struct('kernel_name', 'DoublePure', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
 
 %% ----------------SinglePure: 5ms exp only, no self-connection
 T = 200;
@@ -317,8 +366,13 @@ saveas(gcf, fullfile(save_folder, 'kernel_SinglePure.png'));
 
 PS_kernels = {};
 
-% save kernel
 n_conn_kernel=length(conn_kernels);
 n_PS_kernel=length(PS_kernels);
-save(fullfile(save_folder, 'kernel_SinglePure.mat'), "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+
+% save kernel
+meta = struct('kernel_name', 'SinglePure', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
+data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
+save_name = generate_filename('kernel', meta);
+meta.file_name = save_name;
+save_path = fullfile(save_folder, save_name);
+save(save_path, "meta", "data");
