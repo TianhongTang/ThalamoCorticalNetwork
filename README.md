@@ -57,6 +57,7 @@ Each field is a struct array for a data type. The field name is the type of the 
 | Field | Type | Shape | Description |
 |------|------|------|-------------|
 | rasters | cell(int) | `{trial_num}(N, trial_len)` | Raster matrices. Each cell contains a binary matrix indicating whether the neuron fired a spike within a time bin. |
+| spikes | cell(int) | `{trial_num}(spike_num)` | Raw spike timings relative to trial start in ms. |
 | trial_len | int | `(trial_num)` | Time bin number for each trial. |
 | cell_id | string | `(N)` | Neuron identifier. |
 | cell_area | string | `(N)` | Brain area for each neuron. |
@@ -126,10 +127,10 @@ Extracted spike data from the array dataset.
 | area | string | Dataset brain area identifier. Merged area type `Full/Cortex` |
 | align | string | Alignment type. For aligned data only. |
 | session_idx | int | Session index. |
-| kernel | string | GLM model kernel name. |
 | criterion | string | Sorting criterion. |
 | file_name | string | File name. |
 | N | int | Number of neurons. |
+| kernel (optional) | string | GLM model kernel name. |
 
 #### data
 

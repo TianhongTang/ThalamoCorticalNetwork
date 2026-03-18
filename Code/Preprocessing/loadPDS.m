@@ -530,6 +530,7 @@ for dataset_idx = 1:dataset_num
                     end
 
                     data.rasters      = rasters;
+                    data.spikes       = spikes;
                     data.trial_len    = trial_len;
                     data.cell_id      = cell_id;
                     data.cell_area    = cell_area;
