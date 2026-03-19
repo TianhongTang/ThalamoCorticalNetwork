@@ -258,16 +258,17 @@ for task_idx = 1:task_num
                 trial_len_aligned = fliplr(trial_len_aligned);
             end
 
-            firing_rates = cell(1, trial_num);
-            for i = 1:trial_num
-                firing_rates{i} = mean(rasters{i}, 2);
-            end
-
             % Save aligned data
             % if STATUS_LOG, fprintf('Saving %s...\n', full_name); end %#ok<UNRCH>
-            
+
             meta = unaligned_meta;
             data = unaligned_data;
+     
+            % recalculate firing rates
+            firing_rates = cell(1, trial_num);
+            for i = 1:trial_num
+                firing_rates{i} = mean(rasters{i}, 2)/meta.dt; % in Hz
+            end
 
             meta.align                 = modes{mode_idx};
             meta.align_kernel          = align_kernel_name;

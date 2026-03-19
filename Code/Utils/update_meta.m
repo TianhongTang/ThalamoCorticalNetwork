@@ -58,7 +58,7 @@ for i = 1:numel(data_folders)
             continue;
         end
         if GET_DATA_FIELDS
-            if ~ismember('data', vars)
+            if ~ismember('data', vars) %#ok<*UNRCH>
                 warning('File %s does not contain data variable. Skipping.', file_path);
                 continue;
             end

@@ -1,13 +1,11 @@
-function crossval_split(dataset_name, session, shuffle_id, fold_num, split_type)
+function crossval_split(shuffled_meta, fold_num, split_type)
 % crossval_split - split shuffled raster data into training and testing sets for cross-validation
 %
 % Usage:
-%   crossval_split(dataset_name, session, shuffle_id, fold_num, split_type)
+%   crossval_split(shuffled_meta, fold_num, split_type)
 %
 % Inputs:
-%   dataset_name - name of the dataset (string/char)
-%   session      - session index (numeric)
-%   shuffle_id   - shuffle identifier (numeric)
+%   shuffled_meta - metadata for the shuffled raster data (struct)
 %   fold_num     - number of folds to split into (numeric)
 %   split_type   - 'trial' or 'time' (string/char). Default: 'trial'
 %                  'trial' - use whole trials as segments
@@ -36,20 +34,25 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
-folder_name = fullfile(root, 'Data', 'Working', 'raster');
-file_name = sprintf('shuffled_%s_%d_%d.mat', dataset_name, session, shuffle_id);
+folder_name = fullfile(root, 'Data', 'Working', 'shuffled');
+file_name = generate_filename('shuffled', shuffled_meta);
 file_path = fullfile(folder_name, file_name);
 if ~exist(file_path, 'file')
     error('crossval_split:FileNotFound', 'Shuffled raster file not found: %s', file_path);
 end
-load(file_path, "N", "trial_num", "rasters");
+shuffled_data = load(file_path, 'meta', 'data');
+rasters   = shuffled_data.data.rasters;
+N         = shuffled_data.meta.N;
+trial_num = shuffled_data.meta.trial_num;
+
 
 % Basic validation
-if ~iscell(rasters) || numel(rasters) < trial_num
-    error('crossval_split:InvalidRasters', 'Loaded ''rasters'' must be a cell array with at least trial_num elements.');
+if ~iscell(shuffled_data.data.rasters) || numel(shuffled_data.data.rasters) ~= shuffled_data.meta.trial_num
+    error('crossval_split:InvalidRasters', 'Loaded ''rasters'' must be a cell array with trial_num elements.');
 end
 
-fold_rasters = cell(1, fold_num);
+% data for each fold
+fold_rasters    = cell(1, fold_num);
 fold_total_lens = zeros(1, fold_num);
 fold_trial_lens = cell(1, fold_num);
 for i = 1:fold_num
@@ -89,13 +92,34 @@ for i = 1:trial_num
         assignment.segment_index = j;
         assignment.fold = shortest_fold;
         assignment.length = size(trial_rasters{j}, 2);
-        assignments{end+1} = assignment;
+        assignments{end+1} = assignment; %#ok<AGROW>
     end
 end
 
+% construct meta and data for saving
+meta = struct();
+meta.animal_name = shuffled_data.meta.animal_name;
+meta.injection = shuffled_data.meta.injection;
+meta.prepost = shuffled_data.meta.prepost;
+meta.state = shuffled_data.meta.state;
+meta.area = shuffled_data.meta.area;
+meta.align = shuffled_data.meta.align;
+meta.session_idx = shuffled_data.meta.session_idx;
+meta.shuffle_idx = shuffled_data.meta.shuffle_idx;
+meta.file_name = generate_filename('crossval', meta);
+meta.N = N;
+meta.fold_num = fold_num;
+meta.assignment_num = numel(assignments);
+
+data = struct();
+data.fold_rasters = fold_rasters;
+data.fold_trial_lens = fold_trial_lens;
+data.assignments = assignments;
+
 save_folder = fullfile(root, 'Data', 'Working', 'crossval_split');
 check_path(save_folder);
-save_name = sprintf('crossval_%s_%d_%d.mat', dataset_name, session, shuffle_id);
+save_name = meta.file_name;
 save_path = fullfile(save_folder, save_name);
 
-save(save_path, "N", "fold_num", "fold_rasters", "fold_trial_lens", "assignments", '-v7.3');
+save(save_path, "meta", "data", '-v7.3');
+fprintf('Cross-validation split saved to: %s\n', save_path);

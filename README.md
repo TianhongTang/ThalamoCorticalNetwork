@@ -162,10 +162,10 @@ Extracted spike data from the array dataset.
 | session_idx | int | Session index. |
 | shuffle_mode | string | Shuffle mode. `None`: No shuffling. `Within trial`: Shuffle time bins within each trial. `Across trial`: Shuffle time bins in all trials. |
 | shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
-| kernel | string | GLM model kernel name. |
 | shuffle_seed | int | Random seed used in shuffling. |
 | file_name | string | File name. |
 | N | int | Number of neurons. |
+| dt | double | Time bin size in seconds. |
 | trial_num | int | Number of trials. |
 
 #### data
@@ -203,9 +203,9 @@ Rasters are splitted and assigned to folds for cross validation. For task sessio
 
 | Field | Type | Shape | Description |
 |------|------|------|-------------|
-| assignments | cell(struct) | {assignment_num} | Details of fold assignment. Fields: <br>`trial_index`: Index for the source trial. <br>`segment_index`: Index of the segment in the source trial. <br>`fold`: Fold index assigned to. <br> `length`: Segment length. |
 | fold_rasters | cell(cell)(int) | {fold_num}{segment_num}(N, fold_trial_len) | Raster segments. |
 | fold_trial_lens | cell(int) | {fold_num}(segment_num) | Duration of raster segments. |
+| assignments | cell(struct) | {assignment_num} | Details of fold assignment. Fields: <br>`trial_index`: Index for the source trial. <br>`segment_index`: Index of the segment in the source trial. <br>`fold`: Fold index assigned to. <br> `length`: Segment length. |
 |  |  |  |  |
 
 

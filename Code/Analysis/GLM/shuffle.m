@@ -24,14 +24,13 @@ file_folder = fullfile(root, 'Data', 'Working', 'raster');
 file_name = generate_filename('raster', raster_meta);
 raster_file = fullfile(file_folder, file_name);
 % load(raster_file, "N", "rasters", "trial_num", "trial_len", "firing_rates");
-load(raster_file, "meta", "data");
+raster_file = load(raster_file, "meta", "data");
 
-N = meta.N;
-trial_num = meta.trial_num;
-rasters = data.rasters;
-trial_len = data.trial_len;
-firing_rates = data.firing_rates;
-n_raster = length(rasters);
+N            = raster_file.meta.N;
+trial_num    = raster_file.meta.trial_num;
+rasters      = raster_file.data.rasters;
+trial_len    = raster_file.data.trial_len;
+n_raster     = length(rasters);
 
 rasters_shuffle = cell(1, n_raster);
 rng(shuffle_seed);
@@ -72,9 +71,37 @@ switch shuffle_type
         end
 end
 
-save_folder = fullfile(root, 'Data', 'Working', 'raster');
-save_name = sprintf('shuffled_%s_%d_%d.mat', dataset_name, session, shuffle_id);
+% recalculate firing rates
+firing_rates = cell(1, n_raster);
+for i = 1:n_raster
+    firing_rates{i} = mean(rasters_shuffle{i}, 2)/raster_file.meta.dt; % in Hz
+end
+
+% construct meta and data for saving
+meta = struct();
+meta.animal_name  = raster_file.meta.animal_name;
+meta.injection    = raster_file.meta.injection;
+meta.prepost      = raster_file.meta.prepost;
+meta.state        = raster_file.meta.state;
+meta.area         = raster_file.meta.area;
+meta.align        = raster_file.meta.align;
+meta.session_idx  = raster_file.meta.session_idx;
+meta.shuffle_mode = shuffle_type;
+meta.shuffle_idx   = shuffle_id;  % not a typo.
+meta.shuffle_seed = shuffle_seed;
+meta.file_name    = generate_filename('shuffled', meta);
+meta.N            = N;
+meta.dt           = raster_file.meta.dt;
+meta.trial_num    = trial_num;
+
+data = struct();
+data.rasters = rasters_shuffle;
+data.trial_len = trial_len;
+data.firing_rates = firing_rates;
+
+save_folder = fullfile(root, 'Data', 'Working', 'shuffled');
+save_name = meta.file_name;
 raster_file_shuffle = fullfile(save_folder, save_name);
-rasters = rasters_shuffle;
-save(raster_file_shuffle, "N", "trial_num", "trial_len", "rasters", "firing_rates", "shuffle_type", "shuffle_seed", '-v7.3');
+save(raster_file_shuffle, 'meta', 'data');
+fprintf('Shuffled raster saved to: %s\n', raster_file_shuffle);
 end
