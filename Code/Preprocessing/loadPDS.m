@@ -523,6 +523,10 @@ for dataset_idx = 1:dataset_num
                     meta.dt          = dt;
                     meta.trial_num   = trial_num;
                     meta.file_name   = generate_filename('raster', meta);
+                    meta.trial_len   = sort(trial_len, 'descend');
+                    meta.max_len     = max(trial_len);
+                    meta.min_len     = min(trial_len);
+                    meta.total_len   = sum(trial_len);
 
                     cell_area = cell(1, N);
                     for i=1:N

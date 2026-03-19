@@ -1,4 +1,4 @@
-function shuffle(dataset_name, session, shuffle_id, shuffle_seed, shuffle_type)
+function shuffle(raster_meta, shuffle_id, shuffle_seed, shuffle_type)
 %% shuffle spike trains and keep the firing rate.
 % shuffle_type: "None", "Within trial", "Across trial"
 
@@ -21,9 +21,16 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 % load original raster
 file_folder = fullfile(root, 'Data', 'Working', 'raster');
-file_name = sprintf('raster_%s_%d.mat', dataset_name, session);
+file_name = generate_filename('raster', raster_meta);
 raster_file = fullfile(file_folder, file_name);
-load(raster_file, "N", "rasters", "trial_num", "trial_len", "firing_rates");
+% load(raster_file, "N", "rasters", "trial_num", "trial_len", "firing_rates");
+load(raster_file, "meta", "data");
+
+N = meta.N;
+trial_num = meta.trial_num;
+rasters = data.rasters;
+trial_len = data.trial_len;
+firing_rates = data.firing_rates;
 n_raster = length(rasters);
 
 rasters_shuffle = cell(1, n_raster);

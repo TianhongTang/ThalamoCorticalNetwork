@@ -54,8 +54,8 @@ Each field is a struct array for a data type. The field name is the type of the 
 | file_name | string | File name. |
 | max_len | int | Maximum trial length. |
 | min_len | int | Minimum trial length. |
-| ave_len | int | Average trial length. |
-| resting_dur_threshold | double | Minimum duration threshold for resting state trials. |
+| total_len | int | Total trial length. |
+| resting_dur_threshold (optional) | double | Minimum duration threshold for resting state trials. |
 | align_kernel (optional) | string | Kernel used to align data. |
 | align_kernel_len (optional) | string | Kernel length. |
 

@@ -14,7 +14,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 STATUS_LOG = false;
-SKIP_EXISTING = true;
+SKIP_EXISTING = false;
 resting_dur_threshold = 10; % minimum duration in seconds for resting epochs to be included in the analysis
 
 % load data
@@ -129,6 +129,8 @@ for task_idx = 1:task_num
         min_duration = min(min_duration, B);
         if ~isempty(longest)
             min_longest = min(min_longest, longest);
+        else
+            min_longest = 0; % if no valid trials, set to 0
         end
         fprintf('%s%s, N = %d, B = %d, trial_num = %d, ave = %d, max = %d.\n', prepost, state, N, B, trial_num, floor(B/trial_num), max(trial_len));
     end
@@ -146,7 +148,6 @@ for task_idx = 1:task_num
         if STATUS_LOG, fprintf('Aligning %s ...\n', [prepost, state]); end %#ok<UNRCH>
 
         for mode_idx = 1:numel(modes)
-            % skip task state for Longest mode
             if strcmp(modes{mode_idx}, 'Longest') && strcmp(state, 'Task')
                 continue;
             end
@@ -154,13 +155,13 @@ for task_idx = 1:task_num
             if STATUS_LOG, fprintf('Loading...'); end %#ok<UNRCH>
             
             % if already exists, skip
-            aligned_meta = struct();
+            aligned_meta             = struct();
             aligned_meta.animal_name = animal_name;
-            aligned_meta.injection = injection;
-            aligned_meta.prepost = prepost;
-            aligned_meta.state = state;
-            aligned_meta.area = area_type;
-            aligned_meta.align = modes{mode_idx};
+            aligned_meta.injection   = injection;
+            aligned_meta.prepost     = prepost;
+            aligned_meta.state       = state;
+            aligned_meta.area        = area_type;
+            aligned_meta.align       = modes{mode_idx};
             aligned_meta.session_idx = session_idx;
 
             save_folder = fullfile(root, 'Data', 'Working', 'raster');
@@ -206,6 +207,9 @@ for task_idx = 1:task_num
                     for trial = 1:trial_num
                         trial_eff_dur = trial_len(trial) - kernel_len + 1;
                         if current_eff_dur + trial_eff_dur >= min_duration
+                            if current_eff_dur >= min_duration
+                                break; % already reached min_duration, stop adding more trials
+                            end
                             cut_len = min_duration - current_eff_dur + kernel_len - 1;
                             raster_aligned{end+1} = rasters{trial}(:, 1:cut_len); %#ok<SAGROW>
                             trial_len_aligned(end+1) = cut_len; %#ok<SAGROW>
@@ -220,6 +224,9 @@ for task_idx = 1:task_num
                     for trial = trial_num:-1:1
                         trial_eff_dur = trial_len(trial) - kernel_len + 1;
                         if current_eff_dur + trial_eff_dur >= min_duration
+                            if current_eff_dur >= min_duration
+                                break; % already reached min_duration, stop adding more trials
+                            end
                             cut_len = min_duration - current_eff_dur + kernel_len - 1;
                             raster_aligned{end+1} = rasters{trial}(:, end-cut_len+1:end); %#ok<SAGROW>
                             trial_len_aligned(end+1) = cut_len; %#ok<SAGROW>
@@ -262,10 +269,16 @@ for task_idx = 1:task_num
             meta = unaligned_meta;
             data = unaligned_data;
 
-            meta.align            = modes{mode_idx};
-            meta.align_kernel     = align_kernel_name;
-            meta.align_kernel_len = align_kernel_len;
-            meta.trial_num        = numel(raster_aligned);
+            meta.align                 = modes{mode_idx};
+            meta.align_kernel          = align_kernel_name;
+            meta.align_kernel_len      = align_kernel_len;
+            meta.resting_dur_threshold = resting_dur_threshold;
+            meta.trial_num             = numel(raster_aligned);
+            meta.trial_len             = sort(trial_len_aligned, 'descend');
+            meta.max_len               = max(trial_len_aligned);
+            meta.min_len               = min(trial_len_aligned);
+            meta.total_len             = sum(trial_len_aligned);
+            meta.file_name             = generate_filename('raster', meta);
 
             data.rasters      = raster_aligned;
             data.trial_len    = trial_len_aligned;
@@ -274,7 +287,7 @@ for task_idx = 1:task_num
             save_folder = fullfile(root, 'Data', 'Working', 'raster');
             check_path(save_folder);
             file_name = generate_filename('raster', meta);
-            file_path = fullfile(save_folder, file_name);
+            file_path = fullfile(save_folder, meta.file_name);
             save(file_path, 'meta', 'data', '-v7.3');
 
             if STATUS_LOG, fprintf('Done.\n'); end %#ok<UNRCH>

@@ -196,6 +196,10 @@ for task_idx = 1:task_num
     meta.dt          = dt;
     meta.trial_num   = trial_num;
     meta.file_name   = generate_filename('raster', meta);
+    meta.trial_len   = sort(trial_len, 'descend');
+    meta.max_len     = max(trial_len);
+    meta.min_len     = min(trial_len);
+    meta.total_len   = sum(trial_len);
 
     data = struct();
     data.rasters      = rasters;
