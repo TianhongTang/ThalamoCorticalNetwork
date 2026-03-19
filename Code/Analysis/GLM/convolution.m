@@ -1,4 +1,4 @@
-function convolution(dataset_name, session, shuffle_id, kernel_name)
+function convolution(crossval_meta, kernel_name)
 %% convolve raster folds and kernel(s) to predj.
 
 % Prerequisite files: 
@@ -21,10 +21,12 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 % load data
 folder_name = fullfile(root, 'Data', 'Working', 'crossval_split');
-file_name = sprintf('crossval_%s_%d_%d.mat', dataset_name, session, shuffle_id);
+file_name = generate_filename('crossval', crossval_meta);
 raster_path = fullfile(folder_name, file_name);
+
+kernel_meta = struct('kernel_name', kernel_name);
 folder_name = fullfile(root, 'Data', 'Working', 'kernel');
-file_name = sprintf('kernel_%s.mat', kernel_name);
+file_name = generate_filename('kernel', kernel_meta);
 kernel_path = fullfile(folder_name, file_name);
 load(raster_path, "N", "fold_num", "fold_rasters", "fold_trial_lens");
 load(kernel_path, "conn_kernels", "PS_kernels", ...

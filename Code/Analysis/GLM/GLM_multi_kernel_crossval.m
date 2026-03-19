@@ -90,12 +90,12 @@ end
 
 % N_original = N;
 % raster_original = raster;
-N_filtered = sum(raster_filter);
-raster = raster(raster_filter, :);
-predjs_PS = predjs_PS(raster_filter, :, :);
-predjs_conn = predjs_conn(raster_filter, :, :);
-raster_test = raster_test(raster_filter, :);
-predjs_PS_test = predjs_PS_test(raster_filter, :, :);
+N_filtered       = sum(raster_filter);
+raster           = raster(raster_filter, :);
+predjs_PS        = predjs_PS(raster_filter, :, :);
+predjs_conn      = predjs_conn(raster_filter, :, :);
+raster_test      = raster_test(raster_filter, :);
+predjs_PS_test   = predjs_PS_test(raster_filter, :, :);
 predjs_conn_test = predjs_conn_test(raster_filter, :, :);
 
 % Initial condition (can be better):
@@ -121,15 +121,15 @@ v = zeros(size(par0));
 par = par0;
 
 % GPU acceleration
-raster = gpuArray(raster);
-predjs_PS = gpuArray(predjs_PS);
-predjs_conn = gpuArray(predjs_conn);
-raster_test = gpuArray(raster_test);
-predjs_PS_test = gpuArray(predjs_PS_test);
+raster           = gpuArray(raster);
+predjs_PS        = gpuArray(predjs_PS);
+predjs_conn      = gpuArray(predjs_conn);
+raster_test      = gpuArray(raster_test);
+predjs_PS_test   = gpuArray(predjs_PS_test);
 predjs_conn_test = gpuArray(predjs_conn_test);
-par = gpuArray(par);
-facts = factorial(raster);
-logfacts = log(facts);
+par              = gpuArray(par);
+facts            = factorial(raster);
+logfacts         = log(facts);
     
 beta1_t = 1;
 beta2_t = 1;
