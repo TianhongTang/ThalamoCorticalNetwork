@@ -196,8 +196,8 @@ Rasters are splitted and assigned to folds for cross validation. For task sessio
 | N | int | Number of neurons. |
 | fold_num | int | Number of splitted folds. |
 | assignment_num | int | Number of assignments. |
-|  |  |  |
-|  |  |  |
+| fold_total_len | int | Total length of each fold. |
+| fold_trial_lens | cell(int) | Same as `data.fold_trial_lens`. |
 
 #### data
 
@@ -254,10 +254,9 @@ Convolved and concatenated rasters.
 | kernel_name | string | Kernels used in GLM. |
 | reg_name | struct | Regularization used in training. |
 | epoch | int | Epochs trained. |
+| fold_num | int | Number of cross validation folds. |
 | fold_idx | int | Left out fold index. 0 is default for no cross validation models. |
 | file_name | string | File name. |
-| N | int | Number of neurons. |
-| fold_num | int | Number of cross validation folds. |
 | N | int | Number of neurons. |
 | N_filtered | int | Number of neurons after filtering out no-spike and ####(other criterions?)#### neurons. |
 

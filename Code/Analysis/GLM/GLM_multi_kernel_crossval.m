@@ -1,4 +1,4 @@
-function GLM_multi_kernel_crossval(dataset_name, session, kernel_name, shuffle_id, max_epoch, reg, log_level, lr, test_fold)
+function GLM_multi_kernel_crossval(GLMdata_meta, max_epoch, reg, log_level, lr, test_fold)
 %% GLM inference with cross-validation
 % test_fold: which fold to use as test set. If 0, use all data for training and testing.
 %%%% required input : (from convolution)
@@ -8,21 +8,21 @@ function GLM_multi_kernel_crossval(dataset_name, session, kernel_name, shuffle_i
 DEBUG = true;
 
 %% default parameters
-if nargin < 7
-    log_level=2;
+if nargin < 4
+    log_level=1;
 end
-if nargin < 6
+if nargin < 3
     reg.l1=0;
     reg.l2=0;
     reg.name='None';
 end
-if nargin < 5
+if nargin < 2
     max_epoch=1000;
 end
-if nargin < 8
+if nargin < 5
     lr=1e-3;
 end
-if nargin < 9
+if nargin < 6
     test_fold=1;
 end
 
@@ -39,15 +39,21 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 % load data
-folder_name= fullfile(root, 'Data', 'Working', 'GLM_data');
-file_name = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session, shuffle_id, kernel_name);
+folder_name= fullfile(root, 'Data', 'Working', 'GLMdata');
+file_name = generate_filename('GLMdata', GLMdata_meta);
 file_path = fullfile(folder_name, file_name);
-load(file_path, "N", "fold_num", "folds", "kernel");
-conn_kernels = kernel.conn_kernels;
-PS_kernels = kernel.PS_kernels;
-n_conn_kernel = kernel.n_conn_kernel;
-n_PS_kernel = kernel.n_PS_kernel;
-kernel_len = kernel.kernel_len;
+GLMdata = load(file_path, "data", "meta");
+
+kernel        = GLMdata.data.kernel;
+conn_kernels  = kernel.data.conn_kernels;
+PS_kernels    = kernel.data.PS_kernels;
+n_conn_kernel = kernel.meta.n_conn_kernel;
+n_PS_kernel   = kernel.meta.n_PS_kernel;
+kernel_len    = kernel.meta.kernel_len;
+fold_num      = GLMdata.meta.fold_num;
+folds         = GLMdata.data.folds;
+kernel_name   = GLMdata.meta.kernel_name;
+N = GLMdata.meta.N;
 
 % concatenate training folds
 raster = [];
@@ -221,14 +227,40 @@ for epoch=1:max_epoch
             %     model_err_filtered.total_minus(:, 1 + n_PS_kernel + (i-1)*N_filtered + (1:N_filtered));
         end
 
-        folder_name = fullfile(root, 'Data', 'Working', 'GLM_models');
-        save_name = sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session, shuffle_id, kernel_name, ...
-            reg.name, epoch, test_fold);
+        % construct model data and meta for saving
+        meta             = struct();
+        meta.animal_name = GLMdata.meta.animal_name;
+        meta.injection   = GLMdata.meta.injection;
+        meta.prepost     = GLMdata.meta.prepost;
+        meta.state       = GLMdata.meta.state;
+        meta.area        = GLMdata.meta.area;
+        meta.align       = GLMdata.meta.align;
+        meta.session_idx = GLMdata.meta.session_idx;
+        meta.shuffle_idx = GLMdata.meta.shuffle_idx;
+        meta.kernel_name = GLMdata.meta.kernel_name;
+        meta.reg_name    = reg.name;
+        meta.epoch       = epoch;
+        meta.fold_num    = fold_num;
+        meta.fold_idx    = test_fold;                       % fold index used for testing. If 0, use all data for training and testing.
+        meta.file_name   = generate_filename('GLM', meta);
+        meta.N           = N;
+        meta.N_filtered  = N_filtered;
+
+        data            = struct();
+        data.model_par  = model_par;
+        data.model_err  = model_err;
+        data.train_loss = train_loss;
+        data.test_loss  = test_loss;
+        data.filter     = raster_filter;
+        data.reg        = reg;
+        data.kernel     = kernel;
+
+        folder_name = fullfile(root, 'Data', 'Working', 'GLM');
         check_path(folder_name);
+        save_name = meta.file_name;
         model_path = fullfile(folder_name, save_name);
         fprintf('Saving to: %s\n', model_path);
-        save(model_path, 'model_par', 'train_loss', 'test_loss', 'model_err', 'N', "reg", "kernel", ...
-           "raster_filter", "N_filtered");
+        save(model_path, 'data', 'meta', '-v7.3');
         fprintf('saved\n');
     end
 end

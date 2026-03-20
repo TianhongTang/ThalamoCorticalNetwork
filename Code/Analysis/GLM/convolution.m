@@ -23,15 +23,25 @@ addpath(fullfile(root, 'Code', 'Utils'));
 folder_name = fullfile(root, 'Data', 'Working', 'crossval_split');
 file_name = generate_filename('crossval', crossval_meta);
 raster_path = fullfile(folder_name, file_name);
+raster_data = load(raster_path, 'meta', 'data');
 
 kernel_meta = struct('kernel_name', kernel_name);
 folder_name = fullfile(root, 'Data', 'Working', 'kernel');
 file_name = generate_filename('kernel', kernel_meta);
 kernel_path = fullfile(folder_name, file_name);
-load(raster_path, "N", "fold_num", "fold_rasters", "fold_trial_lens");
-load(kernel_path, "conn_kernels", "PS_kernels", ...
-    "n_conn_kernel", "n_PS_kernel", "kernel_len");
+kernel_data = load(kernel_path, 'meta', 'data');
 
+N               = raster_data.meta.N;
+fold_num        = raster_data.meta.fold_num;
+fold_rasters    = raster_data.data.fold_rasters;
+fold_trial_lens = raster_data.data.fold_trial_lens;
+n_conn_kernel   = kernel_data.meta.n_conn_kernel;
+n_PS_kernel     = kernel_data.meta.n_PS_kernel;
+kernel_len      = kernel_data.meta.kernel_len;
+conn_kernels    = kernel_data.data.conn_kernels;
+PS_kernels      = kernel_data.data.PS_kernels;
+
+% convolution
 folds = cell(1, fold_num);
 for fold_id = 1:fold_num
     fold = struct();
@@ -98,27 +108,37 @@ for fold_id = 1:fold_num
         predjs_PS(:, :, k) = predj;
     end
 
-    fold.raster = raster;
-    fold.B = B;
+    fold.raster      = raster;
+    fold.B           = B;
     fold.predjs_conn = predjs_conn;
-    fold.predjs_PS = predjs_PS;
-    folds{fold_id} = fold;  
+    fold.predjs_PS   = predjs_PS;
+    folds{fold_id}   = fold;
 end
 
-% pack kernel info
-kernel = struct();
-kernel.name = kernel_name;
-kernel.conn_kernels = conn_kernels;
-kernel.PS_kernels = PS_kernels;
-kernel.n_conn_kernel = n_conn_kernel;
-kernel.n_PS_kernel = n_PS_kernel;
-kernel.kernel_len = kernel_len;
+% construct meta and data for saving
+meta             = struct();
+meta.animal_name = raster_data.meta.animal_name;
+meta.injection   = raster_data.meta.injection;
+meta.prepost     = raster_data.meta.prepost;
+meta.state       = raster_data.meta.state;
+meta.area        = raster_data.meta.area;
+meta.align       = raster_data.meta.align;
+meta.session_idx = raster_data.meta.session_idx;
+meta.shuffle_idx = raster_data.meta.shuffle_idx;
+meta.kernel_name = kernel_name;
+meta.file_name   = generate_filename('GLMdata', meta);
+meta.N           = N;
+meta.fold_num    = fold_num;
+
+data        = struct();
+data.folds  = folds;
+data.kernel = kernel_data;
 
 % save data
-save_folder = fullfile(root, 'Data', 'Working', 'GLM_data');
+save_folder = fullfile(root, 'Data', 'Working', 'GLMdata');
 check_path(save_folder);
-save_name = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session, shuffle_id, kernel_name);
+save_name = meta.file_name;
 save_path = fullfile(save_folder, save_name);
-save(save_path, "N", "fold_num", "folds", "kernel", '-v7.3');
+save(save_path, "meta", "data", "-v7.3");
 
 end

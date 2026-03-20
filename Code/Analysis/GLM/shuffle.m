@@ -100,6 +100,7 @@ data.trial_len = trial_len;
 data.firing_rates = firing_rates;
 
 save_folder = fullfile(root, 'Data', 'Working', 'shuffled');
+check_path(save_folder);
 save_name = meta.file_name;
 raster_file_shuffle = fullfile(save_folder, save_name);
 save(raster_file_shuffle, 'meta', 'data');

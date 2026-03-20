@@ -25,10 +25,9 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast15';
+align = 'Last';
 
-
-tasks = cell(0, 1);
+tasks = struct();
 task_idx = 0;
 for dataset_idx = [1, 2, 3]
     dataset_name = dataset_names{dataset_idx};
@@ -53,19 +52,24 @@ for dataset_idx = [1, 2, 3]
                         % SlayerNoinj does not have RestOpen and RestClose sessions
                         continue;
                     end
+                    [animal_name, injection] = split_dataset_name(dataset_name);
 
-                    task = struct();
+                    % task = struct();
                     task_idx = task_idx + 1;
-
-                    task.state = state;
-                    task.dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
-                    task.border_name = sprintf('%s%s', dataset_name, merge_type);
-                    task.session_name = sprintf('%s_%d', task.dataset_name, session_idx);
-                    task.session_idx = session_idx;
+                    tasks(task_idx).animal_name  = animal_name;
+                    tasks(task_idx).injection    = injection;
+                    tasks(task_idx).prepost      = prepost;
+                    tasks(task_idx).state        = state;
+                    tasks(task_idx).area         = merge_type;
+                    tasks(task_idx).align        = align;
+                    tasks(task_idx).session_idx  = session_idx;
+                    tasks(task_idx).dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
+                    tasks(task_idx).border_name  = sprintf('%s%s', dataset_name, merge_type);
+                    tasks(task_idx).session_name = sprintf('%s_%d', tasks(task_idx).dataset_name, session_idx);
 
                     % confirm raster file exists
                     raster_file_folder = fullfile(root, 'Data', 'Working', 'raster');
-                    raster_file_name = sprintf('raster_%s_%d.mat', task.dataset_name, session_idx);
+                    raster_file_name = generate_filename('raster', tasks(task_idx));
                     raster_file_path = fullfile(raster_file_folder, raster_file_name);
                     if ~isfile(raster_file_path)
                         throw(MException('RegisterTrainingTask:RasterFileNotFound', ...
@@ -87,9 +91,7 @@ for dataset_idx = [1, 2, 3]
                     reg.name = 'L2=0_2';
                     config.reg = reg;
                     config.shuffle_size = 0;
-                    task.config = config;
-
-                    tasks{task_idx} = task;
+                    tasks(task_idx).config = config;
                 end
             end
         end
@@ -115,10 +117,10 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast15';
+align = 'Last';
 
 
-tasks = cell(0, 1);
+tasks = struct();
 task_idx = 0;
 for dataset_idx = [4, 5, 6]
     dataset_name = dataset_names{dataset_idx};
@@ -139,19 +141,24 @@ for dataset_idx = [4, 5, 6]
                         % All thalamus data in post sessions are not available
                         continue;
                     end
+                    [animal_name, injection] = split_dataset_name(dataset_name);
 
-                    task = struct();
+                    % task = struct();
                     task_idx = task_idx + 1;
-
-                    task.state = state;
-                    task.dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
-                    task.border_name = sprintf('%s%s', dataset_name, merge_type);
-                    task.session_name = sprintf('%s_%d', task.dataset_name, session_idx);
-                    task.session_idx = session_idx;
+                    tasks(task_idx).animal_name  = animal_name;
+                    tasks(task_idx).injection    = injection;
+                    tasks(task_idx).prepost      = prepost;
+                    tasks(task_idx).state        = state;
+                    tasks(task_idx).area         = merge_type;
+                    tasks(task_idx).align        = align;
+                    tasks(task_idx).session_idx  = session_idx;
+                    tasks(task_idx).dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
+                    tasks(task_idx).border_name  = sprintf('%s%s', dataset_name, merge_type);
+                    tasks(task_idx).session_name = sprintf('%s_%d', tasks(task_idx).dataset_name, session_idx);
 
                     % confirm raster file exists
                     raster_file_folder = fullfile(root, 'Data', 'Working', 'raster');
-                    raster_file_name = sprintf('raster_%s_%d.mat', task.dataset_name, session_idx);
+                    raster_file_name = generate_filename('raster', tasks(task_idx));
                     raster_file_path = fullfile(raster_file_folder, raster_file_name);
                     if ~isfile(raster_file_path)
                         throw(MException('RegisterTrainingTask:RasterFileNotFound', ...
@@ -173,9 +180,7 @@ for dataset_idx = [4, 5, 6]
                     reg.name = 'L2=0_2';
                     config.reg = reg;
                     config.shuffle_size = 0;
-                    task.config = config;
-
-                    tasks{task_idx} = task;
+                    tasks(task_idx).config = config;
                 end
             end
         end
@@ -201,9 +206,9 @@ merge_types = {'Full', 'Cortex'};
 prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
-align = 'AlignLast15';
+align = 'Last';
 
-tasks = cell(0, 1);
+tasks = struct();
 task_idx = 0;
 for dataset_idx = [7, 8, 9]
     dataset_name = dataset_names{dataset_idx};
@@ -225,18 +230,24 @@ for dataset_idx = [7, 8, 9]
                         continue;
                     end
 
-                    task = struct();
-                    task_idx = task_idx + 1;
+                    [animal_name, injection] = split_dataset_name(dataset_name);
 
-                    task.state = state;
-                    task.dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
-                    task.border_name = sprintf('%s%s', dataset_name, merge_type);
-                    task.session_name = sprintf('%s_%d', task.dataset_name, session_idx);
-                    task.session_idx = session_idx;
+                    % task = struct();
+                    task_idx = task_idx + 1;
+                    tasks(task_idx).animal_name  = animal_name;
+                    tasks(task_idx).injection    = injection;
+                    tasks(task_idx).prepost      = prepost;
+                    tasks(task_idx).state        = state;
+                    tasks(task_idx).area         = merge_type;
+                    tasks(task_idx).align        = align;
+                    tasks(task_idx).session_idx  = session_idx;
+                    tasks(task_idx).dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
+                    tasks(task_idx).border_name  = sprintf('%s%s', dataset_name, merge_type);
+                    tasks(task_idx).session_name = sprintf('%s_%d', tasks(task_idx).dataset_name, session_idx);
 
                     % confirm raster file exists
                     raster_file_folder = fullfile(root, 'Data', 'Working', 'raster');
-                    raster_file_name = sprintf('raster_%s_%d.mat', task.dataset_name, session_idx);
+                    raster_file_name = generate_filename('raster', tasks(task_idx));
                     raster_file_path = fullfile(raster_file_folder, raster_file_name);
                     if ~isfile(raster_file_path)
                         throw(MException('RegisterTrainingTask:RasterFileNotFound', ...
@@ -258,9 +269,7 @@ for dataset_idx = [7, 8, 9]
                     reg.name = 'L2=0_2';
                     config.reg = reg;
                     config.shuffle_size = 0;
-                    task.config = config;
-
-                    tasks{task_idx} = task;
+                    tasks(task_idx).config = config;
                 end
             end
         end

@@ -15,7 +15,7 @@ function crossval_split(shuffled_meta, fold_num, split_type)
 %   Uses shuffled raster data saved by the shuffle.m function.
 
 %% default parameters
-if nargin < 5 || isempty(split_type)
+if nargin < 3 || isempty(split_type)
     split_type = 'trial';
 end
 if isstring(split_type)
@@ -98,23 +98,25 @@ end
 
 % construct meta and data for saving
 meta = struct();
-meta.animal_name = shuffled_data.meta.animal_name;
-meta.injection = shuffled_data.meta.injection;
-meta.prepost = shuffled_data.meta.prepost;
-meta.state = shuffled_data.meta.state;
-meta.area = shuffled_data.meta.area;
-meta.align = shuffled_data.meta.align;
-meta.session_idx = shuffled_data.meta.session_idx;
-meta.shuffle_idx = shuffled_data.meta.shuffle_idx;
-meta.file_name = generate_filename('crossval', meta);
-meta.N = N;
-meta.fold_num = fold_num;
-meta.assignment_num = numel(assignments);
+meta.animal_name     = shuffled_data.meta.animal_name;
+meta.injection       = shuffled_data.meta.injection;
+meta.prepost         = shuffled_data.meta.prepost;
+meta.state           = shuffled_data.meta.state;
+meta.area            = shuffled_data.meta.area;
+meta.align           = shuffled_data.meta.align;
+meta.session_idx     = shuffled_data.meta.session_idx;
+meta.shuffle_idx     = shuffled_data.meta.shuffle_idx;
+meta.file_name       = generate_filename('crossval', meta);
+meta.N               = N;
+meta.fold_num        = fold_num;
+meta.assignment_num  = numel(assignments);
+meta.fold_total_len  = fold_total_lens;
+meta.fold_trial_lens = fold_trial_lens;
 
 data = struct();
-data.fold_rasters = fold_rasters;
+data.fold_rasters    = fold_rasters;
 data.fold_trial_lens = fold_trial_lens;
-data.assignments = assignments;
+data.assignments     = assignments;
 
 save_folder = fullfile(root, 'Data', 'Working', 'crossval_split');
 check_path(save_folder);

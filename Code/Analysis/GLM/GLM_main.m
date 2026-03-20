@@ -25,8 +25,9 @@ gpuDeviceTable
 force_rebuild = true;
 force_retrain = true;
 force_replot = true;
-debug = false;
+debug = true;
 
+shuffle_seed_shift = 34;
 training_tasks = {'Slayer', 'Zeppelin', 'Emperor'};
 
 % kernel = 'DeltaPure';
@@ -61,29 +62,34 @@ for training_idx = 1:length(training_tasks)
 
     % run each session
     for task_idx = 1:task_num
-        task = tasks{task_idx};
+        task = tasks(task_idx);
         try
             tick_session = tic;
             fprintf("Task %d/%d: %s, session%d\n", task_idx, task_num, task.dataset_name, task.session_idx);
             skip_flag = true;
             dataset_name = task.dataset_name;
-            border_name = task.border_name;
-            session_idx = task.session_idx;
+            border_name  = task.border_name;
+            session_idx  = task.session_idx;
 
-            config = task.config;
-            kernel_name = config.kernel;
-            reg = config.reg;
-            shuffle_size=config.shuffle_size;
-            max_epoch=config.max_epochs;
-            fold_num = config.crossval_fold_num;
+            config       = task.config;
+            kernel_name  = config.kernel;
+            reg          = config.reg;
+            shuffle_size = config.shuffle_size;
+            max_epoch    = config.max_epochs;
+            fold_num     = config.crossval_fold_num;
+
+            task.kernel_name = kernel_name;
+            task.reg_name = reg.name;
             
             %% generate shuffled raster
             fprintf("Shuffle rasters\n");
             tic;
             for shuffle_id=0:shuffle_size
                 % skip if already exists
-                target_folder = fullfile(root, 'Data', 'Working', 'raster');
-                target_file = sprintf('shuffled_%s_%d_%d.mat', dataset_name, session_idx, shuffle_id);
+                shuffle_meta = task;
+                shuffle_meta.shuffle_idx = shuffle_id;
+                target_folder = fullfile(root, 'Data', 'Working', 'shuffled');
+                target_file = generate_filename('shuffled', shuffle_meta);
                 target_path = fullfile(target_folder, target_file);
                 if isfile(target_path) && ~force_rebuild
                     fprintf("Skip %d. \n", shuffle_id);
@@ -97,7 +103,7 @@ for training_idx = 1:length(training_tasks)
                 else
                     shuffle_type = "Across trial";
                 end
-                shuffle(dataset_name, session_idx, shuffle_id, shuffle_id, shuffle_type);
+                shuffle(shuffle_meta, shuffle_id, shuffle_id+shuffle_seed_shift, shuffle_type);
             end
             toc;
 
@@ -106,8 +112,11 @@ for training_idx = 1:length(training_tasks)
             tic;
             for shuffle_id=0:shuffle_size % seed=0: original data (no shuffle)
                 % skip if already exists
-                target_folder = fullfile(root, 'Data', 'Working', 'crossval_split');
-                target_file = sprintf('crossval_%s_%d_%d.mat', dataset_name, session_idx, shuffle_id);
+                crossval_meta = task;
+                crossval_meta.shuffle_idx = shuffle_id;
+
+                target_folder = fullfile(root, 'Data', 'Working', 'crossval');
+                target_file = generate_filename('crossval', crossval_meta);
                 target_path = fullfile(target_folder, target_file);
                 if isfile(target_path) && ~force_rebuild
                     fprintf("Skip %d. \n", shuffle_id);
@@ -120,7 +129,7 @@ for training_idx = 1:length(training_tasks)
                 else
                     split_type = 'Time';
                 end
-                crossval_split(dataset_name, session_idx, shuffle_id, fold_num, split_type);
+                crossval_split(crossval_meta, fold_num, split_type);
             end
 
             %% convolve predj and combine trials
@@ -128,54 +137,62 @@ for training_idx = 1:length(training_tasks)
             tic;
             for shuffle_id=0:shuffle_size % seed=0: original data (no shuffle)
                 % skip if already exists
-                target_folder = fullfile(root, 'Data', 'Working', 'GLM_data');
-                target_file = sprintf('GLMdata_%s_%d_%d_%s.mat', dataset_name, session_idx, shuffle_id, kernel_name);
+                conv_meta = task;
+                conv_meta.shuffle_idx = shuffle_id;
+
+                target_folder = fullfile(root, 'Data', 'Working', 'GLMdata');
+                target_file = generate_filename('GLMdata', conv_meta);
                 target_path = fullfile(target_folder, target_file);
                 if isfile(target_path) && ~force_rebuild
                     fprintf("Skip %d. \n", shuffle_id);
                     continue;
                 end
                 skip_flag = false;
-                convolution(dataset_name, session_idx, shuffle_id, kernel_name);
+                convolution(conv_meta, kernel_name);
             end
             toc;
 
             %% GLM inference
-            for shuffle_seed=0:shuffle_size
-                fprintf("Training %d\n", shuffle_seed);
+            for shuffle_id=0:shuffle_size
+                fprintf("Training %d\n", shuffle_id);
                 skip_flag = false;
                 tic;
                 for fold_idx = 0:0
                     % skip if already exists
-                    target_folder = fullfile(root, 'Data', 'Working', 'GLM_models');
-                    target_file = sprintf('GLM_%s_s%d_shuffle%d_%s_%s_epoch%d_fold%d.mat', dataset_name, session_idx, shuffle_id, kernel_name, ...
-                        reg.name, max_epoch, fold_idx);
+                    model_meta = task;
+                    model_meta.shuffle_idx = shuffle_id;
+                    model_meta.fold_idx = fold_idx;
+                    model_meta.fold_num = fold_num;
+                    model_meta.epoch = max_epoch;
+
+                    target_folder = fullfile(root, 'Data', 'Working', 'GLM');
+                    target_file = generate_filename('GLM', model_meta);
                     target_path = fullfile(target_folder, target_file);
                     if isfile(target_path) && ~force_retrain
                         fprintf("Skip. \n");
                         continue;
                     end
-                    GLM_multi_kernel_crossval(dataset_name, session_idx, kernel_name, shuffle_id, max_epoch, reg, 1, 5e-3, fold_idx);
+                    GLM_multi_kernel_crossval(model_meta, max_epoch, reg, 1, 5e-3, fold_idx);
                 end
                 toc;
             end
 
-            %% plot
-            fprintf("Plotting\n");
-            tic;
-            target_folder = fullfile(root, 'Figures', 'GLM_models', dataset_name);
-            target_file = sprintf('GLMpar_%s_%d_%s_%s_epoch%d_sorted.png', dataset_name, session_idx, kernel_name, reg.name, max_epoch);
-            target_path = fullfile(target_folder, target_file);
-            if isfile(target_path) && ~force_replot
-                fprintf("Skip plotting. \n");
-            else
-                channel_folder = fullfile(root, 'Data', 'Working', 'raster');
-                channel_file = sprintf('raster_%s_%d.mat', dataset_name, session_idx);
-                channel_path = fullfile(channel_folder, channel_file);
-                load(channel_path, "channel");
-                plot_GLM_sorted(dataset_name, border_name, session_idx, kernel_name, max_epoch, reg, shuffle_size, "idx", channel);
-            end
-            toc;
+            % %% plot
+            % fprintf("Plotting\n");
+            % tic;
+            % target_folder = fullfile(root, 'Figures', 'GLM_models', dataset_name);
+            % target_file = sprintf('GLMpar_%s_%d_%s_%s_epoch%d_sorted.png', dataset_name, session_idx, kernel_name, reg.name, max_epoch);
+            % target_path = fullfile(target_folder, target_file);
+            % if isfile(target_path) && ~force_replot
+            %     fprintf("Skip plotting. \n");
+            % else
+            %     channel_folder = fullfile(root, 'Data', 'Working', 'raster');
+            %     channel_file = sprintf('raster_%s_%d.mat', dataset_name, session_idx);
+            %     channel_path = fullfile(channel_folder, channel_file);
+            %     load(channel_path, "channel");
+            %     plot_GLM_sorted(dataset_name, border_name, session_idx, kernel_name, max_epoch, reg, shuffle_size, "idx", channel);
+            % end
+            % toc;
 
             if skip_flag
                 skipped = skipped + 1;
