@@ -57,12 +57,13 @@ for i = 1:numel(data_folders)
             warning('File %s does not contain meta variable. Skipping.', file_path);
             continue;
         end
+        
+        meta = m.meta;
         if GET_DATA_FIELDS
             if ~ismember('data', vars) %#ok<*UNRCH>
                 warning('File %s does not contain data variable. Skipping.', file_path);
                 continue;
             end
-            meta = m.meta;
             meta.data_fields = fieldnames(m.data);
         end
 
