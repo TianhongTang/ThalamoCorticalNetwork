@@ -99,13 +99,35 @@ for animal_idx = 1:2
                         close_count = close_count + count;
                         close_total = close_total + total;
                     end
+
                 end
+            end
+            % error bar and statistical test
+            [CI_open_low, CI_open_high] = wilsonCI(open_count, open_total, 0.05);
+            [CI_close_low, CI_close_high] = wilsonCI(close_count, close_total, 0.05);
+            p_val = twoProportionPValue(open_count, open_total, close_count, close_total);
+            if p_val < 0.001
+                sig_label = '***';
+            elseif p_val < 0.01
+                sig_label = '**';
+            elseif p_val < 0.05
+                sig_label = '*';
+            else
+                sig_label = 'N.S.';
             end
 
             % plot histogram
             nexttile(tile_idx);
             ratios = [open_count/open_total, close_count/close_total]*100;
+            low_errs = [ratios(1) - CI_open_low*100, ratios(2) - CI_close_low*100];
+            high_errs = [CI_open_high*100 - ratios(1), CI_close_high*100 - ratios(2)];
+
+            hold on;
             bar(1:2, ratios);
+            errorbar(1:2, ratios, low_errs, high_errs, 'k', 'LineStyle', 'none', 'LineWidth', 1.5);
+            text(1.5, 27.5, sig_label, 'HorizontalAlignment', 'center', 'FontSize', 14);
+            hold off;
+
             xticks(1:2);
             xticklabels(state_labels);
             ylabel('Percentage of Significant J (%)');
@@ -121,6 +143,45 @@ save_path = fullfile(save_folder, 'J_hist_summary.png');
 saveas(f, save_path);
 
 
+function [p_low, p_high] = wilsonCI(M, N, alpha)
+    % Wilson score interval
+    % M = successes, N = trials
+    % alpha = significance level (e.g., 0.05 for 95% CI)
 
+    if nargin < 3
+        alpha = 0.05;
+    end
 
+    p = M / N;
+    z = norminv(1 - alpha/2); % Z for CI
 
+    denominator = 1 + (z^2)/N;
+    center = p + (z^2)/(2*N);
+    radius = z * sqrt( (p*(1-p)/N) + (z^2)/(4*N^2) );
+
+    p_low = (center - radius) / denominator;
+    p_high = (center + radius) / denominator;
+end
+
+function p_val = twoProportionPValue(success1, trials1, success2, trials2)
+    % Two-proportion z-test (two-tailed) between pre and post proportions
+
+    if trials1 == 0 || trials2 == 0
+        p_val = NaN;
+        return;
+    end
+
+    p1 = success1 / trials1;
+    p2 = success2 / trials2;
+    pooled = (success1 + success2) / (trials1 + trials2);
+    denom = sqrt(pooled * (1 - pooled) * (1 / trials1 + 1 / trials2));
+    if denom == 0
+        p_val = 1;
+        return;
+    end
+
+    z = (p1 - p2) / denom;
+    abs_z = abs(z);
+    Phi = 0.5 * erfc(-abs_z / sqrt(2));
+    p_val = 2 * (1 - Phi);
+end
