@@ -228,23 +228,24 @@ for epoch=1:max_epoch
         end
 
         % construct model data and meta for saving
-        meta             = struct();
-        meta.animal_name = GLMdata.meta.animal_name;
-        meta.injection   = GLMdata.meta.injection;
-        meta.prepost     = GLMdata.meta.prepost;
-        meta.state       = GLMdata.meta.state;
-        meta.area        = GLMdata.meta.area;
-        meta.align       = GLMdata.meta.align;
-        meta.session_idx = GLMdata.meta.session_idx;
-        meta.shuffle_idx = GLMdata.meta.shuffle_idx;
-        meta.kernel_name = GLMdata.meta.kernel_name;
-        meta.reg_name    = reg.name;
-        meta.epoch       = epoch;
-        meta.fold_num    = fold_num;
-        meta.fold_idx    = test_fold;                       % fold index used for testing. If 0, use all data for training and testing.
-        meta.file_name   = generate_filename('GLM', meta);
-        meta.N           = N;
-        meta.N_filtered  = N_filtered;
+        meta                       = struct();
+        meta.animal_name           = GLMdata.meta.animal_name;
+        meta.injection             = GLMdata.meta.injection;
+        meta.prepost               = GLMdata.meta.prepost;
+        meta.state                 = GLMdata.meta.state;
+        meta.area                  = GLMdata.meta.area;
+        meta.align                 = GLMdata.meta.align;
+        meta.session_idx           = GLMdata.meta.session_idx;
+        meta.shuffle_idx           = GLMdata.meta.shuffle_idx;
+        meta.kernel_name           = GLMdata.meta.kernel_name;
+        meta.reg_name              = reg.name;
+        meta.epoch                 = epoch;
+        meta.fold_num              = fold_num;
+        meta.fold_idx              = test_fold;                           % fold index used for testing. If 0, use all data for training and testing.
+        meta.resting_dur_threshold = GLMdata.meta.resting_dur_threshold;
+        meta.file_name             = generate_filename('GLM', meta);
+        meta.N                     = N;
+        meta.N_filtered            = N_filtered;
 
         data            = struct();
         data.model_par  = model_par;

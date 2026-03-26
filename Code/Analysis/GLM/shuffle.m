@@ -79,20 +79,21 @@ end
 
 % construct meta and data for saving
 meta = struct();
-meta.animal_name  = raster_file.meta.animal_name;
-meta.injection    = raster_file.meta.injection;
-meta.prepost      = raster_file.meta.prepost;
-meta.state        = raster_file.meta.state;
-meta.area         = raster_file.meta.area;
-meta.align        = raster_file.meta.align;
-meta.session_idx  = raster_file.meta.session_idx;
-meta.shuffle_mode = shuffle_type;
-meta.shuffle_idx   = shuffle_id;  % not a typo.
-meta.shuffle_seed = shuffle_seed;
-meta.file_name    = generate_filename('shuffled', meta);
-meta.N            = N;
-meta.dt           = raster_file.meta.dt;
-meta.trial_num    = trial_num;
+meta.animal_name           = raster_file.meta.animal_name;
+meta.injection             = raster_file.meta.injection;
+meta.prepost               = raster_file.meta.prepost;
+meta.state                 = raster_file.meta.state;
+meta.area                  = raster_file.meta.area;
+meta.align                 = raster_file.meta.align;
+meta.session_idx           = raster_file.meta.session_idx;
+meta.shuffle_mode          = shuffle_type;
+meta.shuffle_idx           = shuffle_id;                              % not a typo.
+meta.shuffle_seed          = shuffle_seed;
+meta.resting_dur_threshold = raster_file.meta.resting_dur_threshold;
+meta.file_name             = generate_filename('shuffled', meta);
+meta.N                     = N;
+meta.dt                    = raster_file.meta.dt;
+meta.trial_num             = trial_num;
 
 data = struct();
 data.rasters = rasters_shuffle;

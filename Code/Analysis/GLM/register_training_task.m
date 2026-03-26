@@ -26,6 +26,7 @@ prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
 align = 'Last';
+resting_dur_threshold = 15;
 
 tasks = struct();
 task_idx = 0;
@@ -66,6 +67,7 @@ for dataset_idx = [1, 2, 3]
                     tasks(task_idx).dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
                     tasks(task_idx).border_name  = sprintf('%s%s', dataset_name, merge_type);
                     tasks(task_idx).session_name = sprintf('%s_%d', tasks(task_idx).dataset_name, session_idx);
+                    tasks(task_idx).resting_dur_threshold = resting_dur_threshold;
 
                     % confirm raster file exists
                     raster_file_folder = fullfile(root, 'Data', 'Working', 'raster');
@@ -118,6 +120,7 @@ prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
 align = 'Last';
+resting_dur_threshold = 15;
 
 
 tasks = struct();
@@ -155,6 +158,7 @@ for dataset_idx = [4, 5, 6]
                     tasks(task_idx).dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
                     tasks(task_idx).border_name  = sprintf('%s%s', dataset_name, merge_type);
                     tasks(task_idx).session_name = sprintf('%s_%d', tasks(task_idx).dataset_name, session_idx);
+                    tasks(task_idx).resting_dur_threshold = resting_dur_threshold;
 
                     % confirm raster file exists
                     raster_file_folder = fullfile(root, 'Data', 'Working', 'raster');
@@ -207,6 +211,7 @@ prepost_types = {'Pre', 'Post'};
 % states = {'RestOpen', 'RestClose', 'Task'};
 states = {'RestOpen', 'RestClose'};
 align = 'Last';
+resting_dur_threshold = 15;
 
 tasks = struct();
 task_idx = 0;
@@ -244,6 +249,7 @@ for dataset_idx = [7, 8, 9]
                     tasks(task_idx).dataset_name = sprintf('%s%s%s%s%s', dataset_name, prepost, state, merge_type, align);
                     tasks(task_idx).border_name  = sprintf('%s%s', dataset_name, merge_type);
                     tasks(task_idx).session_name = sprintf('%s_%d', tasks(task_idx).dataset_name, session_idx);
+                    tasks(task_idx).resting_dur_threshold = resting_dur_threshold;
 
                     % confirm raster file exists
                     raster_file_folder = fullfile(root, 'Data', 'Working', 'raster');

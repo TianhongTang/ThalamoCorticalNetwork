@@ -98,20 +98,21 @@ end
 
 % construct meta and data for saving
 meta = struct();
-meta.animal_name     = shuffled_data.meta.animal_name;
-meta.injection       = shuffled_data.meta.injection;
-meta.prepost         = shuffled_data.meta.prepost;
-meta.state           = shuffled_data.meta.state;
-meta.area            = shuffled_data.meta.area;
-meta.align           = shuffled_data.meta.align;
-meta.session_idx     = shuffled_data.meta.session_idx;
-meta.shuffle_idx     = shuffled_data.meta.shuffle_idx;
-meta.file_name       = generate_filename('crossval', meta);
-meta.N               = N;
-meta.fold_num        = fold_num;
-meta.assignment_num  = numel(assignments);
-meta.fold_total_len  = fold_total_lens;
-meta.fold_trial_lens = fold_trial_lens;
+meta.animal_name           = shuffled_data.meta.animal_name;
+meta.injection             = shuffled_data.meta.injection;
+meta.prepost               = shuffled_data.meta.prepost;
+meta.state                 = shuffled_data.meta.state;
+meta.area                  = shuffled_data.meta.area;
+meta.align                 = shuffled_data.meta.align;
+meta.session_idx           = shuffled_data.meta.session_idx;
+meta.shuffle_idx           = shuffled_data.meta.shuffle_idx;
+meta.resting_dur_threshold = shuffled_data.meta.resting_dur_threshold;
+meta.file_name             = generate_filename('crossval', meta);
+meta.N                     = N;
+meta.fold_num              = fold_num;
+meta.assignment_num        = numel(assignments);
+meta.fold_total_len        = fold_total_lens;
+meta.fold_trial_lens       = fold_trial_lens;
 
 data = struct();
 data.fold_rasters    = fold_rasters;

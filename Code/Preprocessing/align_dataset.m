@@ -15,7 +15,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 %% Main
 STATUS_LOG = false;
 SKIP_EXISTING = false;
-resting_dur_threshold = 10; % minimum duration in seconds for resting epochs to be included in the analysis
+resting_dur_threshold = 15; % minimum duration in seconds for resting epochs to be included in the analysis
 
 % load data
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');  

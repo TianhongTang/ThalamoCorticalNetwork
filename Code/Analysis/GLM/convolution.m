@@ -116,19 +116,20 @@ for fold_id = 1:fold_num
 end
 
 % construct meta and data for saving
-meta             = struct();
-meta.animal_name = raster_data.meta.animal_name;
-meta.injection   = raster_data.meta.injection;
-meta.prepost     = raster_data.meta.prepost;
-meta.state       = raster_data.meta.state;
-meta.area        = raster_data.meta.area;
-meta.align       = raster_data.meta.align;
-meta.session_idx = raster_data.meta.session_idx;
-meta.shuffle_idx = raster_data.meta.shuffle_idx;
-meta.kernel_name = kernel_name;
-meta.file_name   = generate_filename('GLMdata', meta);
-meta.N           = N;
-meta.fold_num    = fold_num;
+meta                       = struct();
+meta.animal_name           = raster_data.meta.animal_name;
+meta.injection             = raster_data.meta.injection;
+meta.prepost               = raster_data.meta.prepost;
+meta.state                 = raster_data.meta.state;
+meta.area                  = raster_data.meta.area;
+meta.align                 = raster_data.meta.align;
+meta.session_idx           = raster_data.meta.session_idx;
+meta.shuffle_idx           = raster_data.meta.shuffle_idx;
+meta.kernel_name           = kernel_name;
+meta.resting_dur_threshold = raster_data.meta.resting_dur_threshold;
+meta.file_name             = generate_filename('GLMdata', meta);
+meta.N                     = N;
+meta.fold_num              = fold_num;
 
 data        = struct();
 data.folds  = folds;

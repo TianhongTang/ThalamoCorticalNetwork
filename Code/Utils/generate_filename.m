@@ -11,19 +11,26 @@ switch data_type
         state_code = get_code('state', meta.state);
         area_code = get_code('area', meta.area);
         align_code = get_code('align', meta.align);
+
+        if isfield(meta, 'resting_dur_threshold')
+            dur_code = sprintf('dur%d', meta.resting_dur_threshold);
+        else
+            dur_code = '';
+        end
         
-        filename = sprintf('raster_%s%s%s%s%s%s%d.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx);
+        filename = sprintf('raster_%s%s%s%s%s%s%d%s.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx, dur_code);
     case 'border'
-        required_fields = {'animal_name', 'injection', 'prepost', 'area', 'align', 'session_idx'};
+        required_fields = {'animal_name', 'injection', 'prepost', 'area', 'session_idx'};
         check_required_fields(meta, required_fields);
 
         animal_code = get_code('animal_name', meta.animal_name);
         injection_code = get_code('injection', meta.injection);
         prepost_code = get_code('prepost', meta.prepost);
         area_code = get_code('area', meta.area);
-        align_code = get_code('align', meta.align);
+        % align_code = get_code('align', meta.align);
+        special_code = 'None';
 
-        filename = sprintf('border_%s%s%s%s%s%d.mat', animal_code, injection_code, prepost_code, area_code, align_code, meta.session_idx);
+        filename = sprintf('border_%s%s%s%s%s%d.mat', animal_code, injection_code, prepost_code, area_code, special_code, meta.session_idx);
     
     case 'sortidx'
         required_fields = {'animal_name', 'injection', 'prepost', 'state', 'area', 'align', 'session_idx', 'criterion'};
@@ -45,7 +52,7 @@ switch data_type
         filename = sprintf('kernel_%s.mat', meta.kernel_name);
 
     case 'shuffled'
-        required_fields = {'animal_name', 'injection', 'prepost', 'state', 'area', 'align', 'session_idx', 'shuffle_idx'};
+        required_fields = {'animal_name', 'injection', 'prepost', 'state', 'area', 'align', 'resting_dur_threshold', 'session_idx', 'shuffle_idx'};
         check_required_fields(meta, required_fields);
 
         animal_code = get_code('animal_name', meta.animal_name);
@@ -54,11 +61,12 @@ switch data_type
         state_code = get_code('state', meta.state);
         area_code = get_code('area', meta.area);
         align_code = get_code('align', meta.align);
+        dur_code = get_code('resting_dur_threshold', meta.resting_dur_threshold);
 
-        filename = sprintf('shuffled_%s%s%s%s%s%s%d_%d.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx, meta.shuffle_idx);
+        filename = sprintf('shuffled_%s%s%s%s%s%s%d%s_%d.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx, dur_code, meta.shuffle_idx);
 
     case 'crossval'
-        required_fields = {'animal_name', 'injection', 'prepost', 'state', 'area', 'align', 'session_idx', 'shuffle_idx'};
+        required_fields = {'animal_name', 'injection', 'prepost', 'state', 'area', 'align', 'resting_dur_threshold', 'session_idx', 'shuffle_idx'};
         check_required_fields(meta, required_fields);
         
         animal_code = get_code('animal_name', meta.animal_name);
@@ -67,11 +75,12 @@ switch data_type
         state_code = get_code('state', meta.state);
         area_code = get_code('area', meta.area);
         align_code = get_code('align', meta.align);
+        dur_code = get_code('resting_dur_threshold', meta.resting_dur_threshold);
 
-        filename = sprintf('crossval_%s%s%s%s%s%s%d_%d.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx, meta.shuffle_idx);
+        filename = sprintf('crossval_%s%s%s%s%s%s%d%s_%d.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx, dur_code, meta.shuffle_idx);
 
     case 'GLMdata'
-        required_fields = {'animal_name', 'injection', 'prepost', 'state', 'area', 'align', 'session_idx', 'shuffle_idx', 'kernel_name'};
+        required_fields = {'animal_name', 'injection', 'prepost', 'state', 'area', 'align', 'resting_dur_threshold', 'session_idx', 'shuffle_idx', 'kernel_name'};
         check_required_fields(meta, required_fields);
         
         animal_code = get_code('animal_name', meta.animal_name);
@@ -80,11 +89,12 @@ switch data_type
         state_code = get_code('state', meta.state);
         area_code = get_code('area', meta.area);
         align_code = get_code('align', meta.align);
+        dur_code = get_code('resting_dur_threshold', meta.resting_dur_threshold);
 
-        filename = sprintf('GLMdata_%s%s%s%s%s%s%d_%d_%s.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx, meta.shuffle_idx, meta.kernel_name);
+        filename = sprintf('GLMdata_%s%s%s%s%s%s%d%s_%d_%s.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx, dur_code, meta.shuffle_idx, meta.kernel_name);
     case 'GLM'
         required_fields = {'animal_name', 'injection', 'prepost', ...
-        'state', 'area', 'align', 'session_idx', 'shuffle_idx', ...
+        'state', 'area', 'align', 'resting_dur_threshold', 'session_idx', 'shuffle_idx', ...
         'kernel_name', 'reg_name', 'epoch', 'fold_idx'};
         check_required_fields(meta, required_fields);
 
@@ -94,10 +104,11 @@ switch data_type
         state_code = get_code('state', meta.state);
         area_code = get_code('area', meta.area);
         align_code = get_code('align', meta.align);
+        dur_code = get_code('resting_dur_threshold', meta.resting_dur_threshold);
 
-        filename = sprintf('GLM_%s%s%s%s%s%s%d_%d_%s_%s_epoch%d_fold%d.mat', ...
+        filename = sprintf('GLM_%s%s%s%s%s%s%d%s_%d_%s_%s_epoch%d_fold%d.mat', ...
             animal_code, injection_code, prepost_code, state_code, area_code, align_code, ...
-            meta.session_idx, meta.shuffle_idx, meta.kernel_name, meta.reg_name, meta.epoch, meta.fold_idx);
+            meta.session_idx, dur_code, meta.shuffle_idx, meta.kernel_name, meta.reg_name, meta.epoch, meta.fold_idx);
 
     otherwise
         error('Unknown data type: %s', data_type);
@@ -193,6 +204,8 @@ function code = get_code(field_name, field_value)
                 otherwise
                     error('Unknown criterion type: %s', field_value);
             end
+        case 'resting_dur_threshold'
+            code = sprintf('dur%d', field_value);
         otherwise
             error('Unknown field name: %s', field_name);
     end

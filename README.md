@@ -55,7 +55,7 @@ Each field is a struct array for a data type. The field name is the type of the 
 | max_len | int | Maximum trial length. |
 | min_len | int | Minimum trial length. |
 | total_len | int | Total trial length. |
-| resting_dur_threshold (optional) | double | Minimum duration threshold for resting state trials. |
+| resting_dur_threshold | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
 | align_kernel (optional) | string | Kernel used to align data. |
 | align_kernel_len (optional) | string | Kernel length. |
 
@@ -163,6 +163,7 @@ Extracted spike data from the array dataset.
 | shuffle_mode | string | Shuffle mode. `None`: No shuffling. `Within trial`: Shuffle time bins within each trial. `Across trial`: Shuffle time bins in all trials. |
 | shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
 | shuffle_seed | int | Random seed used in shuffling. |
+| resting_dur_threshold | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
 | file_name | string | File name. |
 | N | int | Number of neurons. |
 | dt | double | Time bin size in seconds. |
@@ -192,6 +193,7 @@ Rasters are splitted and assigned to folds for cross validation. For task sessio
 | align | string | Alignment type. For aligned data only. |
 | session_idx | int | Session index. |
 | shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
+| resting_dur_threshold | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
 | file_name | string | File name. |
 | N | int | Number of neurons. |
 | fold_num | int | Number of splitted folds. |
@@ -226,6 +228,7 @@ Convolved and concatenated rasters.
 | session_idx | int | Session index. |
 | shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
 | kernel_name | string | Kernels used in GLM. |
+| resting_dur_threshold | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
 | file_name | string | File name. |
 | N | int | Number of neurons. |
 | fold_num | int | Number of cross validation folds. |
@@ -256,6 +259,7 @@ Convolved and concatenated rasters.
 | epoch | int | Epochs trained. |
 | fold_num | int | Number of cross validation folds. |
 | fold_idx | int | Left out fold index. 0 is default for no cross validation models. |
+| resting_dur_threshold | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
 | file_name | string | File name. |
 | N | int | Number of neurons. |
 | N_filtered | int | Number of neurons after filtering out no-spike and ####(other criterions?)#### neurons. |
