@@ -13,6 +13,7 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
+resting_dur_threshold = 15;
 mt = load_meta(root, 'table'); % metadata table
 
 f = figure('Position', [100, 100, 1200, 800], 'Visible', 'off');
@@ -132,10 +133,11 @@ for animal_idx = 1:3
         ylim([0, 30]);
     end
 end
+sgtitle(sprintf("Resting Duration Threshold: %d sec", resting_dur_threshold), 'FontSize', 16);
 
 save_folder = fullfile(root, 'Figures', 'J_hist');
 check_path(save_folder);
-save_path = fullfile(save_folder, 'J_hist_summary.png');
+save_path = fullfile(save_folder, sprintf('J_hist_summary_%d.png', resting_dur_threshold));
 saveas(f, save_path);
 
 
