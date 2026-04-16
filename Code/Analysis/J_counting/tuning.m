@@ -73,7 +73,6 @@ for i = 1:tuning_num
         end
     end
 
-
     % define comparason groups
     % tuning format: (N, pre/post, offer1/offer2/BeforeCho/Cho2Info/Inof2Rew/AfterRew, ER/IxU/Unc/Sub)
     % 1. choice to info +/-, IxU
