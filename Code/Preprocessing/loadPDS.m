@@ -480,7 +480,7 @@ for dataset_idx = 1:dataset_num
                                 rasters{j} = zeros(N, trial_B);
                             end
                             rasters{j}(i, :) = raster;
-                            firing_rates{j}(i) = mean(raster)/dt; % in Hz
+                            firing_rates{j}(i) = mean(raster);
                         end
                     end
 

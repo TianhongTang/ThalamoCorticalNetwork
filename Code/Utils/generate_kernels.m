@@ -114,7 +114,6 @@ n_PS_kernel=length(PS_kernels);
 meta = struct('kernel_name', 'steps50', 'n_conn_kernel', n_conn_kernel, 'n_PS_kernel', n_PS_kernel, 'kernel_len', kernel_len);
 data = struct('conn_kernels', {conn_kernels}, 'PS_kernels', {PS_kernels});
 save_name = generate_filename('kernel', meta);
-meta.file_name = save_name;
 save_path = fullfile(save_folder, save_name);
 save(save_path, "meta", "data");
 

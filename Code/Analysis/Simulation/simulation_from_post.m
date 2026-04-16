@@ -59,7 +59,7 @@ session_name_full = sprintf('MuscimolPost%sCortexAlignLast', state);
 %% default parameters
 p = struct();
 p.N_thalamus_per_area = 10;
-p.Thalamus_h = -4.5;
+p.Thalamus_h = -4;
 p.TC_density = 0.1;
 p.within_E = 2.7;
 p.across_E = 1;

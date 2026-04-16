@@ -7,8 +7,6 @@ script_path = mfilename('fullpath');
 root = script_path;
 for i = 1:code_depth
     root = fileparts(root);
-    % root = [root, '\..'];
-    % root = fullfile(root, '..');
 end
 % include code folder and utils
 addpath(fileparts(script_path));
