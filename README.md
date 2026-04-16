@@ -16,6 +16,8 @@
 
 Each data file, except `metadata.mat`, is stored in a `[datatype]_##.mat` file containing two structs named `meta` and `data`. The file name consists of the type of the data followed by the identification index constructed from its meta data.
 
+Bold field names in `meta` are necessary identifiers to construct unique file name. 
+
 | Field | Description |
 |------|------|
 | meta | Identification and description data. Also storaged in `metadata.mat` |
@@ -246,20 +248,20 @@ Convolved and concatenated rasters.
 
 | Field | Type | Description |
 |------|------|-------------|
-| animal_name | string | Animal name. |
-| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
-| prepost | string | Pre-injection `pre` or Post-injection `post`. |
-| state | string | State identifier. |
-| area | string | Dataset brain area identifier. Merged area type `Full` or `Cortex` |
-| align | string | Alignment type. For aligned data only. |
-| session_idx | int | Session index. |
-| shuffle_idx | int | Shuffle index. 0 is default for no shuffle. |
-| kernel_name | string | Kernels used in GLM. |
-| reg_name | struct | Regularization used in training. |
-| epoch | int | Epochs trained. |
+| **animal_name** | string | Animal name. |
+| **injection** | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| **prepost** | string | Pre-injection `pre` or Post-injection `post`. |
+| **state** | string | State identifier. |
+| **area** | string | Dataset brain area identifier. Merged area type `Full` or `Cortex` |
+| **align** | string | Alignment type. For aligned data only. |
+| **session_idx** | int | Session index. |
+| **shuffle_idx** | int | Shuffle index. 0 is default for no shuffle. |
+| **kernel_name** | string | Kernels used in GLM. |
+| **reg_name** | struct | Regularization used in training. |
+| **epoch** | int | Epochs trained. |
 | fold_num | int | Number of cross validation folds. |
-| fold_idx | int | Left out fold index. 0 is default for no cross validation models. |
-| resting_dur_threshold | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
+| **fold_idx** | int | Left out fold index. 0 is default for no cross validation models. |
+| **resting_dur_threshold** | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
 | file_name | string | File name. |
 | N | int | Number of neurons. |
 | N_filtered | int | Number of neurons after filtering out no-spike and ####(other criterions?)#### neurons. |
@@ -296,7 +298,7 @@ Convolved and concatenated rasters.
 | PS_kernels | cell(double) | {n_conn_kernel}(kernel_len) | Weight of post-spike kernels. |
 
 
-### `_##.mat` - file
+### `tuning_##.mat` - task tuning file
 
 #### meta
 

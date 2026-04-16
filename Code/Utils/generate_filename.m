@@ -111,17 +111,15 @@ switch data_type
             meta.session_idx, dur_code, meta.shuffle_idx, meta.kernel_name, meta.reg_name, meta.epoch, meta.fold_idx);
     
     case 'tuning'
-        required_fields = {'animal_name', 'injection', 'prepost', 'state', 'area', 'align', 'session_idx'};
+        required_fields = {'animal_name', 'injection', 'area', 'align', 'session_idx'};
         check_required_fields(meta, required_fields);
 
         animal_code = get_code('animal_name', meta.animal_name);
         injection_code = get_code('injection', meta.injection);
-        prepost_code = get_code('prepost', meta.prepost);
-        state_code = get_code('state', meta.state);
         area_code = get_code('area', meta.area);
         align_code = get_code('align', meta.align);
 
-        filename = sprintf('tuning_%s%s%s%s%s%s%d.mat', animal_code, injection_code, prepost_code, state_code, area_code, align_code, meta.session_idx);
+        filename = sprintf('tuning_%s%s%s%s%d.mat', animal_code, injection_code, area_code, align_code, meta.session_idx);
 
     otherwise
         error('Unknown data type: %s', data_type);

@@ -145,91 +145,76 @@ area_names = {'ACC', 'VLPFC'};
 
 for session_type_idx = 1:length(session_types)
     session_type = session_types{session_type_idx};
-    
-    if strcmp(session_type, 'Muscimol')
-        n_sessions = 10;
-    else
-        n_sessions = 5;
-    end
+    unique_sessions = unique_sessions_all{session_type_idx};
+    n_sessions = length(unique_sessions);
 
-    for state_idx = 1:n_states
-        state = states{state_idx};
-        model_name_full = [session_type, state, '_cortex_AlignLast'];
+    for session_idx = 1:n_sessions
 
-        for session_idx = 1:n_sessions
+        % construct raster file meta
+        meta = struct();
+        meta.animal_name = "Slayer";
+        meta.injection   = session_type;
+        meta.prepost     = 'Pre';
+        meta.state       = 'Task';
+        meta.area        = 'Cortex';
+        meta.align       = 'None';
+        meta.session_idx = session_idx;
+        file_name        = generate_filename('raster', meta);
+        file_path        = fullfile(root, 'Data', 'Working', 'raster', file_name);
 
-            if strcmp(session_type, 'Muscimol') && (session_idx == 2 || session_idx == 3)
-                continue; % skip sessions 2 and 3 for Muscimol
+        load(file_path, 'meta', 'data');
+        cell_area    = data.cell_area;
+        cell_id      = data.cell_id;
+        session_name = meta.date;
+        N            = meta.N;
+
+        tuning_session = zeros(N, length(prepost), length(stages), length(regressors));
+        beta_session = zeros(N, length(prepost), length(stages), length(regressors));
+        found = 0;
+        
+        for i = 1:N
+            ID = [session_name, '-008_', cell_id{i}];
+            area = cell_area{i};
+            area_idx = find(strcmp(area_names, area));
+
+            cell_ID = cell_ID_all{session_type_idx, area_idx};
+            task_ID = task_ID_all{session_type_idx, area_idx};
+            beta = beta_all{session_type_idx, area_idx};
+
+            cell_idx = find(strcmp(cell_ID, ID));
+            if isempty(cell_idx)
+                fprintf('Cell ID %s not found in session %s, area %s\n', ID, session_name, area);
+                tuning_session(i, :, :, :) = NaN;
+                beta_session(i, :, :, :) = NaN;
+            else
+                tuning_session(i, :, :, :) = task_ID(cell_idx, :, :, :);
+                beta_session(i, :, :, :) = beta(cell_idx, :, :, :);
+                found = found + 1;
             end
-
-            % construct raster file meta
-            meta = struct();
-            meta.animal_name = "Slayer";
-            meta.injection   = session_type;
-            meta.prepost     = prepost_str{state_idx};
-            meta.state       = state_str{state_idx};
-            meta.area        = 'Cortex';
-            meta.align       = 'None';
-            meta.session_idx = session_idx;
-            file_name        = generate_filename('raster', meta);
-            file_path        = fullfile(root, 'Data', 'Working', 'raster', file_name);
-
-            load(file_path, 'meta', 'data');
-            cell_area    = data.cell_area;
-            cell_id      = data.cell_id;
-            session_name = meta.date;
-            N            = meta.N;
-
-            tuning_session = zeros(N, length(prepost), length(stages), length(regressors));
-            beta_session = zeros(N, length(prepost), length(stages), length(regressors));
-            found = 0;
-            
-            for i = 1:N
-                ID = [session_name, '-008_', cell_id{i}];
-                area = cell_area{i};
-                area_idx = find(strcmp(area_names, area));
-
-                cell_ID = cell_ID_all{session_type_idx, area_idx};
-                task_ID = task_ID_all{session_type_idx, area_idx};
-                beta = beta_all{session_type_idx, area_idx};
-
-                cell_idx = find(strcmp(cell_ID, ID));
-                if isempty(cell_idx)
-                    fprintf('Cell ID %s not found in session %s, area %s\n', ID, session_name, area);
-                    tuning_session(i, :, :, :) = NaN;
-                    beta_session(i, :, :, :) = NaN;
-                else
-                    tuning_session(i, :, :, :) = task_ID(cell_idx, :, :, :);
-                    beta_session(i, :, :, :) = beta(cell_idx, :, :, :);
-                    found = found + 1;
-                end
-            end
-            fprintf('Session %s, Area %s, Found %d/%d cells\n', session_name, area_names{area_idx}, found, N);
-
-            % construct meta and data struct for saving
-            meta = struct();
-            meta.animal_name = "Slayer";
-            meta.injection   = session_type;
-            meta.prepost     = prepost_str{state_idx};
-            meta.state       = state_str{state_idx};
-            meta.area        = 'Cortex';
-            meta.align       = 'None';
-            meta.session_idx = session_idx;
-            meta.file_name   = generate_filename('tuning', meta);
-            meta.N           = N;
-
-            data = struct();
-            data.cell_area = cell_area;
-            data.cell_id = cell_id;
-            data.tuning = tuning_session;
-            data.beta = beta_session;
-            data.taskID_labels = taskID_labels;
-
-            % save task ID
-            save_folder = fullfile(root, 'Data', 'Working', 'tuning');
-            check_path(save_folder);
-            save_path = fullfile(save_folder, meta.file_name);
-            save(save_path, 'meta', 'data');
         end
+        fprintf('Session %s, Area %s, Found %d/%d cells\n', session_name, area_names{area_idx}, found, N);
+
+        % construct meta and data struct for saving
+        meta = struct();
+        meta.animal_name = "Slayer";
+        meta.injection   = session_type;
+        meta.area        = 'Cortex';
+        meta.align       = 'None';
+        meta.session_idx = session_idx;
+        meta.file_name   = generate_filename('tuning', meta);
+        meta.N           = N;
+
+        data = struct();
+        data.cell_area = cell_area;
+        data.cell_id = cell_id;
+        data.tuning = tuning_session;
+        data.beta = beta_session;
+        data.taskID_labels = taskID_labels;
+
+        % save task ID
+        save_folder = fullfile(root, 'Data', 'Working', 'tuning');
+        check_path(save_folder);
+        save_path = fullfile(save_folder, meta.file_name);
+        save(save_path, 'meta', 'data');
     end
 end

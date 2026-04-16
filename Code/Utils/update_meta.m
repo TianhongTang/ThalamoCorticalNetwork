@@ -16,6 +16,7 @@ addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Main
 GET_DATA_FIELDS = false;
+debug = false;
 
 data_folder     = fullfile(root, 'Data', 'Working');
 metadata_folder = fullfile(root, 'Data', 'Working', 'Meta');
@@ -35,6 +36,8 @@ end
 data_folders = dir(fullfile(data_folder, '*'));
 data_folders = data_folders([data_folders.isdir] & ~startsWith({data_folders.name}, '.'));
 
+bad_files = {};
+
 metadata = struct();
 for i = 1:numel(data_folders)
     data_folder_name = data_folders(i).name;
@@ -51,26 +54,42 @@ for i = 1:numel(data_folders)
         fprintf('  Processing file %d/%d: %s\n', file_idx, numel(all_files), all_files(file_idx).name); 
         file_name = all_files(file_idx).name;
         file_path = fullfile(folder_path, file_name);
-        m = matfile(file_path);
-        vars = who(m);
-        if ~ismember('meta', vars)
-            warning('File %s does not contain meta variable. Skipping.', file_path);
-            continue;
-        end
-        
-        meta = m.meta;
-        if GET_DATA_FIELDS
-            if ~ismember('data', vars) %#ok<*UNRCH>
-                warning('File %s does not contain data variable. Skipping.', file_path);
+
+        try
+            clear meta;
+            load(file_path, "meta");
+            % m = matfile(file_path);
+            % vars = who(m);
+            if ~exist('meta', 'var')
+                warning('File %s does not contain meta variable. Skipping.', file_path);
                 continue;
             end
-            meta.data_fields = fieldnames(m.data);
+            
+            % meta = m.meta;
+            if GET_DATA_FIELDS
+                clear data;
+                load(file_path, "data");
+
+                if ~exist('data', 'var') %#ok<*UNRCH>
+                    warning('File %s does not contain data variable. Skipping.', file_path);
+                    continue;
+                end
+                meta.data_fields = fieldnames(data);
+            end
+
+            for field_name = fieldnames(meta)'
+                fname = field_name{1};
+                metadata_entry(file_idx).(fname) = meta.(fname);
+            end
+
+        catch ME
+            fprintf("Failed: %s\n", ME.message);
+            bad_files{end+1} = {file_name, ME.message}; %#ok<SAGROW> 
+            if debug
+                rethrow(ME); %#ok<*UNRCH>
+            end
         end
 
-        for field_name = fieldnames(meta)'
-            fname = field_name{1};
-            metadata_entry(file_idx).(fname) = meta.(fname);
-        end
     end
     metadata.(data_folder_name) = metadata_entry;
 end
@@ -86,3 +105,10 @@ else
 end
 
 save(fullfile(metadata_folder, 'metadata.mat'), 'metadata', '-v7.3');
+
+bad_num = numel(bad_files);
+fprintf('Bad file: %d\n', bad_num);
+for i = 1:bad_num
+    item = bad_files{i};
+    fprintf('%d: %s\n%s', i, item{1}, item{2});
+end
