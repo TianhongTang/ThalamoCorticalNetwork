@@ -1,9 +1,15 @@
 /Data/
 /Figures/
+/Results/
 /cluster/
+/archived/
+/?/
 /.vscode/
+/back/
 /Code/deprecated/
 /temp/
 ~$*.xlsx
 *.asv
+*.out
+*.sh
 /load_meta_local.m
