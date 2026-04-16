@@ -78,7 +78,7 @@ end
 %     end
 % end
 
-significant = abs(par_ori) > model_err.total*2;
+significant = abs(par_ori) > model_err.total;
 
 % for k = 1:3
 %     sig_mat = significant(:, (N*(k-1) + n_PS_kernel + 2):(N*k + n_PS_kernel + 1));
