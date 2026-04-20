@@ -40,6 +40,7 @@ for i = 1:tuning_num
     N = meta.N;
 
     J_all = zeros(N, N, kernel_num, 2, 2); % (N, N, n_kernels, pre/post, state);
+    J_err_all = zeros(N, N, kernel_num, 2, 2);
     prepost_str = {'pre', 'post'};
     state_str = {'RestOpen', 'RestClosed'};
     for prepost_idx = 1:numel(prepost_str)
@@ -59,6 +60,7 @@ for i = 1:tuning_num
             % load model
             model_file = load(model_file_path);
             model_par = model_file.data.model_par;
+            model_err = model_file.data.model_err.total;
             model_N = model_file.meta.N;
             n_PS_kernel = model_file.data.kernel.meta.n_PS_kernel;
             assert(model_N == N, 'Model N does not match meta N');
@@ -68,7 +70,9 @@ for i = 1:tuning_num
                 start_idx = n_PS_kernel + 2 + (kernel_idx-1)*N;
                 end_idx = start_idx + N - 1;
                 J_mat = model_par(:, start_idx:end_idx);
+                J_err = model_err(:, start_idx:end_idx);
                 J_all(:, :, kernel_idx, prepost_idx, state_idx) = J_mat;
+                J_err_all(:, :, kernel_idx, prepost_idx, state_idx) = J_err;
             end
         end
     end
@@ -78,5 +82,38 @@ for i = 1:tuning_num
     % 1. choice to info +/-, IxU
     filter = data.tuning(:, :, 4, 2); 
 
+    % filter groups
+    filters = {};
+    filter_names = {};
+    filter_num = numel(filter_names);
+
+    % Plot bar graph for each state and each kernel
+    for state_idx = 1:numel(state_str)
+        state = state_str{state_idx};
+        for kernel_idx = 1:kernel_num
+
+            f = figure('Position', [100, 100, 400*filter_num, 400*filter_num], 'Visible', 'off');
+            t = tiledlayout(filter_num, filter_num, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+            for i = 1:filter_num
+                for j = 1:filter_num
+                    nexttile;
+                    filter_i = filters{i};
+                    filter_j = filters{j};
+                    J_ij = J_all(filter_i, filter_j, kernel_idx, :, state_idx);
+                    J_err_ij = J_err_all(filter_i, filter_j, kernel_idx, :, state_idx);
+                    pos_pre = sum(J_ij(:, :, 1, 1) > J_err_ij(:, :, 1, 1), 'all');
+                    neg_pre = sum(J_ij(:, :, 1, 1) < -J_err_ij(:, :, 1, 1), 'all');
+                    pos_post = sum(J_ij(:, :, 1, 2) > J_err_ij(:, :, 1, 2), 'all');
+                    neg_post = sum(J_ij(:, :, 1, 2) < -J_err_ij(:, :, 1, 2), 'all');
+
+                    % plot bar graph: x: pos/neg, color: pre/post
+                    bar([1, 2]-0.15, [pos_pre, neg_pre], 0.3, 'r');
+                    hold on;
+                    bar([1, 2]+0.15, [pos_post, neg_post], 0.3, 'b');
+                    xticks([1, 2]);
+                    xticklabels({'Positive J', 'Negative J'});
+                    title(sprintf('State: %s, Kernel: %d', state, kernel_idx));
+                    
+            
 
 
