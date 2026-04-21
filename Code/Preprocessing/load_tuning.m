@@ -199,7 +199,6 @@ for session_type_idx = 1:length(session_types)
         meta.animal_name = "Slayer";
         meta.injection   = session_type;
         meta.area        = 'Cortex';
-        meta.align       = 'None';
         meta.session_idx = session_idx;
         meta.file_name   = generate_filename('tuning', meta);
         meta.N           = N;

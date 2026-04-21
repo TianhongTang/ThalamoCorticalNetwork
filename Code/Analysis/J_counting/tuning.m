@@ -34,7 +34,7 @@ for i = 1:tuning_num
     meta = tuning_metas{i};
     file_folder = fullfile(root, 'Data', 'Working', 'tuning');
     file_name = meta.file_name;
-    file_path = fullfile(file_folder, file_path);
+    file_path = fullfile(file_folder, file_name);
     load(file_path, 'meta', 'data');
 
     N = meta.N;
@@ -80,11 +80,12 @@ for i = 1:tuning_num
     % define comparason groups
     % tuning format: (N, pre/post, offer1/offer2/BeforeCho/Cho2Info/Inof2Rew/AfterRew, ER/IxU/Unc/Sub)
     % 1. choice to info +/-, IxU
-    filter = data.tuning(:, :, 4, 2); 
+    filter_pls = data.tuning(:, 1, 4, 2);
+    filter_mns = data.tuning(:, 1, 4, 3);
 
     % filter groups
-    filters = {};
-    filter_names = {};
+    filters = {filter_pls, filter_mns};
+    filter_names = {'Info +', 'Info -'};
     filter_num = numel(filter_names);
 
     % Plot bar graph for each state and each kernel
@@ -111,9 +112,24 @@ for i = 1:tuning_num
                     hold on;
                     bar([1, 2]+0.15, [pos_post, neg_post], 0.3, 'b');
                     xticks([1, 2]);
-                    xticklabels({'Positive J', 'Negative J'});
-                    title(sprintf('State: %s, Kernel: %d', state, kernel_idx));
-                    
+                    xticklabels({'Positive', 'Negative'});
+                    title(sprintf('%s to %s', filter_names{j}, filter_names{i}));
+                    legend('Pre', 'Post');
+                end
+            end
+
+            % Subtitle and save figure
+            suptitle(sprintf('%s, %s, Session %d, %s, Kernel %d', meta.animal_name, meta.injection, meta.session_idx, state, kernel_idx));
+            save_folder = fullfile(root, 'Figures', 'Tuning');
+            check_path(save_folder);
+            file_name = sprintf('Tuning_J_%s_%s_S%d_%s_K%d.png', meta.animal_name, meta.injection, meta.session_idx, state, kernel_idx);
+            save_path = fullfile(save_folder, file_name);
+            saveas(f, save_path);
+            close(f);
+        end
+    end
+end
+
             
 
 
