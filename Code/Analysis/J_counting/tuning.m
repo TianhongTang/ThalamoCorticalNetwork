@@ -205,11 +205,7 @@ for injection_idx = 1:numel(injections)
                                 pos_post_all = pos_post_all + pos_count;
                                 neg_post_all = neg_post_all + neg_count;
                             end
-                            if i==j
-                                max_conn = max_conn + sum(filter_i) * (sum(filter_j)-1); % exclude self-connection
-                            else
-                                max_conn = max_conn + sum(filter_i) * sum(filter_j);
-                            end
+                            max_conn = max_conn + sum(filter_i) * sum(filter_j) - sum(filter_i & filter_j); % total connections, excluding self-connections
                         end
                     end
                     max_conn_all(i, j) = max_conn;
