@@ -22,6 +22,8 @@ config.epoch                 = 3000;
 config.fold_idx              = 0;
 config.resting_dur_threshold = 15;
 
+CELL_AREA_FILTER = 'Across'; % 'All', 'Across', 'Within'
+
 kernel_num = 3;
 
 % define comparason groups
@@ -42,6 +44,7 @@ tuning_num = numel(tuning_metas);
 
 all_J_mats = cell(tuning_num, 1);
 all_J_err_mats = cell(tuning_num, 1);
+all_areas = cell(tuning_num, 1);
 
 %% Separate stats for each session
 for i = 1:tuning_num
@@ -94,6 +97,11 @@ for i = 1:tuning_num
     end
     all_J_mats{i} = J_all;
     all_J_err_mats{i} = J_err_all;
+
+    raster_file = generate_filename('Raster', meta);
+    raster_file_path = fullfile(root, 'Data', 'Working', 'Raster', raster_file);
+    raster_file = load(raster_file_path);
+    all_areas{i} = raster_file.data.cell_area;
 
     % % Plot bar graph for each state and each kernel
     % for state_idx = 1:numel(state_str)
@@ -155,6 +163,7 @@ for injection_idx = 1:numel(injections)
     selected_sessions = tuning_table(strcmp(tuning_table.injection, injection), :);
     selected_J = all_J_mats(strcmp(tuning_table.injection, injection));
     selected_J_err = all_J_err_mats(strcmp(tuning_table.injection, injection));
+    selected_areas = all_areas(strcmp(tuning_table.injection, injection));
     selected_num = height(selected_sessions);
     fprintf('Processing injection: %s, with %d sessions.\n', injection, selected_num);
 
@@ -178,6 +187,20 @@ for injection_idx = 1:numel(injections)
                         fprintf(' - Session %d/%d\n', session_idx, selected_num);
                         J_all = selected_J{session_idx};
                         J_err_all = selected_J_err{session_idx};
+                        cell_area = selected_areas{session_idx};
+                        N = numel(cell_area);
+
+                        % cell area filter
+                        switch CELL_AREA_FILTER
+                            case 'All'
+                                area_filter = true(N, N);
+                            case 'Across'
+                                area_filter = ~strcmp(repmat(cell_area, N, 1), repmat(cell_area', 1, N));
+                            case 'Within'
+                                area_filter = strcmp(repmat(cell_area, N, 1), repmat(cell_area', 1, N));
+                            otherwise
+                                error('Invalid CELL_AREA_FILTER');
+                        end
 
                         % load tuning
                         session_meta = selected_sessions(session_idx, :);
@@ -196,8 +219,8 @@ for injection_idx = 1:numel(injections)
                         for prepost_idx = 1:numel(prepost_str)
                             J_filtered = J_all(filter_i, filter_j, kernel_idx, prepost_idx, state_idx);
                             J_err_filtered = J_err_all(filter_i, filter_j, kernel_idx, prepost_idx, state_idx);
-                            pos_count = sum(J_filtered(:) > J_err_filtered(:));
-                            neg_count = sum(J_filtered(:) < -J_err_filtered(:));
+                            pos_count = sum((J_filtered(:) > J_err_filtered(:))&area_filter(filter_i, filter_j));
+                            neg_count = sum((J_filtered(:) < -J_err_filtered(:))&area_filter(filter_i, filter_j));
                             if prepost_idx == 1
                                 pos_pre_all = pos_pre_all + pos_count;
                                 neg_pre_all = neg_pre_all + neg_count;
