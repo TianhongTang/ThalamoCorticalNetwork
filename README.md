@@ -275,8 +275,12 @@ Convolved and concatenated rasters.
 | train_loss | struct | - | Training loss of the last epoch. Fields: `minuslogL`, `rag`, `total`. |
 | test_loss | struct | - | Testing loss of the last epoch. Fields: `minuslogL`, `rag`, `total`. |
 | filter | int | (N) | Binary filter for valid neurons. |
-| reg | struct | - | Regularization. Fields: <br> `name`: Regularization name. <br> `l1`: L1 regularization. <br> `l2`: L2 regularization. |
+| reg | struct | - | Regularization parameters(lambda). Fields: <br> `name`: Regularization name. <br> `l1`: L1 regularization lambda. <br> `l2`: L2 regularization lambda. |
 | kernel | struct | - | Kernels used in GLM. See `kernel_##.mat`. |
+| h | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
+| P | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
+| J | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
+
 
 
 ### `kernel_##.mat` - GLM kernel
