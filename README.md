@@ -280,6 +280,9 @@ Convolved and concatenated rasters.
 | h | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
 | P | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
 | J | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
+| h_err | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
+| P_err | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
+| J_err | double | ? | Kernels used in GLM. See `kernel_##.mat`. |
 
 
 
