@@ -1,0 +1,115 @@
+function [alllfp,resampt] = loadLFP(filelist,gains,obs)
+
+global FILES 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% loadLFP  -- reads in a .lfp file made previously		         %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+if nargin < 3,  obs = [];  end
+
+alllfp = {};
+
+if isempty(obs) 
+  % get all LFP observation periods
+  if iscell(filelist)
+    len = length(filelist);
+    for i=1:len
+      [pn,fn,ext] = fileparts(filelist{i});
+      fullpath = sprintf('%s/%s.lfp',FILES.PROC_LFPPath,fn)
+      s = lfpProcessLoad(fullpath,obs);
+      if i==1
+         alllfp = s.LFP.data;
+      else 	
+         alllfp = lfpAppend(alllfp,s.LFP.data);
+      end
+    end
+  else
+    fullpath = filelist;
+    [p,name,e,v] = fileparts(fullpath);
+    fullpath = sprintf('%s/%s.lfp', FILES.PROC_LFPPath,name)
+    d = dir(fullpath);
+    if ~length(d)
+      eegfile  	= sprintf('%s/%s.eeg', FILES.EEGPath, name);
+      lfpfile 	= sprintf('%s/%s.lfp', FILES.PROC_LFPPath, name);
+      s =  lfpProcessLoad(fullpath,[]);
+    end	
+    s = load(fullpath,'-MAT');
+    alllfp = lfpAppend(alllfp,s.LFP.data);
+  end
+else
+  % get only one LFP observation period
+  if iscell(filelist)
+    % if combining from many files, must select the correct obs period...
+    [singledgzpath,sobs] = getConcatObs(obs);	
+    [p,name,e,v] = fileparts(singledgzpath);
+    lfppath = sprintf('%s/%s.lfp', FILES.PROC_LFPPath,name);
+    s =  lfpProcessLoad(lfppath,sobs);
+  else	
+    fullpath = filelist;
+    [p,name,e,v] = fileparts(fullpath);
+    lfppath = sprintf('%s/%s.lfp', FILES.PROC_LFPPath,name);
+    s =  lfpProcessLoad(lfppath,obs);
+  end
+  alllfp = s.LFP.data;
+end
+resampt = s.LFP.resampt; 
+
+
+%---------------------
+
+function s = lfpProcessLoad(fullpath,obs)
+  global FILES 
+  [p,name,e,v] = fileparts(fullpath);
+  d = dir(fullpath);
+  if ~length(d)
+    fprintf('Processing LFP files: %s*\n', name);
+    eegfile   	= sprintf('%s/%s.eeg', FILES.EEGPath, name)
+    lfpfile 	= sprintf('%s/%s.lfp', FILES.PROC_LFPPath, name)
+    processLFPFile(eegfile,lfpfile);
+  end	
+  %fprintf('Loading LFP file %s\n',fullpath);
+  if FILES.USE_MATFILE
+    s = load(fullpath,'-MAT');
+    if ~isempty(obs)
+      s.LFP.data = s.LFP.data{obs};  % need just this observation 
+    end
+  else
+    errordlg('Currently only the MATFILE mode for lfp is supported...');
+  end
+
+
+
+%--------------------
+function alllfp = lfpAppend(alllfp,newlfp)
+
+  adf_nobs = length(newlfp);
+  
+  %
+  % A bit ugly, but just in case the number of channels INCREASES during the
+  % recordings (BY ONE!), this will ensure that all the data gets read by
+  % adding a column of zeros to the end.
+  % Of course the fixSpecialSesssion will then have to make some more repairs.
+  %
+  if ~isempty(alllfp)
+    allnchan = size(alllfp{1},2);
+    newnchan   =size(newlfp{1},2);
+    if allnchan < newnchan
+      nobs = length(alllfp);		
+      for i=1:nobs
+	sz = size(alllfp{i},1);		
+        alllfp{i} = [alllfp{i} zeros(sz,1)];
+	fprintf('Adding Zero Period to Compensate for Unequal Channels !\n');
+      end   	
+    end
+  end
+  
+  all_len = length(alllfp);
+  new_len = length(newlfp);
+  
+  for i=1:new_len
+    alllfp{all_len+i} = newlfp{i};	
+  end
+  
+
+

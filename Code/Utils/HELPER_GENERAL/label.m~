@@ -1,0 +1,28 @@
+function h = label(x,y,str,sz,wt,col)
+%
+% Usage: label(xpos, ypos, str, [fontsize])
+% Stick a label anywhere on a figure in normalized coordinates.
+% (Places an invisibly small axis first)
+%
+
+if nargin < 3
+  fprintf('USAGE: Usage: label(xpos, ypos, str, [fontsize])\n');	
+  return
+end
+
+if ~exist('sz') | isempty(sz)
+   sz = 12;
+end
+if ~exist('wt') | isempty(wt)
+   wt = 'Normal';
+end
+if ~exist('col') | isempty(col)
+   col = 'k';
+end
+
+wid = min(1.0,length(str)/140.);
+axes('Position',[x y 0.01 0.01]);
+axis off
+h = text(0,0,fixString(str),'FontSize',sz,'HorizontalAlign','center','VerticalAlign','Middle','FontWeight',wt,'Color',col);
+
+

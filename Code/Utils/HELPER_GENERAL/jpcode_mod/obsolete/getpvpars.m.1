@@ -1,0 +1,122 @@
+function pars = getpvpars(SESSION,ExpNo);
+% getpvpars: get imaging parameters directly from the acqp/reco
+% usage: pars = getpvpars(SESSION,ExpNo);
+%
+% Bruker files.
+%  dat = PVrdFid(dir, filenum)
+%  default options:
+%     opt(  'NS',[0 0],       % slice range
+%           'NR',[0 0],       % range in time series
+%           'XY',[0 0],       % single xy point
+%           'FIDFILE','fid',  % fid/ser
+%           'FUDGE',[0 0 0 0] % set DIM of data format to fudge Bruker 'features'
+%           'VERBOSE','1')
+%  return: series of FID data (in PRECISION type: NOT DOUBLE !!! -> faster)
+%          global acqp/reco parameters
+%  Tested for: onepulse, EPI
+%  AUTH: -  Josef Pfeuffer, Sep 2001/2002
+
+VERBOSE = 0;
+
+Ses = goto(SESSION);
+fn = getfilenames(Ses,ExpNo);
+
+dataPath.stdpath = Ses.sysp.mridir;
+dataPath.dir = Ses.dirname;
+imgfile = strrep(fn.imgfile,'/pdata/1/2dseq','');
+imgfile = strrep(imgfile,strcat(Ses.sysp.mridir,dataPath.dir,'/'),'');
+try,
+	dataPath.filenum = str2num(imgfile);
+catch,
+	fprintf('Wrong SCAN number; check Ses.expp(%d).imgfile\n',ExpNo);
+	keyboard;
+end;
+
+FIDFILE = 'fid';
+
+global STDPATH
+global acqp
+
+STDPATH.pv = dataPath.stdpath;
+dir        = dataPath.dir;
+filenum    = dataPath.filenum;
+
+if (filenum > 0)    % stdpath handling
+   file = sprintf('%s%s/%s/%s', STDPATH.pv,num2str(dir),num2str(filenum),FIDFILE);
+else              % give full path as arg1
+   file = sprintf('%s%s', num2str(filenum), FIDFILE);
+end
+
+acqp = PVrdPar(dir, filenum, opt('VERBOSE',VERBOSE));
+reco = PVrdParReco(dir, filenum, opt('VERBOSE',VERBOSE));
+
+nx = max(acqp.ACQ_size(1),256);
+if acqp.ACQ_size(1) < 256
+    nxUnderSize = acqp.ACQ_size(1);
+else
+    nxUnderSize = -1;
+end
+if (acqp.ACQ_dim == 2)
+   ny = acqp.ACQ_size(2);
+else
+   ny = 1;
+end
+nslices = acqp.NSLICES;
+
+if ( strcmp(FIDFILE, 'fid') | strcmp(FIDFILE, 'fid.orig') )
+    nr = acqp.NR;
+else
+    nr1 = acqp.NR;
+    nr2 = acqp.NI;
+    if (nr1 > 1)
+        nr = nr1;
+    else
+        nr = nr2;
+    end
+    nslices = 1;
+end
+
+if strcmp(acqp.ACQ_word_size, '_16_BIT')
+   NBYTE = 2;              % 16 bit 
+   PRECISION = 'int16';
+elseif strcmp(acqp.ACQ_word_size, '_32_BIT')
+   NBYTE = 4;              % 32 bit 
+   PRECISION = 'int32';
+else
+   acqp.ACQ_word_size
+   error(sprintf('%s: unknown type <%s>', FCTNAME, acqp.ACQ_word_size))
+end
+
+if strcmp(acqp.BYTORDA, 'big')
+   BYTEORDER = 'ieee-be';     % 'ieee-be' big endian for PC
+elseif strcmp(acqp.BYTORDA, 'little')
+   BYTEORDER = 'ieee-le';     % 'ieee-le' little endian for Linux ??
+else
+   acqp.BYTORDA
+   error(sprintf('%s: unknown type <%s>', FCTNAME, acqp.BYTORDA))
+end
+
+% consistency check
+fsize = checkfilesize(file);
+if ( fsize/NBYTE == nx*ny*nslices*nr)
+    if 0
+    fprintf('%s %s\n', acqp.PULPROG, acqp. GRDPROG);
+    fprintf('dim <%d><%d><%d><%d>  filesize %dk\n', ...
+        nx, ny, nslices, nr, fsize/1024);
+    if nxUnderSize > 0
+        fprintf('    <%d> nxUnderSize\n', nxUnderSize);
+    end
+    end
+else
+   error(sprintf('%s: nint <%d> ~= dimensions <%d><%d><%d><%d>=%d\n', ...
+            FCTNAME, fsize/NBYTE, nx, ny, nslices, nr, nx*ny*nslices*nr));
+end   
+
+pars.acqp = acqp;
+pars.reco = reco;
+pars.nx = reco.RECO_ft_size(1);
+pars.ny = reco.RECO_ft_size(2);
+pars.nt = nr;
+pars.nslices = nslices;
+pars.nsegments = acqp.IMND_numsegments;
+clear acqp reco STDPATH

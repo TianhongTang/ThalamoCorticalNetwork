@@ -1,0 +1,225 @@
+function pars = getpvpars(SESSION,arg2,arg3);
+% getpvpars: get imaging parameters directly from the acqp/reco
+% usage: pars = getpvpars(SESSION,arg2,arg3);
+%
+% call of function PVrd2dseq()
+% %
+%  AUTH: -  Josef Pfeuffer, Sep 2001/2002
+%
+%  JP - 15-10-2002 fix calculation of pars.nseg
+%  JP - 22-10-2002 pars.graddur added
+%  JP - 17-12-2002 extended for use with MSME/RARE, GEFI, MDEFT
+%  JP - 15-05-2003 determine and handle different EPI versions
+
+if ~nargin,
+    % test data runs
+       % older EPI version REV 6.3
+	SESSION = 'j00fa1'; 
+	arg2 = 16;
+       % EPI version REV 6.66
+	SESSION = 'c98jj1';
+ 	arg2 = 2;
+ 	fprintf('TEST Mode <%s> expno<%d>\n', SESSION, arg2);
+end;
+
+if nargin == 3,
+	ScanNo = arg3;
+end;
+
+if nargin & nargin < 2,
+	error('usage: pars = getpvpars(SESSION,[ExpNo | AnatomyScan],ScanNo);');
+end;
+
+if isa(arg2,'char'),
+	ScanName = arg2;
+	if nargin == 3,
+		ScanNo = arg3;
+	else
+		ScanNo = 1;
+	end;
+else
+	ExpNo = arg2;
+end;
+	
+Ses = goto(SESSION);
+
+f_verbose = 0; 
+
+if exist('ExpNo'),
+	fn					= getfilenames(Ses,ExpNo);
+	dataPath.stdpath	= Ses.DataMri;
+	dataPath.dir		= Ses.dirname;
+	dataPath.filenum	= Ses.expp(ExpNo).scanreco(1);
+	reconum				= Ses.expp(ExpNo).scanreco(2);
+else
+	eval(sprintf('scan = Ses.%s{%d};',ScanName,ScanNo));
+	dataPath.stdpath	= Ses.DataMri;
+	dataPath.dir		= Ses.dirname;
+	dataPath.filenum	= scan.scanreco(1);
+	reconum				= scan.scanreco(2);
+end;
+
+global STDPATH
+global acqp reco
+
+STDPATH.pv = dataPath.stdpath;
+dir        = dataPath.dir;
+filenum    = dataPath.filenum;
+
+info = PVrd2dseq(dir, filenum, opt('RECO',reconum,'GETINFO',1,'VERBOSE',f_verbose) );
+[modeEPI, EPI_version] = getModeEPI(acqp.EPI_resid);
+
+% %     info.file = file;
+% %     info.fsize = fsize;
+% %     info.precision = PRECISION;
+% %     info.nx = nx;
+% %     info.ny = ny;
+% %     info.nslices = nslices;
+% %     info.nr = nr;
+
+pars.nx			= info.nx;
+pars.ny			= info.ny;
+pars.nt			= info.nr;
+pars.nsli		= info.nslices;
+
+pars.nseg       = acqp.IMND_numsegments;			
+if strcmp(acqp.EPI_segmentation_mode,'No_Segments')    % glitch for EPI
+    pars.nseg   = 1;			
+end
+
+pars.imgtr = 0;
+if strncmp(acqp.PULPROG, '<BLIP_epi',9)
+    pars.slitr	= acqp.EPI_slice_rep_time/1000;  %[s]
+
+	% these values are NOT necessarily correct  
+    pars.segtr	= acqp.IMND_rep_time;       
+    pars.imgtr	= pars.segtr * pars.nseg;			% for TCmode !
+    pars.effte	= acqp.EPI_TE_eff/1000;				% [s]
+else
+    pars.slitr	= acqp.IMND_rep_time;            % [s]
+    pars.segtr	= acqp.IMND_acq_time/1000;       % [s] 
+    pars.imgtr	= pars.slitr;
+    pars.effte	= acqp.IMND_echo_time/1000;      % [s]
+end
+pars.recovtr	= acqp.IMND_recov_time(:)'/1000;     % [s] for T1 series
+
+pars.vdtr		= 0;								% Place holders...
+pars.gradtype	= [];
+pars.graddur	= 0;
+
+pars.actsize	= reco.RECO_inp_size(:)';
+fovx			= reco.RECO_fov(1)*10;     % [mm]
+fovy			= reco.RECO_fov(2)*10;     % [mm]
+pars.fov		= [fovx fovy];
+dx			    = reco.RECO_fov(1)*10/pars.nx;   % [mm]
+dy			    = reco.RECO_fov(2)*10/pars.ny;   % [mm]
+pars.res		= [dx dy];
+adx			    = reco.RECO_fov(1)*10/pars.actsize(1);   % [mm]
+ady			    = reco.RECO_fov(2)*10/pars.actsize(2);   % [mm]
+pars.actres		= [adx ady];
+
+pars.slithk		= acqp.IMND_slice_thick;
+pars.isodist	= acqp.IMND_slicepack_position;
+pars.sligap		= acqp.IMND_slicepack_gap;
+
+pars.gradtype = [];
+for N=1:pars.nseg,
+	tmp = ones(1,pars.nsli) * N;
+	pars.gradtype = cat(2,pars.gradtype,tmp);
+end;	
+
+pars.graddur = -1;
+pars.vdtr = -1;
+if ( modeEPI > 0 )
+    if strcmp(acqp.EPI_scan_mode,'FID')           % total gradient on
+      if ( modeEPI == 1 )
+          pars.times.prepulse = (acqp.D(4+1) + 0.005 + acqp.D(8+1));  
+          pars.times.postpulse = ...
+              (201.5e-6 + acqp.D(4+1) + acqp.D(18+1)) + ...   % [s] epi_TC
+              (200e-6 + acqp.D(4+1));                         % [s] BLIP_epiTC
+          
+          % here is to add the VD delay (all grads off)
+          
+          if strcmp(acqp.EPI_use_vd,'Yes')                % change of delays between segments
+              pars.vdtr=(acqp.ACQ_vd_list+acqp.EPI_vd_start-acqp.IMND_acq_time/2/1000 )'; %[s]
+              if length(pars.vdtr) ~= pars.nseg
+                  stop   %%% should never happen
+              end
+          end;
+      else
+          pars.times.prepulse = (acqp.D(4+1) + 0.001 + acqp.D(8+1));  
+                %% assumed: EPI_slicetrim_early = 1
+          pars.times.postpulse = ...
+              (201.5e-6 + acqp.D(4+1) + acqp.D(3+1) + acqp.D(27+1)+ acqp.D(18+1)) + ...   % [s] epi_TC
+              (200e-6 + acqp.D(4+1));                         % [s] BLIP_epiTC
+          
+          if strcmp(acqp.EPI_use_vd,'Yes')                % change of delays between segments
+              if strcmp(acqp.EPI_use_id,'Yes')            % after version EPI 6.46
+                  %%% supposed to be corrected for in pulse sequence !   
+              end
+              pars.vdtr=(acqp.ACQ_vd_list+acqp.EPI_vd_start-acqp.IMND_acq_time/2/1000 )'; %[s]
+              pars.vdtr(:) = 0;  % TR is now correct, no additional VD delay necessary
+          end;
+      end
+      
+      pars.times.pulse = acqp.IMND_pulse_length/1e6;
+      pars.times.te = acqp.EPI_TE_eff/1000;
+      pars.times.acqt = acqp.EPI_seg_acq_time/1000;
+      pars.times.zerophase = acqp.EPI_zero_phase_ms/1000;
+	
+      pars.times.pulsedur = pars.times.prepulse + ...
+		  pars.times.pulse + ...
+		  pars.times.postpulse;
+      
+      pars.times.readoutstart = ...
+		  pars.times.prepulse + pars.times.pulse/2 + ...
+		  pars.times.te - pars.times.zerophase - ...
+		  3*acqp.IMND_acq_time/1000;  % 2 extra lines plus 1 line VD delay extra
+	
+      pars.graddur = ...
+		  pars.times.prepulse + ...
+		  pars.times.pulse/2 + ...
+		  pars.times.te + ...
+		  pars.times.acqt - ...  
+		  pars.times.zerophase;
+    else
+        % SPIN ECHO etc
+        fprintf('!! Not yet implemented: acqp.EPI_scan_mode = %s !!\n\n', acqp.EPI_scan_mode);
+    end
+end
+
+if 0,	% We don't really use them, so leave them out for now...
+	pars.acqp = acqp;
+	pars.reco = reco;
+end;
+
+clear acqp reco STDPATH
+
+%---------------------------------------------
+function [modeEPI, EPI_version] = getModeEPI(EPI_resid)
+%
+% modeEPI = 0  - not an EPI sequence
+%           1  - EPI with revision < 6.46 (typical REVISION 6.3, PV2.1.1 patched)
+%           2  - newest EPI (tested for REVISION 6.66)
+%
+
+EPI_version = sscanf(EPI_resid,'<REVISION %d.%d>');
+    % convert to float number for ease of use
+if length(EPI_version) >= 2
+    EPI_version = EPI_version(1) + 0.01*EPI_version(2);
+else
+    EPI_version = 0;
+end
+
+if EPI_version > 6.46  
+    modeEPI = 2;
+elseif EPI_version > 0
+    modeEPI = 1;
+    if EPI_version < 6   % very old EPI data
+        fprintf('!! WARNING: EPI_resid = %s: Unknown behavior of getpvpars() !!\n\n', EPI_resid);
+    end
+else
+    modeEPI = 0;
+end
+   
+%---------------------------------------------
