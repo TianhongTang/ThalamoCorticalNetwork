@@ -228,12 +228,13 @@ for injection_idx = 1:numel(injections)
                         filter_i = filters{i}(tuning_session);
                         filter_j = filters{j}(tuning_session);
 
+                        area_filtered = area_filter(filter_i, filter_j);
+
                         % load model
                         prepost_str = {'Pre', 'Post'};
                         for prepost_idx = 1:numel(prepost_str)
                             J_filtered = J_all(filter_i, filter_j, kernel_idx, prepost_idx, state_idx);
                             J_err_filtered = J_err_all(filter_i, filter_j, kernel_idx, prepost_idx, state_idx);
-                            area_filtered = area_filter(filter_i, filter_j);
                             pos_count = sum((J_filtered(:) > J_err_filtered(:)) & area_filtered(:));
                             neg_count = sum((J_filtered(:) < -J_err_filtered(:)) & area_filtered(:));
                             if prepost_idx == 1
@@ -243,8 +244,8 @@ for injection_idx = 1:numel(injections)
                                 pos_post_all = pos_post_all + pos_count;
                                 neg_post_all = neg_post_all + neg_count;
                             end
-                            max_conn = max_conn + sum(area_filtered(:));
                         end
+                        max_conn = max_conn + sum(area_filtered(:));
                     end
                     max_conn_all(i, j) = max_conn;
 
@@ -295,7 +296,7 @@ for injection_idx = 1:numel(injections)
                 for j = 1:filter_num
                     nexttile((i-1)*filter_num + j);
                     ylim([0, max_y_global]);
-                    % text(1.5, max_y_global * 0.9, sprintf('Total connection: %d', max_conn_all(i, j)), 'HorizontalAlignment', 'center');
+                    text(1.5, max_y_global * 0.9, sprintf('Total connection: %d', max_conn_all(i, j)), 'HorizontalAlignment', 'center');
                     for posneg_idx = 1:2
                         p = p_val_all(i, j, posneg_idx);
                         significant_text = 'N.S.';
