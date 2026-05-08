@@ -17,8 +17,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 % session_types = {'Muscimol', 'Saline', 'SimRec'};
 % session_types = {'Muscimol_pre', 'Saline_pre', 'SimRec'};
 session_types = {'Muscimol', 'Saline'};
-% area_names = {'ACC', 'Thalamus', 'VLPFC'};
-area_names = {'ACC', 'VLPFC'};
+area_names = {'ACC', 'Thalamus', 'VLPFC'};
+% area_names = {'ACC', 'VLPFC'};
 
 unique_sessions_all = ...
     {{'10272023', '11172023', '12012023',...
@@ -139,8 +139,8 @@ states = {'PreTask', 'PostTask', 'PreRestClose', 'PostRestClose', 'PreRestOpen',
 prepost_str = {'Pre', 'Post', 'Pre', 'Post', 'Pre', 'Post'};
 state_str = {'Task', 'Task', 'RestClose', 'RestClose', 'RestOpen', 'RestOpen'};
 n_states = length(states);
-area_names = {'ACC', 'VLPFC'};
-% area_names = {'ACC', 'Thalamus', 'VLPFC'};
+% area_names = {'ACC', 'VLPFC'};
+area_names = {'ACC', 'Thalamus', 'VLPFC'};
 
 
 for session_type_idx = 1:length(session_types)
@@ -156,7 +156,7 @@ for session_type_idx = 1:length(session_types)
         meta.injection   = session_type;
         meta.prepost     = 'Pre';
         meta.state       = 'Task';
-        meta.area        = 'Cortex';
+        meta.area        = 'Full';
         meta.align       = 'None';
         meta.session_idx = session_idx;
         file_name        = generate_filename('raster', meta);
@@ -198,7 +198,7 @@ for session_type_idx = 1:length(session_types)
         meta = struct();
         meta.animal_name = "Slayer";
         meta.injection   = session_type;
-        meta.area        = 'Cortex';
+        meta.area        = 'Full';
         meta.session_idx = session_idx;
         meta.file_name   = generate_filename('tuning', meta);
         meta.N           = N;

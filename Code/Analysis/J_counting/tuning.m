@@ -12,6 +12,9 @@ end
 addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
+%% TODO: There must be a bug somewhere... The connection number does not match.
+% Need to add neuron count into excel for validation.
+
 %% Main
 % model config
 config.align                 = 'Last';
@@ -31,10 +34,14 @@ kernel_num = 3;
 % define tuning filters
 filter_pls = @(tuning) logical(sum(tuning(:, 1, 2:5, 2), 3)); % Info +, Pre, choice to info
 filter_mns = @(tuning) ~logical(sum(tuning(:, 1, 2:5, 2), 3)); % Info -, Pre, choice to info
+rew_pls = @(tuning) logical(sum(tuning(:, 1, 2:5, 1), 3)); % Info +, Pre, choice to info
+unc_pls = @(tuning) logical(sum(tuning(:, 1, 2:5, 3), 3)); % Info +, Pre, choice to info
 
 % filter groups
 filters = {filter_pls, filter_mns};
 filter_names = {'Info +', 'Info -'};
+% filters = {filter_pls, rew_pls, unc_pls};
+% filter_names = {'Info +',  'Rewards +', 'Uncertainty +'};
 filter_num = numel(filter_names);
 
 % Load metadata
@@ -98,8 +105,13 @@ for i = 1:tuning_num
     all_J_mats{i} = J_all;
     all_J_err_mats{i} = J_err_all;
 
-    raster_file = generate_filename('Raster', meta);
-    raster_file_path = fullfile(root, 'Data', 'Working', 'Raster', raster_file);
+    raster_meta = meta;
+    raster_meta.prepost = 'Pre';
+    raster_meta.state = 'RestOpen';
+    raster_meta.align = 'Last';
+
+    raster_file = generate_filename('raster', raster_meta);
+    raster_file_path = fullfile(root, 'Data', 'Working', 'raster', raster_file);
     raster_file = load(raster_file_path);
     all_areas{i} = raster_file.data.cell_area;
 
@@ -170,7 +182,7 @@ for injection_idx = 1:numel(injections)
     for state_idx = 1:numel(state_str)
         state = state_str{state_idx};
         for kernel_idx = 1:kernel_num
-            f = figure('Position', [100, 100, 400*filter_num, 400*filter_num], 'Visible', 'off');
+            f = figure('Position', [100, 100, 250*filter_num, 250*filter_num], 'Visible', 'off');
             t = tiledlayout(filter_num, filter_num, 'TileSpacing', 'Compact', 'Padding', 'Compact');
             max_y_global = 0;
             max_conn_all = zeros(filter_num, filter_num); % save for text labelling
@@ -198,6 +210,8 @@ for injection_idx = 1:numel(injections)
                                 area_filter = ~strcmp(repmat(cell_area, N, 1), repmat(cell_area', 1, N));
                             case 'Within'
                                 area_filter = strcmp(repmat(cell_area, N, 1), repmat(cell_area', 1, N));
+                                % exclude self-connections
+                                area_filter = area_filter & ~eye(N);
                             otherwise
                                 error('Invalid CELL_AREA_FILTER');
                         end
@@ -219,8 +233,9 @@ for injection_idx = 1:numel(injections)
                         for prepost_idx = 1:numel(prepost_str)
                             J_filtered = J_all(filter_i, filter_j, kernel_idx, prepost_idx, state_idx);
                             J_err_filtered = J_err_all(filter_i, filter_j, kernel_idx, prepost_idx, state_idx);
-                            pos_count = sum((J_filtered(:) > J_err_filtered(:))&area_filter(filter_i, filter_j));
-                            neg_count = sum((J_filtered(:) < -J_err_filtered(:))&area_filter(filter_i, filter_j));
+                            area_filtered = area_filter(filter_i, filter_j);
+                            pos_count = sum((J_filtered(:) > J_err_filtered(:)) & area_filtered(:));
+                            neg_count = sum((J_filtered(:) < -J_err_filtered(:)) & area_filtered(:));
                             if prepost_idx == 1
                                 pos_pre_all = pos_pre_all + pos_count;
                                 neg_pre_all = neg_pre_all + neg_count;
@@ -228,7 +243,7 @@ for injection_idx = 1:numel(injections)
                                 pos_post_all = pos_post_all + pos_count;
                                 neg_post_all = neg_post_all + neg_count;
                             end
-                            max_conn = max_conn + sum(filter_i) * sum(filter_j) - sum(filter_i & filter_j); % total connections, excluding self-connections
+                            max_conn = max_conn + sum(area_filtered(:));
                         end
                     end
                     max_conn_all(i, j) = max_conn;
@@ -265,6 +280,7 @@ for injection_idx = 1:numel(injections)
                     xticklabels({'Positive', 'Negative'});
                     ylabel('Significant J Ratio');
                     title(sprintf('%s to %s', filter_names{j}, filter_names{i}));
+                    % legend('Pre', 'Post', 'Location', 'East');
                     legend('Pre', 'Post');
                 end
             end
@@ -280,7 +296,7 @@ for injection_idx = 1:numel(injections)
                 for j = 1:filter_num
                     nexttile((i-1)*filter_num + j);
                     ylim([0, max_y_global]);
-                    text(1.5, max_y_global * 0.9, sprintf('Total connection: %d', max_conn_all(i, j)), 'HorizontalAlignment', 'center');
+                    % text(1.5, max_y_global * 0.9, sprintf('Total connection: %d', max_conn_all(i, j)), 'HorizontalAlignment', 'center');
                     for posneg_idx = 1:2
                         p = p_val_all(i, j, posneg_idx);
                         significant_text = 'N.S.';
