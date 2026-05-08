@@ -1,0 +1,59 @@
+;;; ---------------------------------------------------------------------
+PRO vn2lcm, dir, filenum, DIRAPP=dirapp, SLICES=f_slices, LSHIFT=f_ls, $
+	CT = f_ct, WDWEM = f_wdwem, BASIS = basisfile, $
+	SHOWRAW = f_showraw,  VERBOSE = f_verbose, $
+	MACHINE=f_machine, XSIZE=xsize, $
+	TRAMP = tramp, VOLUME = volume, DEGZER = degzer, DEGPPM = degppm, $
+	PPMST = ppmst, PPMEND = ppmend, $
+	FWHMBA = fwhmba, RFWHM = rfwhm, SHIFMN = shifmn, PPMSHF = ppmshf, $
+	NEACH = neach, CHOMIT = chomit, CHKEEP = chkeep, VITRO = f_vitro, $
+	DKNTMN = dkntmn, SDDEGP = sddegp, NOXXT2 = f_noxxt2
+
+;+
+; JP Jan 1998
+;
+; --- reads VNMR data  ---
+;
+; INPUT:
+;	dir
+;	num = filenum (optional: then using STDPATH.VNMR)
+;	COMMON PROCPAR, procpar, headerfile, headerblock
+;
+; OUTPUT:
+;	written LCModel file and run
+;
+; FLAGS:	default	
+;	DIRAPP 	''	append 'DIRAPP' to dir
+;	SLICES	0	process all slices of a 2D data set
+;	CT	0	explicit input of number of scans
+;	LSHIFT	0	data left shift
+;	WDWEM	0	data windowing: exponential multiplication in [Hz]
+;	BASIS	! must be specified !	FILBAS - LCModel basis set 
+;	SHOWRAW	0	PLOTRAW data from LCModel, 
+;	VERBOSE 1	verbose on output
+;
+;	MACHINE	0	use default or specify eg. ['amy','amy','crusher']
+;	XSIZE	2048	num complex data points: truncate/fill data 
+;
+; LCModel input parameter: (see manual for use)
+;		default		example
+;	TRAMP	1.0
+;	VOLUME	1.0
+;	DEGZER	0.
+;	DEGPPM	0.
+;	PPMST	999.
+;	PPMEND	-999.
+;	FWHMBA	0.009
+;	RFWHM	2.5
+;	SHIFMN	[-0.2,-0.1]
+;	PPMSHF	0.
+;	NEACH	0.
+;	CHOMIT	''		['Ser','Asp']	
+;	CHKEEP	''		['NAAG','Ala']	
+;	VITRO	0.
+;	DKNTMN	0.
+;	SDDEGP	0.		0: no PK 1st / >0: set prob. / <0: LCM default 
+; special:
+;	NOXXT2	0.		NE 0: NO fixing of linewidth of some metab.
+;
+;-

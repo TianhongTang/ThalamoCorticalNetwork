@@ -190,6 +190,7 @@ for task_idx = 1:task_num
             firing_rates{1, i} = [firing_rates{1, i}; area_data.data.firing_rates{1, i}];
         end
     end
+    borders = [borders, N+1]; % add end border
 
     % construct meta and data struct for merged session
     meta.N           = N;

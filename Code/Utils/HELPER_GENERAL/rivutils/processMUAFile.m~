@@ -1,0 +1,59 @@
+function MUA = processMUAFile(adffile,muafile)
+global FILES
+
+if FILES.USE_MATFILE
+  MUA = subProcessMUA_1(adffile,muafile);
+else
+  MUA = subProcessMUA_2(adffile,muafile);
+end
+
+%----------------------------------------------
+function MUA = subProcessMUA_1(adffile,muafile)
+[nchan,nobs,sampt] = adf_getInfo(adffile);
+
+wb = waitbar(0, sprintf('Processing Multi Data'));
+valobs = 1;
+for obs=1:nobs
+    waitbar((obs/nobs),wb);
+    for j=1:nchan
+        [tmp, resampt] =  readMultiObs(adffile,j,obs);
+        if length(tmp) < 200 % a little shaky, be careful here 
+            fprintf('Warning, concatentating bad observation periods...\n');
+            size(tmp)
+            size(MUA.data{valobs-1})
+            newmua(:,j) = [MUA.data{valobs-1}(:,j)' tmp]';
+            flag = 1;    
+        else
+            MUA.data{valobs}(:,j) = tmp;     
+            lastlen = length(tmp);
+            flag = 0;
+        end
+    end
+    if ~flag
+        valobs = valobs+1;
+    else
+        MUA.data{valobs-1} = newmua;
+    end   
+end
+MUA.resampt = resampt;	
+close(wb);
+
+%
+% Here just save the thing for future use
+save(muafile,'MUA');
+
+
+%----------------------------------------------
+function MUA = subProcessMUA_2(adffile,muafile)
+convAdf2Multi('readfile',adffile,'savefile',muafile);
+[nchan,nobs,sampt] = adm_info(muafile);
+wb = waitbar(0,sprintf('Loading MUA file: %d obs',nobs));
+for obs = 1:nobs
+  waitbar(obs/nobs,wb);
+  MUA.data{obs} = adm_readchans(muafile,obs-1,0:nchan-1);
+end
+close(wb);
+MUA.resampt = sampt/1000.;  % in sec
+
+
+

@@ -1,0 +1,128 @@
+function pars = getpvpars(SESSION,arg2,arg3);
+% getpvpars: get imaging parameters directly from the acqp/reco
+% usage: pars = getpvpars(SESSION,arg2,arg3);
+%
+% call of function PVrd2dseq()
+% %
+%  AUTH: -  Josef Pfeuffer, Sep 2001/2002
+%
+%  JP - 15-10-2002 fix calculation of pars.nseg
+%  JP - 22-10-2002 pars.graddur added
+%  JP - 17-12-2002 routine extended for use with MSME/RARE, GEFI, MDEFT
+
+if nargin == 3,
+	ScanNo = arg3;
+end;
+
+if nargin < 2,
+	error('usage: pars = getpvpars(SESSION,[ExpNo | AnatomyScan],ScanNo);');
+end;
+
+if isa(arg2,'char'),
+	ScanName = arg2;
+	if nargin == 3,
+		ScanNo = arg3;
+	else
+		ScanNo = 1;
+	end;
+else
+	ExpNo = arg2;
+end;
+	
+Ses = goto(SESSION);
+
+f_verbose = 0; 
+
+if exist('ExpNo'),
+	fn					= getfilenames(Ses,ExpNo);
+	dataPath.stdpath	= Ses.DataMri;
+	dataPath.dir		= Ses.dirname;
+	dataPath.filenum	= Ses.expp(ExpNo).scanreco(1);
+	reconum				= Ses.expp(ExpNo).scanreco(2);
+else
+	eval(sprintf('scan = Ses.%s{%d};',ScanName,ScanNo));
+	dataPath.stdpath	= Ses.DataMri;
+	dataPath.dir		= Ses.dirname;
+	dataPath.filenum	= scan.scanreco(1);
+	reconum				= scan.scanreco(2);
+end;
+
+global STDPATH
+global acqp reco
+
+STDPATH.pv = dataPath.stdpath;
+dir        = dataPath.dir;
+filenum    = dataPath.filenum;
+
+info = PVrd2dseq(dir, filenum, opt('RECO',reconum,'GETINFO',1,'VERBOSE',f_verbose) );
+
+% %     info.file = file;
+% %     info.fsize = fsize;
+% %     info.precision = PRECISION;
+% %     info.nx = nx;
+% %     info.ny = ny;
+% %     info.nslices = nslices;
+% %     info.nr = nr;
+
+pars.acqp		= acqp;
+pars.reco		= reco;
+pars.nx			= info.nx;
+pars.ny			= info.ny;
+pars.nt			= info.nr;
+pars.nsli		= info.nslices;
+pars.actsize	= reco.RECO_inp_size;
+fovx			= reco.RECO_fov(1)*10;     % [mm]
+fovy			= reco.RECO_fov(2)*10;     % [mm]
+pars.fov		= [fovx fovy];
+dx			    = reco.RECO_fov(1)*10/pars.nx;   % [mm]
+dy			    = reco.RECO_fov(2)*10/pars.ny;   % [mm]
+pars.res		= [dx dy];
+adx			    = reco.RECO_fov(1)*10/pars.actsize(1);   % [mm]
+ady			    = reco.RECO_fov(2)*10/pars.actsize(2);   % [mm]
+pars.actres		= [adx ady];
+if strcmp(acqp.EPI_segmentation_mode,'Segments')       % ONLY EPI
+    pars.nseg   = acqp.IMND_numsegments;			
+else
+    pars.nseg	= 1;		    % 'No_Segments'
+end
+
+if strncmp(acqp.PULPROG, '<BLIP_epi',9)
+    pars.slitr	= acqp.EPI_slice_rep_time/1000;  %[s]
+    pars.segtr	= acqp.IMND_rep_time;       % these values are NOT necessarily correct  
+    pars.imgtr	= pars.segtr * pars.nseg;   %     for TCmode !
+    pars.effte	= acqp.EPI_TE_eff/1000;     % [s]
+else
+    pars.slitr	= acqp.IMND_rep_time;            % [s]
+    pars.segtr	= acqp.IMND_acq_time/1000;       % [s] 
+    pars.imgtr	= pars.slitr;
+    pars.effte	= acqp.IMND_echo_time/1000;      % [s]
+end
+pars.recovtr	= acqp.IMND_recov_time/1000;     % [s] for T1 series
+pars.slithk		= acqp.IMND_slice_thick;
+pars.isodist	= acqp.IMND_slicepack_position;
+pars.sligap		= acqp.IMND_slicepack_gap;
+pars.gradtype	= [1:pars.nsli*pars.nseg];
+
+if strcmp(acqp.EPI_scan_mode,'FID')                % total gradient on time [ms]
+    pars.graddur = ( acqp.IMND_pulse_length/1000/2 + acqp.EPI_TE_eff + ...
+        acqp.EPI_seg_acq_time - acqp.EPI_zero_phase_ms)/1000;    % [s]
+else
+    pars.graddur = -1;
+end;
+if strcmp(acqp.EPI_use_vd,'Yes')                % change of delays between segments
+    if strcmp(acqp.EPI_use_id,'Yes')            % after version EPI 6.18
+        stop  %%% NEEDS to be implemented and tested YET
+        %%% supposed to be corrected for in pulse sequence !   
+    end
+    pars.vdtr = ( acqp.ACQ_vd_list + acqp.EPI_vd_start - acqp.IMND_acq_time/2/1000 );    % [s]
+    if length(pars.vdtr) ~= pars.nseg
+        stop   %%% should never happen
+    end
+else
+    pars.vdtr = -1;
+end;
+
+clear acqp reco STDPATH
+
+
+

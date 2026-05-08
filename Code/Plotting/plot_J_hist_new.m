@@ -11,135 +11,330 @@ end
 % include code folder and utils
 addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
+addpath(fullfile(root, 'Code', 'Utils', 'HELPER_GENERAL'));
 
 %% Main
 resting_dur_threshold = 15;
 mt = load_meta(root, 'table'); % metadata table
 
-f = figure('Position', [100, 100, 1200, 800], 'Visible', 'off');
-t = tiledlayout(2, 3, 'TileSpacing', 'Compact', 'Padding', 'Compact');
-
 animals = {'Slayer', 'Emperor', 'Both'};
-% injection_types = {'Muscimol', 'Saline'};
+injection_types = {'Muscimol', 'Saline'};
 states = {'RestOpen', 'RestClose'};
 state_labels = {'Eyes Open', 'Eyes Closed'};
 posneg_labels = {'Positive J', 'Negative J'};
+prepost_labels = {'Pre', 'Post'};
 
-for animal_idx = 1:3
-    animal_name = animals{animal_idx};
-    for posneg_idx = 1:2
-        tile_idx = (posneg_idx-1)*3 + animal_idx;
-
-        open_count  = 0; open_total  = 0;
-        close_count = 0; close_total = 0;
-
+%% pre vs post
+for injection_idx = 1:2
+    f = figure('Position', [100, 100, 1200, 800], 'Visible', 'off');
+    t = tiledlayout(2, 3, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+    injection = injection_types{injection_idx};
+    for animal_idx = 1:3
+        animal_name = animals{animal_idx};
         for state_idx = 1:2
             state = states{state_idx};
             state_label = state_labels{state_idx};
+            tile_idx = (state_idx-1)*3 + animal_idx;
 
-            % filter metadata for current condition 
-            % TODO: better condition filtering by a function
-            condition_filter = (strcmp(mt.GLM.animal_name, animal_name)|strcmp(animal_name, 'Both')) & ...
-                                strcmp(mt.GLM.state, state) & ...
-                                strcmp(mt.GLM.kernel_name, "DeltaPure") & ...
-                                strcmp(mt.GLM.align, "Last") & ...
-                                strcmp(mt.GLM.area, "Full") & ...
-                                (mt.GLM.epoch == 3000) & ...
-                                (mt.GLM.fold_idx == 0) & ...
-                                (mt.GLM.shuffle_idx == 0) & ...
-                                strcmp(mt.GLM.prepost, "Pre");
-            condition_meta = mt.GLM(condition_filter, :);
-            if isempty(condition_meta)
-                warning('No data found for condition: %s, %s', animal_name, state);
-                continue;
-            else
-                fprintf('Plotting condition: %s, %s, with %d sessions.\n', animal_name, state, height(condition_meta));
-            end
+            J_counts = zeros(2, 2); % pos/neg x pre/post
+            total_counts = zeros(2, 2); % total count for pos/neg in pre/post (should be the same)
 
-            for session_idx = 1:height(condition_meta)
-                meta = condition_meta(session_idx, :);
-                meta = table2struct(meta);
+            for prepost_idx = 1:2
+                prepost_str = prepost_labels{prepost_idx};
 
-                % load model parameters and errors
-                data_folder = fullfile(root, 'Data', 'Working', 'GLM');
-                file_name = meta.file_name;
-                file_path = fullfile(data_folder, file_name);
-                if ~isfile(file_path)
-                    warning('File not found: %s. Skipping.', file_path);
-                    continue;
-                end
-                session_data = load(file_path, 'meta', 'data');
-                model_par = session_data.data.model_par;
-                model_err = session_data.data.model_err.total;
-
-                % load area borders
-                border_folder = fullfile(root, 'Data', 'Working', 'border');
-                border_file_name = generate_filename('border', meta);
-                border_file_path = fullfile(border_folder, border_file_name);
-                if ~isfile(border_file_path)
-                    warning('Border file not found: %s. Skipping.', border_file_path);
-                    continue;
-                end
-                border_data = load(border_file_path, 'data');
-                borders = border_data.data.borders;
-
-                selected_areas = {[1, 2], [2, 1]}; % between ACC and VLPFC
-
-                % count significant J values
-                [pos, neg, total] = J_count(model_par, model_err, 1, borders, selected_areas);
-                counts = [pos, neg];
-                count = counts(posneg_idx);
-
-                if state_idx == 1
-                    open_count = open_count + count;
-                    open_total = open_total + total;
+                % filter metadata for current condition 
+                % TODO: better condition filtering by a function
+                if strcmp(animal_name, 'Both')
+                    animal_filter = strcmp(mt.GLM.animal_name, 'Slayer') | strcmp(mt.GLM.animal_name, 'Emperor');
                 else
-                    close_count = close_count + count;
-                    close_total = close_total + total;
+                    animal_filter = strcmp(mt.GLM.animal_name, animal_name);
+                end
+                condition_filter = (animal_filter) & ...
+                                    strcmp(mt.GLM.state, state) & ...
+                                    strcmp(mt.GLM.kernel_name, "DeltaPure") & ...
+                                    strcmp(mt.GLM.align, "Last") & ...
+                                    strcmp(mt.GLM.area, "Cortex") & ...
+                                    strcmp(mt.GLM.injection, injection) & ...
+                                    (mt.GLM.epoch == 3000) & ...
+                                    (mt.GLM.fold_idx == 0) & ...
+                                    (mt.GLM.shuffle_idx == 0) & ...
+                                    cellfun(@(x) ~isempty(x) && x == resting_dur_threshold, mt.GLM.resting_dur_threshold) & ...
+                                    strcmp(mt.GLM.prepost, prepost_str);
+                                    
+                condition_meta = mt.GLM(condition_filter, :);
+                if isempty(condition_meta)
+                    warning('No data found for condition: %s, %s, %s', animal_name, state, prepost_str);
+                    continue;
+                else
+                    fprintf('Plotting condition: %s, %s, %s with %d sessions.\n', animal_name, state, prepost_str, height(condition_meta));
                 end
 
+                % count significant J 
+                pos_count   = 0;
+                neg_count   = 0;
+                total_count = 0;
+                for session_idx = 1:height(condition_meta)
+                    meta = condition_meta(session_idx, :);
+                    meta = table2struct(meta);
+
+                    % load model parameters and errors
+                    data_folder = fullfile(root, 'Data', 'Working', 'GLM');
+                    file_name = meta.file_name;
+                    file_path = fullfile(data_folder, file_name);
+                    if ~isfile(file_path)
+                        warning('File not found: %s. Skipping.', file_path);
+                        continue;
+                    end
+                    session_data = load(file_path, 'meta', 'data');
+                    model_par = session_data.data.model_par;
+                    model_err = session_data.data.model_err.total;
+
+                    % load area borders
+                    border_folder = fullfile(root, 'Data', 'Working', 'border');
+                    border_file_name = generate_filename('border', meta);
+                    border_file_path = fullfile(border_folder, border_file_name);
+                    if ~isfile(border_file_path)
+                        warning('Border file not found: %s. Skipping.', border_file_path);
+                        continue;
+                    end
+                    border_data = load(border_file_path, 'data', 'meta');
+                    borders = border_data.data.borders;
+                    N = border_data.meta.N;
+                    assert(numel(borders) == 2);
+                    borders = [borders, N+1]; % add end border
+
+                    selected_areas = {[1, 2], [2, 1]}; % between ACC and VLPFC
+
+                    % count significant J values
+                    [pos, neg, total] = J_count(model_par, model_err, 1, borders, selected_areas);
+                    pos_count = pos_count + pos;
+                    neg_count = neg_count + neg;
+                    total_count = total_count + total;
+                end
+                J_counts(:, prepost_idx) = [pos_count; neg_count];
+                total_counts(:, prepost_idx) = [total_count; total_count];
             end
+
+            % error bar and statistical test
+            ratios = J_counts ./ total_counts;
+            CIs = zeros(2, 2, 2); % pos/neg x pre/post x low/high
+            p_vals = zeros(1, 2); % pos/neg
+            sig_labels = cell(1, 2);
+            for posneg_idx = 1:2
+                count = J_counts(posneg_idx, :);
+                total = total_counts(posneg_idx, :);
+                for prepost_idx = 1:2
+                    [CI_low, CI_high] = wilsonCI(count(prepost_idx), total(prepost_idx), 0.05);
+                    CIs(posneg_idx, prepost_idx, :) = [CI_low, CI_high];
+                end
+                p_val = twoProportionPValue(count(1), total(1), count(2), total(2));
+                p_vals(posneg_idx) = p_val;
+                if p_val < 0.001
+                    sig_labels{posneg_idx} = '***';
+                elseif p_val < 0.01
+                    sig_labels{posneg_idx} = '**';
+                elseif p_val < 0.05
+                    sig_labels{posneg_idx} = '*';
+                else
+                    sig_labels{posneg_idx} = 'N.S.';    
+                end
+            end
+
+            % Bar plot with error bars
+            nexttile(tile_idx);
+            ratios = ratios * 100; % convert to percentage, posneg x prepost
+            low_errs = ratios - squeeze(CIs(:, :, 1))*100; % posneg x prepost
+            high_errs = squeeze(CIs(:, :, 2))*100 - ratios; % posneg x prepost
+
+            hold on;
+            % Pre
+            bar((1:2)-0.15, ratios(:, 1), 'FaceColor', 'b', 'BarWidth', 0.3);
+            % Post
+            bar((1:2)+0.15, ratios(:, 2), 'FaceColor', 'r', 'BarWidth', 0.3);
+            % Error bars
+            errorbar((1:2)-0.15, ratios(:, 1), low_errs(:, 1), high_errs(:, 1), 'k', 'LineStyle', 'none');
+            errorbar((1:2)+0.15, ratios(:, 2), low_errs(:, 2), high_errs(:, 2), 'k', 'LineStyle', 'none');
+            % Pre vs Post significance
+            text(1, max(ratios(:, 1))+5, sig_labels{1}, 'HorizontalAlignment', 'center', 'FontSize', 14);
+            text(2, max(ratios(:, 2))+5, sig_labels{2}, 'HorizontalAlignment', 'center', 'FontSize', 14);
+            hold off;
+
+            xticks(1:2);
+            xticklabels(posneg_labels);
+            ylabel('Significant J %');
+            legend(prepost_labels, 'Location', 'Best');
+            title(sprintf('%s, %s', animal_name, state_label));
+            ylim([0, 30]);
+
+            disp(J_counts);
+            disp(total_counts);
         end
-        % error bar and statistical test
-        [CI_open_low, CI_open_high] = wilsonCI(open_count, open_total, 0.05);
-        [CI_close_low, CI_close_high] = wilsonCI(close_count, close_total, 0.05);
-        p_val = twoProportionPValue(open_count, open_total, close_count, close_total);
-        if p_val < 0.001
-            sig_label = '***';
-        elseif p_val < 0.01
-            sig_label = '**';
-        elseif p_val < 0.05
-            sig_label = '*';
-        else
-            sig_label = 'N.S.';
-        end
-
-        % plot histogram
-        nexttile(tile_idx);
-        ratios = [open_count/open_total, close_count/close_total]*100;
-        low_errs = [ratios(1) - CI_open_low*100, ratios(2) - CI_close_low*100];
-        high_errs = [CI_open_high*100 - ratios(1), CI_close_high*100 - ratios(2)];
-
-        hold on;
-        bar(1:2, ratios);
-        errorbar(1:2, ratios, low_errs, high_errs, 'k', 'LineStyle', 'none', 'LineWidth', 1.5);
-        text(1.5, 25, sig_label, 'HorizontalAlignment', 'center', 'FontSize', 20);
-        hold off;
-
-        xticks(1:2);
-        xticklabels(state_labels);
-        ylabel('Percentage of Significant J (%)');
-        title(sprintf('%s, %s', animal_name, posneg_labels{posneg_idx}));
-        ylim([0, 30]);
     end
+    sgtitle(sprintf("%s, Kernel 1, Pre vs Post", injection), 'FontSize', 14);
+
+    save_folder = fullfile(root, 'Figures', 'J_hist');
+    check_path(save_folder);
+    save_path = fullfile(save_folder, sprintf('J_hist_prepost_k1_%s.png', injection));
+    saveas(f, save_path);
 end
-sgtitle(sprintf("Resting Duration Threshold: %d sec", resting_dur_threshold), 'FontSize', 16);
 
-save_folder = fullfile(root, 'Figures', 'J_hist');
-check_path(save_folder);
-save_path = fullfile(save_folder, sprintf('J_hist_summary_%d.png', resting_dur_threshold));
-saveas(f, save_path);
 
+%% post/pre effect size, saline vs Muscimol
+f = figure('Position', [100, 100, 1200, 800], 'Visible', 'off');
+t = tiledlayout(2, 3, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+for animal_idx = 1:3
+    animal_name = animals{animal_idx};
+    for state_idx = 1:2
+        state = states{state_idx};
+        state_label = state_labels{state_idx};
+        tile_idx = (state_idx-1)*3 + animal_idx;
+
+        effect_sizes = zeros(2, 2); % pos/neg x saline/muscimol
+
+        for injection_idx = 1:2
+            injection = injection_types{injection_idx};
+
+            J_counts = zeros(2, 2); % pos/neg x pre/post
+            total_counts = zeros(2, 2); % total count for pos/neg in pre/post (should be the same)
+
+            for prepost_idx = 1:2
+                prepost_str = prepost_labels{prepost_idx};
+
+                % filter metadata for current condition 
+                % TODO: better condition filtering by a function
+                if strcmp(animal_name, 'Both')
+                    animal_filter = strcmp(mt.GLM.animal_name, 'Slayer') | strcmp(mt.GLM.animal_name, 'Emperor');
+                else
+                    animal_filter = strcmp(mt.GLM.animal_name, animal_name);
+                end
+                condition_filter = (animal_filter) & ...
+                                    strcmp(mt.GLM.state, state) & ...
+                                    strcmp(mt.GLM.kernel_name, "DeltaPure") & ...
+                                    strcmp(mt.GLM.align, "Last") & ...
+                                    strcmp(mt.GLM.area, "Cortex") & ...
+                                    strcmp(mt.GLM.injection, injection) & ...
+                                    (mt.GLM.epoch == 3000) & ...
+                                    (mt.GLM.fold_idx == 0) & ...
+                                    (mt.GLM.shuffle_idx == 0) & ...
+                                    cellfun(@(x) ~isempty(x) && x == resting_dur_threshold, mt.GLM.resting_dur_threshold) & ...
+                                    strcmp(mt.GLM.prepost, prepost_str);
+                                    
+                condition_meta = mt.GLM(condition_filter, :);
+                if isempty(condition_meta)
+                    warning('No data found for condition: %s, %s, %s', animal_name, state, prepost_str);
+                    continue;
+                else
+                    fprintf('Plotting condition: %s, %s, %s with %d sessions.\n', animal_name, state, prepost_str, height(condition_meta));
+                end
+
+                % count significant J 
+                pos_count   = 0;
+                neg_count   = 0;
+                total_count = 0;
+                for session_idx = 1:height(condition_meta)
+                    meta = condition_meta(session_idx, :);
+                    meta = table2struct(meta);
+
+                    % load model parameters and errors
+                    data_folder = fullfile(root, 'Data', 'Working', 'GLM');
+                    file_name = meta.file_name;
+                    file_path = fullfile(data_folder, file_name);
+                    if ~isfile(file_path)
+                        warning('File not found: %s. Skipping.', file_path);
+                        continue;
+                    end
+                    session_data = load(file_path, 'meta', 'data');
+                    model_par = session_data.data.model_par;
+                    model_err = session_data.data.model_err.total;
+
+                    % load area borders
+                    border_folder = fullfile(root, 'Data', 'Working', 'border');
+                    border_file_name = generate_filename('border', meta);
+                    border_file_path = fullfile(border_folder, border_file_name);
+                    if ~isfile(border_file_path)
+                        warning('Border file not found: %s. Skipping.', border_file_path);
+                        continue;
+                    end
+                    border_data = load(border_file_path, 'data', 'meta');
+                    borders = border_data.data.borders;
+                    N = border_data.meta.N;
+                    assert(numel(borders) == 2);
+                    borders = [borders, N+1]; % add end border
+
+                    selected_areas = {[1, 2], [2, 1]}; % between ACC and VLPFC
+
+                    % count significant J values
+                    [pos, neg, total] = J_count(model_par, model_err, 1, borders, selected_areas);
+                    pos_count = pos_count + pos;
+                    neg_count = neg_count + neg;
+                    total_count = total_count + total;
+                end
+                J_counts(:, prepost_idx) = [pos_count; neg_count];
+                total_counts(:, prepost_idx) = [total_count; total_count];
+            end
+
+            % error bar and statistical test
+            ratios = J_counts ./ total_counts;
+            CIs = zeros(2, 2, 2); % pos/neg x pre/post x low/high
+            p_vals = zeros(1, 2); % pos/neg
+            sig_labels = cell(1, 2);
+            for posneg_idx = 1:2
+                count = J_counts(posneg_idx, :);
+                total = total_counts(posneg_idx, :);
+                for prepost_idx = 1:2
+                    [CI_low, CI_high] = wilsonCI(count(prepost_idx), total(prepost_idx), 0.05);
+                    CIs(posneg_idx, prepost_idx, :) = [CI_low, CI_high];
+                end
+                p_val = twoProportionPValue(count(1), total(1), count(2), total(2));
+                p_vals(posneg_idx) = p_val;
+                if p_val < 0.001
+                    sig_labels{posneg_idx} = '***';
+                elseif p_val < 0.01
+                    sig_labels{posneg_idx} = '**';
+                elseif p_val < 0.05
+                    sig_labels{posneg_idx} = '*';
+                else
+                    sig_labels{posneg_idx} = 'N.S.';    
+                end
+            end
+
+            % Bar plot with error bars
+            nexttile(tile_idx);
+            ratios = ratios * 100; % convert to percentage, posneg x prepost
+            low_errs = ratios - squeeze(CIs(:, :, 1))*100; % posneg x prepost
+            high_errs = squeeze(CIs(:, :, 2))*100 - ratios; % posneg x prepost
+
+            hold on;
+            % Pre
+            bar((1:2)-0.15, ratios(:, 1), 'FaceColor', 'b', 'BarWidth', 0.3);
+            % Post
+            bar((1:2)+0.15, ratios(:, 2), 'FaceColor', 'r', 'BarWidth', 0.3);
+            % Error bars
+            errorbar((1:2)-0.15, ratios(:, 1), low_errs(:, 1), high_errs(:, 1), 'k', 'LineStyle', 'none');
+            errorbar((1:2)+0.15, ratios(:, 2), low_errs(:, 2), high_errs(:, 2), 'k', 'LineStyle', 'none');
+            % Pre vs Post significance
+            text(1, max(ratios(:, 1))+5, sig_labels{1}, 'HorizontalAlignment', 'center', 'FontSize', 14);
+            text(2, max(ratios(:, 2))+5, sig_labels{2}, 'HorizontalAlignment', 'center', 'FontSize', 14);
+            hold off;
+
+            xticks(1:2);
+            xticklabels(posneg_labels);
+            ylabel('Significant J %');
+            legend(prepost_labels, 'Location', 'Best');
+            title(sprintf('%s, %s', animal_name, state_label));
+            ylim([0, 30]);
+
+            disp(J_counts);
+            disp(total_counts);
+        end
+    end
+    sgtitle(sprintf("%s, Kernel 1, Pre vs Post", injection), 'FontSize', 14);
+
+    save_folder = fullfile(root, 'Figures', 'J_hist');
+    check_path(save_folder);
+    save_path = fullfile(save_folder, sprintf('J_hist_prepost_k1_%s.png', injection));
+    saveas(f, save_path);
+end
 
 function [p_low, p_high] = wilsonCI(M, N, alpha)
     % Wilson score interval
