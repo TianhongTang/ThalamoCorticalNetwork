@@ -1,0 +1,27 @@
+function [one, two, three] = checkFile(file,varargin)
+
+  one = [];
+  two = [];
+  three = [];
+
+  tmp = dir(file);
+  if ~size(tmp,1), return, end;
+  fprintf('Reading %s...', file);
+  
+  tmp = load(file,'-mat');
+  
+  if nargin > 1
+    if length(varargin) == 1
+      varargout = getfield(tmp,varargin{1});
+    end
+    for i=1:length(varargin)
+      if i==1, one = getfield(tmp,varargin{i}); end
+      if i==2, two = getfield(tmp,varargin{i}); end
+      if i==3, three = getfield(tmp,varargin{i}); end
+    end
+  else
+    field = fieldnames(tmp);
+    one   = getfield(tmp,field{1});
+  end
+  fprintf('done\n');
+  

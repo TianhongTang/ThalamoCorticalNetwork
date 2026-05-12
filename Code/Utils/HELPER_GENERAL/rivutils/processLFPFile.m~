@@ -1,0 +1,42 @@
+function LFP = processLFPFile(eegfile,lfpfile)
+
+  global LFP
+  adfwdir = 'f:/Data/Rivalry/adfw';
+  d = dir(eegfile);
+  if isempty(d)
+    % doing the analysis directly on the ADFW file collected with Yusuke's
+    % streamer
+    [dir,file,ext] = fileparts(eegfile);
+    adfwfile = sprintf('%s/%s.adfw',adfwdir,file)
+    [nchan,nobs,sampt] = adfw_info(adfwfile);
+    wb = waitbar(0, sprintf('Processing LFP Data'));
+    for obs=1:nobs
+      waitbar((obs/nobs),wb);
+      for j=1:nchan
+	[LFP.data{obs}(:,j), resampt] =  readADFWLFPObs(adfwfile,j,obs);
+      end
+    end
+    LFP.resampt = resampt;	
+    close(wb);
+    
+    %
+    % Here just save the thing for future use
+    save(lfpfile,'LFP');
+  
+  else
+    % LFP file collected on the EEG mon, and doing analysis on that
+    [nchan,nobs,sampt] = adf_getInfo(eegfile);
+    wb = waitbar(0, sprintf('Processing LFP Data'));
+    for obs=1:nobs
+      waitbar((obs/nobs),wb);
+      for j=1:nchan
+	[LFP.data{obs}(:,j), resampt] =  readLFPObs(eegfile,j,obs);
+      end
+    end
+    LFP.resampt = resampt;	
+    close(wb);
+    
+    %
+    % Here just save the thing for future use
+    save(lfpfile,'LFP');
+  end

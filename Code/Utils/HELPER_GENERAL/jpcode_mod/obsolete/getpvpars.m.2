@@ -1,0 +1,64 @@
+function pars = getpvpars(SESSION,ExpNo);
+% getpvpars: get imaging parameters directly from the acqp/reco
+% usage: pars = getpvpars(SESSION,ExpNo);
+%
+% call of function PVrd2dseq()
+% %
+%  AUTH: -  Josef Pfeuffer, Sep 2001/2002
+%
+%  JP - 15-10-2002 fix calculation of pars.nseg
+%  JP - 22-10-2002 pars.gradDur added
+
+Ses = goto(SESSION);
+fn = getfilenames(Ses,ExpNo);
+
+f_verbose = 0; 
+
+dataPath.stdpath = Ses.sysp.mridir;
+dataPath.dir = Ses.dirname;
+dataPath.filenum = Ses.expp(ExpNo).scanreco(1);
+reconum = Ses.expp(ExpNo).scanreco(2);
+
+global STDPATH
+global acqp reco
+
+STDPATH.pv = dataPath.stdpath;
+dir        = dataPath.dir;
+filenum    = dataPath.filenum;
+
+info = PVrd2dseq(dir, filenum, opt('RECO',reconum,'GETINFO',1,'VERBOSE',f_verbose) );
+
+% %     info.file = file;
+% %     info.fsize = fsize;
+% %     info.precision = PRECISION;
+% %     info.nx = nx;
+% %     info.ny = ny;
+% %     info.nslices = nslices;
+% %     info.nr = nr;
+
+pars.acqp		= acqp;
+pars.reco		= reco;
+pars.nx			= info.nx;
+pars.ny			= info.ny;
+pars.nt			= info.nr;
+pars.nsli		= info.nslices;
+if strcmp(acqp.EPI_segmentation_mode,'Segments')       % ONLY EPI
+    pars.nseg   = acqp.IMND_numsegments;			
+else
+    pars.nseg	= 1;		    % 'No_Segments'
+end
+pars.sliTR		= acqp.EPI_slice_rep_time;
+pars.segTR		= acqp.IMND_rep_time;       % these values are NOT necessarily correct  
+pars.imgTR		= pars.segTR * pars.nseg;   %     for TCmode !
+pars.sliThk		= acqp.IMND_slice_thick;
+pars.isoDist	= acqp.IMND_slicepack_position;
+pars.sliGap		= acqp.IMND_slicepack_gap;
+pars.gradtype	= [1:pars.nsli*pars.nseg];
+if strcmp(acqp.EPI_scan_mode,'FID')                % total gradient on time [ms]
+    pars.gradDur = acqp.IMND_pulse_length/1000/2 + acqp.EPI_TE_eff + ...
+        acqp.EPI_seg_acq_time - acqp.EPI_zero_phase_ms;
+else
+    pars.gradDur = -1;
+    endx
+clear acqp reco STDPATH
+

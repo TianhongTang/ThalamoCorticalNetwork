@@ -1,0 +1,135 @@
+function reco = PVrdParReco(dir, filenum, optin);
+% %  reco = PVrdParReco(dir, filenum, optin)
+% %
+% %  Bruker ParaVision:
+% %  reads parameter files ACQP, IMND from <dir,file>
+% %
+% %  default options:
+% %     opt(  'RECO',1,         % number of reco dir
+% %           'VERBOSE','1')
+% %
+% %  return: struct reco pars (flexible format, easy to extend)
+% %
+% %  Tested for: onepulse, EPI
+% %
+% %  Sep 2001 -  Josef Pfeuffer
+% %
+FCTNAME = 'PVrdParReco';
+
+global STDPATH
+
+PARCHAR = '##$';
+PARFILE1 = 'reco';     % needs path separator "\" upfront
+PARFILE2 = 'proc';
+
+      %%%%  option handling   %%%%%
+      % --- default options: define whole struct
+dopt.RECO = 1;
+dopt.VERBOSE = 1;
+
+      % --- arg handling
+nargVars = 2;
+narg = nargin;
+error(nargchk(nargVars,nargVars+1,narg))
+if (narg == nargVars+1)
+   dopt = setopt(dopt,optin);
+   narg = narg - 1;    % narg is NOT including options
+end
+
+reconum = dopt.RECO;      
+f_verbose = dopt.VERBOSE;
+      %%%%  end: handling options  %%%%%
+
+   % --- arg handling
+if (filenum > 0)    % stdpath handling
+   file1 = sprintf('%s%s/%s/pdata/%s/%s', STDPATH.pv,num2str(dir), ...
+      num2str(filenum),num2str(reconum),PARFILE1);
+   file2 = sprintf('%s%s/%s/pdata/%s/%s', STDPATH.pv,num2str(dir), ...
+      num2str(filenum),num2str(reconum),PARFILE2);
+else              % give full path as arg1
+   file1 = sprintf('%s/%s', num2str(filenum), PARFILE1);
+   file2 = sprintf('%s/%s', num2str(filenum), PARFILE2);
+end
+%fname = {file1,file2};
+fname = {file1};
+numParFiles = length(fname);
+
+   % define here struct to read:
+   %     = 0   type: double
+   %     = ''  type: string
+   %           array determined automatically from '=( x )' => next lines interpreted
+reco.RECO_inp_size = 0;
+reco.RECO_ft_size = 0;
+reco.RECO_fov = 0;
+reco.RECO_size = 0;
+reco.RECO_maxima = 0;
+reco.RECO_ft_mode = '';
+reco.RECO_wordtype = '';
+reco.RECO_byte_order = '';
+reco.RECO_image_type = '';
+reco.RECO_image_threshold = 0;
+reco.RECO_ir_scale = 0;
+reco.RECO_map_mode = '';
+reco.RECO_map_range = 0;
+reco.RECO_map_percentile = 0;
+% --- end of reco field definition !
+
+recoNames = fieldnames(reco);
+recoNtags = length(recoNames);
+
+for ifile=1:numParFiles
+   
+filename = char(fname(ifile));
+fid = fopen(filename,'r');
+if (fid > 0)
+   if f_verbose fprintf('reading <%s>\n', filename); end
+else
+   error(sprintf('%s: can not open <%s>', FCTNAME, filename));
+end
+
+while (~feof(fid))
+   tline = fgetl(fid);
+   %%disp(tline)
+   strncmp(PARCHAR, tline, length(PARCHAR));
+   if (strncmp(PARCHAR, tline, length(PARCHAR)))   % check if parameter
+      par = tline( length(PARCHAR)+1 : findstr(tline,'=')-1 );
+      parvalStr = tline( findstr(tline,'=')+1 : length(tline) );
+      for itag=1:recoNtags      % searching reco STRUCT
+         if (strcmp(par, recoNames(itag)))      
+                           % discriminate string/ numeric
+                           % --- string handling 
+            if ( isstr( getfield(reco, char(recoNames(itag))) ) )
+               if isempty( findstr('(', parvalStr) )  
+                  parval = parvalStr;
+               else        % read only until the first '>'
+                  parval = '';                 
+                  ch = fscanf(fid, '%c',1);
+                  while (ch ~= '#')
+                     parval = [parval ch];
+                     if (ch == '>')
+                        tline = fgetl(fid);     % get rest of line
+                     end
+                     ch = fscanf(fid, '%c',1);
+                  end
+                  stat = fseek(fid,-1,'cof');   % reposition fid
+               end              
+            else           % --- numeric handling 
+               if isempty( findstr('(', parvalStr) )  
+                  parval = str2num(parvalStr);
+               else        % array handling, read formatted value(s)
+%                  parval = fscanf(fid, '%f', numeric(parvalStr));
+                  parval = fscanf(fid, '%f', str2num(parvalStr));
+               end
+            end
+            reco = setfield(reco, char(recoNames(itag)), parval);
+            %%disp(par)
+            %%disp(parvalStr)
+            %%whos parval
+         end   %
+      end   % for 
+   end   % else ignore line
+end
+fclose(fid);
+
+end %% for ifile
+%%parval = cellstr(parval);

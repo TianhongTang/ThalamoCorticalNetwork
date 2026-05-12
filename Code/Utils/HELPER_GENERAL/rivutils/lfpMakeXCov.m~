@@ -1,0 +1,49 @@
+function sxcv = lfpMakeXCov(file,obs,spont)
+
+global FILES CUR DATA
+
+ffile 		= strrep(file,'_','\_');
+lags		= 128;
+win 		= 256;
+method 		= 'xcov';
+shuffle		= 0;
+maxpts		= 1000;
+
+if exist('spont')==1 & ~isempty(spont) & spont
+  loadfile = FILES.SPONTFile;
+  rootfile = getFileRoot(FILES.SPONTFile);
+else 
+  loadfile = FILES.LFPFile;
+  rootfile = getFileRoot(file);
+end
+
+% load XCV data
+lfprivcovfile	= sprintf('%s_OBS%d_LFP_WN%d_LG%d.%s',...
+	 rootfile,obs,win,lags,method);
+sxcv = checkFile(sprintf('%s/%s/%s',FILES.PROC_XCVPath,FILES.FILERoot,...
+	lfprivcovfile));
+
+if isempty(sxcv)
+  DATA.lfp = [];
+  % load LFP data
+  gains = chgains(FILES.FILERoot);	
+  if isempty(gains)
+    gains = ones(1,CUR.nchan)*5000;	
+  end
+  [DATA.lfp,DATA.lfp_resampt] = loadLFP(loadfile,gains,obs);
+  [DATA.lfp,A,E] = sortByArea(file,DATA.lfp);
+  sampt	= DATA.lfp_resampt;
+  sxcv	= processXCov(DATA.lfp,sampt,method,win,lags,...
+			shuffle,lfprivcovfile,A,E,maxpts);
+  DATA.lfp = [];
+end
+
+
+
+
+
+
+
+
+
+

@@ -227,6 +227,20 @@ for epoch=1:max_epoch
             %     model_err_filtered.total_minus(:, 1 + n_PS_kernel + (i-1)*N_filtered + (1:N_filtered));
         end
 
+        % extract h, P and J from model_par
+        h = model_par(:, 1); % N x 1
+        P = model_par(:, 2:(1 + n_PS_kernel)); % N x n_PS_kernel
+        J = zeros(N, N, n_conn_kernel)*NaN; % N x N x n_conn_kernel
+        for i=1:n_conn_kernel
+            J(:, :, i) = reshape(model_par(:, 1 + n_PS_kernel + (i-1)*N + (1:N)), [N, N]);
+        end 
+        h_err = model_err.total(:, 1);
+        P_err = model_err.total(:, 2:(1 + n_PS_kernel));
+        J_err = zeros(N, N, n_conn_kernel)*NaN;
+        for i=1:n_conn_kernel
+            J_err(:, :, i) = reshape(model_err.total(:, 1 + n_PS_kernel + (i-1)*N + (1:N)), [N, N]);
+        end
+
         % construct model data and meta for saving
         meta                       = struct();
         meta.animal_name           = GLMdata.meta.animal_name;
@@ -255,6 +269,14 @@ for epoch=1:max_epoch
         data.filter     = raster_filter;
         data.reg        = reg;
         data.kernel     = kernel;
+        data.h          = h;
+        data.P          = P;
+        data.J          = J;
+        data.h_err      = h_err;
+        data.P_err      = P_err;
+        data.J_err      = J_err;
+
+        meta.data_fields = fieldnames(data);
 
         folder_name = fullfile(root, 'Data', 'Working', 'GLM');
         check_path(folder_name);
