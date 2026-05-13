@@ -9,6 +9,7 @@ end
 % include code folder and utils
 addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
+% addpath(fullfile(root, 'Code', 'Utils', 'HELPER_GENERAL'));
 
 %% Main
 
@@ -16,22 +17,39 @@ addpath(fullfile(root, 'Code', 'Utils'));
 meta = struct();
 meta.animal_name = 'Slayer';
 meta.injection = 'Muscimol';
-meta.align = 'Longest';
+meta.align = 'Last';
 meta.session_idx = 6;
 meta.resting_dur_threshold = 15;
 
 % areas    = {'Full',     'Full',      'Cortex',   'Cortex'};
-areas    = {'Cortex',   'Cortex',    'Cortex',   'Cortex'};
-preposts = {'Pre',      'Pre',       'Post',     'Post'};
-states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
+% areas    = {'Cortex',   'Cortex',    'Cortex',   'Cortex'};
+% preposts = {'Pre',      'Pre',       'Post',     'Post'};
+% states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
+areas    = {'Cortex',   'Cortex',  };
+preposts = {'Pre',      'Pre',     };
+states   = {'RestOpen', 'RestClose'};
+n_state = numel(areas);
 
-%% Raster
+% parameters
+shuffle_N = 20;
+
+% figure
 f = figure();
-tiles = tiledlayout(4, 2, "TileSpacing", "Compact", "Padding", "Compact");
+tiles = tiledlayout(4, n_state, "TileSpacing", "Compact", "Padding", "Compact");
 
-selected_neurons = 1:95;
+
+%% Row 1: Raster of selected neurons
+
+% Example session: Slayer Mus 6. Selected t_range. Justification: Best sleep period for Pre-eyeclose.
+% Remove this range in population analysis, or add proper filters to select sleep periods.
+
+% selected_neurons = 1:95;
 % selected_neurons = [16:21, 39, 44, 61:67, 83:93];
-% selected_neurons = [16, 17];
+% selected_neurons = [14:19, 33:40, 42, 44, 46, 49, 58:73, 83:95];
+% selected_neurons = [33, 61];
+selected_neurons = [2, 42];
+% selected_neurons = [34, 92];
+display_t_range = 20001:30000;
 
 for i = 1:length(areas)
     % Load data
@@ -49,9 +67,9 @@ for i = 1:length(areas)
     % N = raster_data.meta.N;
 
     cell_area = raster_data.data.cell_area;
-    tile = nexttile(i*2-1);
-    % tile = nexttile(i);
-    raster = raster_data.data.rasters{1};
+    % tile = nexttile(i*2-1);
+    tile = nexttile(i);
+    raster = raster_data.data.rasters{1}(:, display_t_range);
 
     cell_area = cell_area(selected_neurons);
     raster = raster(selected_neurons, :);
@@ -70,20 +88,30 @@ for i = 1:length(areas)
                 colors(j, :) = [0, 0, 0]; % black
         end
     end
+    cla(tile);
     raster_visualization_plot(tile, raster, colors)
-    title(sprintf('%s-%s, %s', meta.prepost, meta.injection, meta.state));
+    title(sprintf('Example pair, %s', meta.state));
     xlabel('Time (ms)');
-    ylabel('Neuron No.');
-    % ylim([-1.5, 4.5]);
+    % ylabel('Neuron No.');
+    ylabel('');
+    yticks([1, 2]);
+    yticklabels({'ACC #2', 'VLPFC #1'});
+    ytickangle(0);
+    ylim([-1.5, 4.5]);
     % ylim([-1.5, 4.5]);
 end
 
-%% Pairwise correlogram
+%% Row 2: Pairwise correlogram between selected neurons
 % f = figure();
 % tiles = tiledlayout(2, 2, "TileSpacing", "Compact", "Padding", "Compact");
 
-selected_neurons = [85, 86];
-smooth_window = 25; % ms
+% selected_neurons = [85, 86];
+% selected_neurons = [33, 61];
+% selected_neurons = [2, 42];
+% selected_neurons = [35, 60];
+t_range = 1:60000;
+
+smooth_window = 30; % ms
 
 for i = 1:length(areas)
     % Load data
@@ -99,30 +127,30 @@ for i = 1:length(areas)
 
     raster = raster_data.data.rasters{1};
 
-    r1 = raster(selected_neurons(1), :);
-    r2 = raster(selected_neurons(2), :);
+    r1 = raster(selected_neurons(1), t_range);
+    r2 = raster(selected_neurons(2), t_range);
 
     % Compute correlogram
     [correlogram, lags] = norm_xcorr(r1, r2, 1000);
     smooth_correlogram = movmean(correlogram, smooth_window);
 
     % Compute shuffled correlogram for control
-    shuffle_N = 10;
     shuffle_correlograms = zeros(shuffle_N, length(correlogram));
     for j = 1:shuffle_N
         fprintf('%d/%d shuffles started\n', j, shuffle_N);
         shuffled_r2 = r2(randperm(length(r2)));
-        shuffle_correlograms(j, :) = norm_xcorr(r1, shuffled_r2, 1000);
+        [shuffle_corr, ~] = norm_xcorr(r1, shuffled_r2, 1000);
+        shuffle_correlograms(j, :) = movmean(shuffle_corr, smooth_window);
         fprintf('%d/%d shuffles finished\n', j, shuffle_N);
     end
     shuffle_mean = mean(shuffle_correlograms, 1);
     shuffle_std = std(shuffle_correlograms, [], 1);
-    shuffle_mean = movmean(shuffle_mean, smooth_window);
-    shuffle_std = movmean(shuffle_std, smooth_window);
+    % shuffle_mean = movmean(shuffle_mean, smooth_window);
+    % shuffle_std = movmean(shuffle_std, smooth_window);
 
     % Plot
-    nexttile(i*2);
-    std_multiplier = 1;
+    nexttile(i+n_state);
+    std_multiplier = 2;
     shuffle_upper = shuffle_mean + std_multiplier * shuffle_std;
     shuffle_lower = shuffle_mean - std_multiplier * shuffle_std;
     % plot shuffled correlogram as a shaded area
@@ -135,12 +163,222 @@ for i = 1:length(areas)
     plot(lags, smooth_correlogram);
     hold off;
 
-    title(sprintf('Correlogram: %s-%s, %s', meta.prepost, meta.injection, meta.state));
+    title(sprintf('Correlogram: %s', meta.state));
     xlabel('Lag (ms)');
     ylabel('Normalized correlation');
-    ylim([-0.5, 2.5]);
+    legend({'Shuffled 2SD', '', '', 'correlation'});
+    ylim([-1, 5]);
 end
 
+%% Row 3: network plot
+for i = 1:length(areas)
+    % Load data
+    meta.area = areas{i};
+    meta.prepost = preposts{i};
+    meta.state = states{i};
+    meta.shuffle_idx = 0;
+    meta.kernel_name = 'DeltaPure';
+    meta.reg_name = 'L2=0_2';
+    meta.epoch = 3000;
+    meta.fold_idx = 0;
+    
+    % Load raster data for neuron area info
+    meta.filename = generate_filename('raster', meta);
+    raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
+    fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+    fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
+    fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
+
+    % split neurons by area
+    cell_area = raster_data.data.cell_area;
+    filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
+    filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
+
+    % Load GLM data for connectivity info
+    meta.filename = generate_filename('GLM', meta);
+    GLM_data = load(fullfile(root, 'Data', 'Working', 'GLM', meta.filename));
+    fprintf('Loaded GLM data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+    N = GLM_data.meta.N;
+    J = GLM_data.data.model_par(:, (2:N+1)); % kernel 1 weights
+    err = GLM_data.data.model_err.total(:, (2:N+1));
+
+    % Plot connectivity
+    tile = nexttile(i+n_state*2);
+    plot_network(tile, J(filter1, filter2), J(filter2, filter1), ...
+        err(filter1, filter2), err(filter2, filter1), 2, ...
+        selected_neurons(1), selected_neurons(2)-41);
+
+    title(tile, sprintf('Network plot: %s', meta.state));
+end
+
+% %% Row 4: average CCG across all neuron pairs
+% for i = 1:length(areas)
+%     % Load data
+%     meta.area = areas{i};
+%     meta.prepost = preposts{i};
+%     meta.state = states{i};
+%     meta.filename = generate_filename('raster', meta);
+% 
+%     raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
+%     fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+%     fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
+%     fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
+% 
+%     % split neurons by area
+%     cell_area = raster_data.data.cell_area;
+%     filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
+%     filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
+% 
+%     raster = raster_data.data.rasters{1};
+% 
+%     r1 = raster(filter1, 1:60000);
+%     r2 = raster(filter2, 1:60000);
+%     N1 = sum(filter1);
+%     N2 = sum(filter2);
+% 
+%     % Compute correlogram for each pair and average
+%     all_correlograms = zeros(N1, N2, 2001);
+%     for n1 = 1:N1
+%         for n2 = 1:N2
+%             fprintf('Computing correlogram for pair (%d, %d)\n', n1, n2);
+%             [correlogram, lags] = norm_xcorr(r1(n1, :), r2(n2, :), 1000);
+%             smooth_correlogram = movmean(correlogram, smooth_window);
+%             all_correlograms(n1, n2, :) = smooth_correlogram;
+%         end
+%     end
+% 
+%     % Compute mean and sem across all pairs
+%     mean_correlogram = squeeze(mean(all_correlograms, [1, 2]));
+%     sem_correlogram = squeeze(std(all_correlograms, [], [1, 2])) / sqrt(N1 * N2);
+% 
+%     % Plot
+%     nexttile(i+12);
+%     se_multiplier = 2;
+%     error_upper = mean_correlogram + se_multiplier * sem_correlogram;
+%     error_lower = mean_correlogram - se_multiplier * sem_correlogram;
+%     fill([lags, fliplr(lags)], [error_upper', fliplr(error_lower')], [0.8, 0.8, 0.8], 'EdgeColor', 'none');
+% 
+%     % plot correlogram
+%     hold on;
+%     xline(0, 'k--');
+%     yline(1, 'k--');
+%     plot(lags, mean_correlogram);
+%     hold off;
+% 
+%     title(sprintf('Mean correlogram: %s-%s, %s', meta.prepost, meta.injection, meta.state));
+%     xlabel('Lag (ms)');
+%     ylabel('Normalized correlation');
+%     legend({'Mean ± 2SEM', '', '', 'Mean correlation'});
+%     ylim([0, 2]);
+% end
+
+%% Row 4: Population firing rate CCG
+for i = 1:length(areas)
+    % Load data
+    meta.area = areas{i};
+    meta.prepost = preposts{i};
+    meta.state = states{i};
+    meta.filename = generate_filename('raster', meta);
+
+    raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
+    fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+    fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
+    fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
+
+    % split neurons by area
+    cell_area = raster_data.data.cell_area;
+    filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
+    filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
+
+    raster = raster_data.data.rasters{1};
+
+    r1 = raster(filter1, 1:60000);
+    r2 = raster(filter2, 1:60000);
+    N1 = sum(filter1);
+    N2 = sum(filter2);
+
+    % Compute mean firing rate for each area
+    pop_r1 = mean(r1, 1);
+    pop_r2 = mean(r2, 1);
+
+    % Compute correlogram
+    [correlogram, lags] = norm_xcorr(pop_r1, pop_r2, 1000);
+    smooth_correlogram = movmean(correlogram, smooth_window);
+
+    % Compute shuffled correlogram for control
+    shuffle_correlograms = zeros(shuffle_N, length(correlogram));
+    for j = 1:shuffle_N
+        fprintf('%d/%d shuffles started\n', j, shuffle_N);
+        % shuffled_r2 = pop_r2(randperm(length(pop_r2)));
+        shuffled_r2 = circshift(pop_r2, randi(length(pop_r2))); 
+        [shuffle_corr, ~] = norm_xcorr(pop_r1, shuffled_r2, 1000);
+        shuffle_correlograms(j, :) = movmean(shuffle_corr, smooth_window);
+        fprintf('%d/%d shuffles finished\n', j, shuffle_N);
+    end
+    shuffle_mean = mean(shuffle_correlograms, 1);
+    shuffle_std = std(shuffle_correlograms, [], 1);
+    % shuffle_mean = movmean(shuffle_mean, smooth_window);
+    % shuffle_std = movmean(shuffle_std, smooth_window);
+
+    % Plot
+    nexttile(i+n_state*3);
+    std_multiplier = 2;
+    shuffle_upper = shuffle_mean + std_multiplier * shuffle_std;
+    shuffle_lower = shuffle_mean - std_multiplier * shuffle_std;
+    % plot shuffled correlogram as a shaded area
+    fill([lags, fliplr(lags)], [shuffle_upper, fliplr(shuffle_lower)], [0.8, 0.8, 0.8], 'EdgeColor', 'none');
+
+    % plot correlogram
+    hold on;
+    xline(0, 'k--');
+    yline(1, 'k--');
+    plot(lags, smooth_correlogram);
+    hold off;
+
+    title(sprintf('Population correlogram: %s', meta.state));
+    xlabel('Lag (ms)');
+    ylabel('Normalized correlation');
+    legend({'Shuffled 2SD', '', '', 'correlation'});
+    ylim([0, 2]);
+end
+
+%% Export to pdf
+% Save current figure as vector PDF
+fig = gcf;
+
+% ----- Figure settings -----
+save_folder = fullfile(root, 'Figures', 'Paper');
+check_path(save_folder);
+filename = fullfile(save_folder, 'Figure1.pdf');
+
+figWidth  = 8.0;   % inches
+figHeight = 12.0;   % inches
+
+resolution = 300;  % dpi; mainly affects rasterized components
+% -------------------------
+
+% Set figure size on screen
+set(fig, 'Units', 'inches');
+fig.Position(3:4) = [figWidth, figHeight];
+
+% Set paper size for PDF export
+set(fig, 'PaperUnits', 'inches');
+set(fig, 'PaperSize', [figWidth, figHeight]);
+set(fig, 'PaperPosition', [0, 0, figWidth, figHeight]);
+
+% Make background white
+set(fig, 'Color', 'w');
+
+% Export as vector PDF
+exportgraphics(fig, filename, ...
+    'ContentType', 'vector', ...
+    'BackgroundColor', 'white', ...
+    'Resolution', resolution);
+
+%%
+close(fig);
+
+%% functions
 function [correlogram, lags] = norm_xcorr(r1, r2, max_lag)
     % Compute normalized cross-correlogram, not only by the number of overlapping points, but also by the overall firing rates of the two neurons.
     % Compute raw cross-correlogram
@@ -159,7 +397,7 @@ function [correlogram, lags] = norm_xcorr(r1, r2, max_lag)
     correlogram(valid_filter) = raw_correlogram(valid_filter) ./ ave_rate(valid_filter);
 
     if any(~valid_filter)
-        correlogram(~valid_filter) = NaN;
-        warning('Some lags have zero average firing rate product, resulting in NaN in the normalized correlogram.');
+        correlogram(~valid_filter) = 0;
+        warning('Some lags have zero average firing rate product, resulting in 0 in the normalized correlogram.');
     end
 end
