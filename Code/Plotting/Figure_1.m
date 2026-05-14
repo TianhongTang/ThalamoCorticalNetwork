@@ -32,6 +32,7 @@ n_state = numel(areas);
 
 % parameters
 shuffle_N = 20;
+err_multi = 2; % threshold for significant J, in multiples of the error estimate from GLM.
 
 % figure
 f = figure();
@@ -205,7 +206,7 @@ for i = 1:length(areas)
     % Plot connectivity
     tile = nexttile(i+n_state*2);
     plot_network(tile, J(filter1, filter2), J(filter2, filter1), ...
-        err(filter1, filter2), err(filter2, filter1), 2, ...
+        err(filter1, filter2), err(filter2, filter1), err_multi, ...
         selected_neurons(1), selected_neurons(2)-41);
 
     title(tile, sprintf('Network plot: %s', meta.state));
@@ -342,6 +343,7 @@ for i = 1:length(areas)
     ylim([0, 2]);
 end
 
+
 %% Export to pdf
 % Save current figure as vector PDF
 fig = gcf;
@@ -378,6 +380,63 @@ exportgraphics(fig, filename, ...
 %%
 close(fig);
 
+
+% %% Fig 2: J counting bar plot
+% % counting
+% pos_counts = zeros(1, length(areas));
+% neg_counts = zeros(1, length(areas));
+% max_counts = zeros(1, length(areas));
+% for i = 1:length(areas)
+%     % Load data
+%     meta.area = areas{i};
+%     meta.prepost = preposts{i};
+%     meta.state = states{i};
+%     meta.shuffle_idx = 0;
+%     meta.kernel_name = 'DeltaPure';
+%     meta.reg_name = 'L2=0_2';
+%     meta.epoch = 3000;
+%     meta.fold_idx = 0;
+
+%     % Load raster data for neuron area info
+%     meta.filename = generate_filename('raster', meta);
+%     raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
+%     fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+%     fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
+%     fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
+
+%     % split neurons by area
+%     cell_area = raster_data.data.cell_area;
+%     filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
+%     filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
+
+%     % Load GLM data for connectivity info
+%     meta.filename = generate_filename('GLM', meta);
+%     GLM_data = load(fullfile(root, 'Data', 'Working', 'GLM', meta.filename));
+%     fprintf('Loaded GLM data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+%     N = GLM_data.meta.N;
+%     J = GLM_data.data.model_par(:, (2:N+1)); % kernel 1 weights
+%     err = GLM_data.data.model_err.total(:, (2:N+1));
+
+%     % Count significant J
+%     pos_count = sum(J(filter1, filter2) > err_multi*err(filter1, filter2), 'all') + ...
+%     sum(J(filter2, filter1) > err_multi*err(filter2, filter1), 'all');
+%     neg_count = sum(J(filter1, filter2) < -err_multi*err(filter1, filter2), 'all') + ...
+%     sum(J(filter2, filter1) < -err_multi*err(filter2, filter1), 'all');
+%     max_count = numel(J(filter1, filter2)) + numel(J(filter2, filter1));
+%     pos_counts(i) = pos_count;
+%     neg_counts(i) = neg_count;
+%     max_counts(i) = max_count;
+% end
+
+% % Plot
+% f = figure();
+% % x axis: states. Groups: positive vs negative connections.
+% pos_ratios = pos_counts ./ max_counts;
+% neg_ratios = neg_counts ./ max_counts;
+
+
+
+
 %% functions
 function [correlogram, lags] = norm_xcorr(r1, r2, max_lag)
     % Compute normalized cross-correlogram, not only by the number of overlapping points, but also by the overall firing rates of the two neurons.
@@ -400,4 +459,47 @@ function [correlogram, lags] = norm_xcorr(r1, r2, max_lag)
         correlogram(~valid_filter) = 0;
         warning('Some lags have zero average firing rate product, resulting in 0 in the normalized correlogram.');
     end
+end
+
+function [p_low, p_high] = wilsonCI(M, N, alpha)
+    % Wilson score interval
+    % M = successes, N = trials
+    % alpha = significance level (e.g., 0.05 for 95% CI)
+
+    if nargin < 3
+        alpha = 0.05;
+    end
+
+    p = M / N;
+    z = norminv(1 - alpha/2); % Z for CI
+
+    denominator = 1 + (z^2)/N;
+    center = p + (z^2)/(2*N);
+    radius = z * sqrt( (p*(1-p)/N) + (z^2)/(4*N^2) );
+
+    p_low = (center - radius) / denominator;
+    p_high = (center + radius) / denominator;
+end
+
+function p_val = twoProportionPValue(success1, trials1, success2, trials2)
+    % Two-proportion z-test (two-tailed) between pre and post proportions
+
+    if trials1 == 0 || trials2 == 0
+        p_val = NaN;
+        return;
+    end
+
+    p1 = success1 / trials1;
+    p2 = success2 / trials2;
+    pooled = (success1 + success2) / (trials1 + trials2);
+    denom = sqrt(pooled * (1 - pooled) * (1 / trials1 + 1 / trials2));
+    if denom == 0
+        p_val = 1;
+        return;
+    end
+
+    z = (p1 - p2) / denom;
+    abs_z = abs(z);
+    Phi = 0.5 * erfc(-abs_z / sqrt(2));
+    p_val = 2 * (1 - Phi);
 end
