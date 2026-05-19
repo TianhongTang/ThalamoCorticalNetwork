@@ -1,3 +1,5 @@
+%% Figure 1: An example neuron pair showing state-dependent changes in firing and correlation.
+
 clear;
 %% Get root folder
 code_depth = 3;
@@ -22,22 +24,29 @@ meta.session_idx = 6;
 meta.resting_dur_threshold = 15;
 
 % areas    = {'Full',     'Full',      'Cortex',   'Cortex'};
-% areas    = {'Cortex',   'Cortex',    'Cortex',   'Cortex'};
-% preposts = {'Pre',      'Pre',       'Post',     'Post'};
-% states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
-areas    = {'Cortex',   'Cortex',  };
-preposts = {'Pre',      'Pre',     };
-states   = {'RestOpen', 'RestClose'};
+areas    = {'Cortex',   'Cortex',    'Cortex',   'Cortex'};
+preposts = {'Pre',      'Pre',       'Post',     'Post'};
+states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
+% areas    = {'Cortex',   'Cortex',  };
+% preposts = {'Pre',      'Pre',     };
+% states   = {'RestOpen', 'RestClose'};
 n_state = numel(areas);
-
-% parameters
-shuffle_N = 20;
-err_multi = 2; % threshold for significant J, in multiples of the error estimate from GLM.
 
 % figure
 f = figure();
-tiles = tiledlayout(4, n_state, "TileSpacing", "Compact", "Padding", "Compact");
+tiles = tiledlayout(5, n_state, "TileSpacing", "Compact", "Padding", "Compact");
 
+%% parameters
+shuffle_N = 5;
+err_multi = 2; % threshold for significant J, in multiples of the error estimate from GLM.
+t_range = 1:60000;
+corr_range = 500; % ms
+smooth_window = 5; % ms
+mygauss = @(size, sigma) exp(-(-floor(size/2):floor(size/2)).^2/(2*sigma^2));
+% smooth_kernel = mygauss(10*smooth_window+1, smooth_window); % gaussian kernel
+% smooth_kernel = ones(1, smooth_window); % moving average kernel
+smooth_kernel = 1 - abs(-smooth_window:smooth_window) / smooth_window;
+smooth_kernel = smooth_kernel / sum(smooth_kernel); % normalize kernel
 
 %% Row 1: Raster of selected neurons
 
@@ -91,7 +100,7 @@ for i = 1:length(areas)
     end
     cla(tile);
     raster_visualization_plot(tile, raster, colors)
-    title(sprintf('Example pair, %s', meta.state));
+    title(sprintf('Example pair, %s, %s', meta.prepost, meta.state));
     xlabel('Time (ms)');
     % ylabel('Neuron No.');
     ylabel('');
@@ -102,7 +111,7 @@ for i = 1:length(areas)
     % ylim([-1.5, 4.5]);
 end
 
-%% Row 2: Pairwise correlogram between selected neurons
+%% Row 2: Pairwise correlogram between selected neurons. Row 3: Auto-corrogram for the same neurons.
 % f = figure();
 % tiles = tiledlayout(2, 2, "TileSpacing", "Compact", "Padding", "Compact");
 
@@ -110,9 +119,6 @@ end
 % selected_neurons = [33, 61];
 % selected_neurons = [2, 42];
 % selected_neurons = [35, 60];
-t_range = 1:60000;
-
-smooth_window = 30; % ms
 
 for i = 1:length(areas)
     % Load data
@@ -130,18 +136,32 @@ for i = 1:length(areas)
 
     r1 = raster(selected_neurons(1), t_range);
     r2 = raster(selected_neurons(2), t_range);
+    % smooth_r1 = movmean(r1, smooth_window);
+    % smooth_r2 = movmean(r2, smooth_window);
 
     % Compute correlogram
-    [correlogram, lags] = norm_xcorr(r1, r2, 1000);
-    smooth_correlogram = movmean(correlogram, smooth_window);
+    [correlogram, lags] = norm_xcorr(r1, r2, corr_range);
+    [auto1, ~] = norm_xcorr(r1, r1, corr_range);
+    [auto2, ~] = norm_xcorr(r2, r2, corr_range);
+    % [correlogram, lags] = norm_xcorr(smooth_r1, smooth_r2, corr_range);
+    % [auto1, ~] = norm_xcorr(smooth_r1, smooth_r1, corr_range);
+    % [auto2, ~] = norm_xcorr(smooth_r2, smooth_r2, corr_range);
+
+    % smooth_correlogram = movmean(correlogram, smooth_window);
+    % smooth_auto1 = movmean(auto1, smooth_window);
+    % smooth_auto2 = movmean(auto2, smooth_window);
+    smooth_correlogram = same_conv(correlogram, smooth_kernel);
+    smooth_auto1 = same_conv(auto1, smooth_kernel);
+    smooth_auto2 = same_conv(auto2, smooth_kernel);
 
     % Compute shuffled correlogram for control
     shuffle_correlograms = zeros(shuffle_N, length(correlogram));
     for j = 1:shuffle_N
         fprintf('%d/%d shuffles started\n', j, shuffle_N);
         shuffled_r2 = r2(randperm(length(r2)));
-        [shuffle_corr, ~] = norm_xcorr(r1, shuffled_r2, 1000);
-        shuffle_correlograms(j, :) = movmean(shuffle_corr, smooth_window);
+        [shuffle_corr, ~] = norm_xcorr(r1, shuffled_r2, corr_range);
+        % shuffle_correlograms(j, :) = movmean(shuffle_corr, smooth_window);
+        shuffle_correlograms(j, :) = same_conv(shuffle_corr, smooth_kernel);
         fprintf('%d/%d shuffles finished\n', j, shuffle_N);
     end
     shuffle_mean = mean(shuffle_correlograms, 1);
@@ -149,200 +169,77 @@ for i = 1:length(areas)
     % shuffle_mean = movmean(shuffle_mean, smooth_window);
     % shuffle_std = movmean(shuffle_std, smooth_window);
 
-    % Plot
-    nexttile(i+n_state);
+    % Plot cross-correlogram
+    row = 2;
+    nexttile(i+n_state*(row-1));
     std_multiplier = 2;
     shuffle_upper = shuffle_mean + std_multiplier * shuffle_std;
     shuffle_lower = shuffle_mean - std_multiplier * shuffle_std;
     % plot shuffled correlogram as a shaded area
-    fill([lags, fliplr(lags)], [shuffle_upper, fliplr(shuffle_lower)], [0.8, 0.8, 0.8], 'EdgeColor', 'none');
+    fill([lags, fliplr(lags)], [shuffle_upper, fliplr(shuffle_lower)], [0.8, 0.8, 0.8], 'EdgeColor', 'none', 'DisplayName', 'Shuffled mean ± 2SD');
 
     % plot correlogram
     hold on;
-    xline(0, 'k--');
-    yline(1, 'k--');
-    plot(lags, smooth_correlogram);
+    xline(0, 'k--','HandleVisibility', 'off');
+    yline(0, 'k--','HandleVisibility', 'off');
+    % plot(lags, smooth_auto1, '-', 'LineWidth', 0.25, 'DisplayName', 'Auto-corr 1', 'Color', [1, 0, 0, 0.5]);
+    % plot(lags, smooth_auto2, '-', 'LineWidth', 0.25, 'DisplayName', 'Auto-corr 2', 'Color', [0, 0, 1, 0.5]);
+    plot(lags, smooth_correlogram, 'm-', 'LineWidth', 1, 'DisplayName', 'Cross-corr');
+    % plot(lags, correlogram, 'm-');
+    % plot(lags, auto1, 'r-');
+    % plot(lags, auto2, 'b-');
     hold off;
 
-    title(sprintf('Correlogram: %s', meta.state));
+    % title(sprintf('Correlogram: %s', meta.state));
+    title(sprintf('Correlogram: %s, %s', meta.prepost, meta.state));
     xlabel('Lag (ms)');
     ylabel('Normalized correlation');
-    legend({'Shuffled 2SD', '', '', 'correlation'});
-    ylim([-1, 5]);
-end
+    legend('show', 'Location', 'southeast');
+    % ylim([-1, 1]);
+    ylim([-0.05, 0.05]);
 
-%% Row 3: network plot
-for i = 1:length(areas)
-    % Load data
-    meta.area = areas{i};
-    meta.prepost = preposts{i};
-    meta.state = states{i};
-    meta.shuffle_idx = 0;
-    meta.kernel_name = 'DeltaPure';
-    meta.reg_name = 'L2=0_2';
-    meta.epoch = 3000;
-    meta.fold_idx = 0;
-    
-    % Load raster data for neuron area info
-    meta.filename = generate_filename('raster', meta);
-    raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
-    fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
-    fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
-    fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
-
-    % split neurons by area
-    cell_area = raster_data.data.cell_area;
-    filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
-    filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
-
-    % Load GLM data for connectivity info
-    meta.filename = generate_filename('GLM', meta);
-    GLM_data = load(fullfile(root, 'Data', 'Working', 'GLM', meta.filename));
-    fprintf('Loaded GLM data for %s %s %s\n', meta.prepost, meta.state, meta.area);
-    N = GLM_data.meta.N;
-    J = GLM_data.data.model_par(:, (2:N+1)); % kernel 1 weights
-    err = GLM_data.data.model_err.total(:, (2:N+1));
-
-    % Plot connectivity
-    tile = nexttile(i+n_state*2);
-    plot_network(tile, J(filter1, filter2), J(filter2, filter1), ...
-        err(filter1, filter2), err(filter2, filter1), err_multi, ...
-        selected_neurons(1), selected_neurons(2)-41);
-
-    title(tile, sprintf('Network plot: %s', meta.state));
-end
-
-% %% Row 4: average CCG across all neuron pairs
-% for i = 1:length(areas)
-%     % Load data
-%     meta.area = areas{i};
-%     meta.prepost = preposts{i};
-%     meta.state = states{i};
-%     meta.filename = generate_filename('raster', meta);
-% 
-%     raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
-%     fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
-%     fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
-%     fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
-% 
-%     % split neurons by area
-%     cell_area = raster_data.data.cell_area;
-%     filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
-%     filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
-% 
-%     raster = raster_data.data.rasters{1};
-% 
-%     r1 = raster(filter1, 1:60000);
-%     r2 = raster(filter2, 1:60000);
-%     N1 = sum(filter1);
-%     N2 = sum(filter2);
-% 
-%     % Compute correlogram for each pair and average
-%     all_correlograms = zeros(N1, N2, 2001);
-%     for n1 = 1:N1
-%         for n2 = 1:N2
-%             fprintf('Computing correlogram for pair (%d, %d)\n', n1, n2);
-%             [correlogram, lags] = norm_xcorr(r1(n1, :), r2(n2, :), 1000);
-%             smooth_correlogram = movmean(correlogram, smooth_window);
-%             all_correlograms(n1, n2, :) = smooth_correlogram;
-%         end
-%     end
-% 
-%     % Compute mean and sem across all pairs
-%     mean_correlogram = squeeze(mean(all_correlograms, [1, 2]));
-%     sem_correlogram = squeeze(std(all_correlograms, [], [1, 2])) / sqrt(N1 * N2);
-% 
-%     % Plot
-%     nexttile(i+12);
-%     se_multiplier = 2;
-%     error_upper = mean_correlogram + se_multiplier * sem_correlogram;
-%     error_lower = mean_correlogram - se_multiplier * sem_correlogram;
-%     fill([lags, fliplr(lags)], [error_upper', fliplr(error_lower')], [0.8, 0.8, 0.8], 'EdgeColor', 'none');
-% 
-%     % plot correlogram
-%     hold on;
-%     xline(0, 'k--');
-%     yline(1, 'k--');
-%     plot(lags, mean_correlogram);
-%     hold off;
-% 
-%     title(sprintf('Mean correlogram: %s-%s, %s', meta.prepost, meta.injection, meta.state));
-%     xlabel('Lag (ms)');
-%     ylabel('Normalized correlation');
-%     legend({'Mean ± 2SEM', '', '', 'Mean correlation'});
-%     ylim([0, 2]);
-% end
-
-%% Row 4: Population firing rate CCG
-for i = 1:length(areas)
-    % Load data
-    meta.area = areas{i};
-    meta.prepost = preposts{i};
-    meta.state = states{i};
-    meta.filename = generate_filename('raster', meta);
-
-    raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
-    fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
-    fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
-    fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
-
-    % split neurons by area
-    cell_area = raster_data.data.cell_area;
-    filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
-    filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
-
-    raster = raster_data.data.rasters{1};
-
-    r1 = raster(filter1, 1:60000);
-    r2 = raster(filter2, 1:60000);
-    N1 = sum(filter1);
-    N2 = sum(filter2);
-
-    % Compute mean firing rate for each area
-    pop_r1 = mean(r1, 1);
-    pop_r2 = mean(r2, 1);
-
-    % Compute correlogram
-    [correlogram, lags] = norm_xcorr(pop_r1, pop_r2, 1000);
-    smooth_correlogram = movmean(correlogram, smooth_window);
-
-    % Compute shuffled correlogram for control
-    shuffle_correlograms = zeros(shuffle_N, length(correlogram));
-    for j = 1:shuffle_N
-        fprintf('%d/%d shuffles started\n', j, shuffle_N);
-        % shuffled_r2 = pop_r2(randperm(length(pop_r2)));
-        shuffled_r2 = circshift(pop_r2, randi(length(pop_r2))); 
-        [shuffle_corr, ~] = norm_xcorr(pop_r1, shuffled_r2, 1000);
-        shuffle_correlograms(j, :) = movmean(shuffle_corr, smooth_window);
-        fprintf('%d/%d shuffles finished\n', j, shuffle_N);
-    end
-    shuffle_mean = mean(shuffle_correlograms, 1);
-    shuffle_std = std(shuffle_correlograms, [], 1);
-    % shuffle_mean = movmean(shuffle_mean, smooth_window);
-    % shuffle_std = movmean(shuffle_std, smooth_window);
-
-    % Plot
-    nexttile(i+n_state*3);
-    std_multiplier = 2;
-    shuffle_upper = shuffle_mean + std_multiplier * shuffle_std;
-    shuffle_lower = shuffle_mean - std_multiplier * shuffle_std;
-    % plot shuffled correlogram as a shaded area
-    fill([lags, fliplr(lags)], [shuffle_upper, fliplr(shuffle_lower)], [0.8, 0.8, 0.8], 'EdgeColor', 'none');
-
-    % plot correlogram
+    % Plot auto-correlograms
+    row = 3;
+    nexttile(i+n_state*(row-1));
+    plot(lags, smooth_correlogram, 'm-', 'LineWidth', 2, 'DisplayName', 'Cross-corr', 'Color', [1, 0, 1, 0.2]);
     hold on;
-    xline(0, 'k--');
-    yline(1, 'k--');
-    plot(lags, smooth_correlogram);
+    xline(0, 'k--','HandleVisibility', 'off');
+    yline(0, 'k--','HandleVisibility', 'off');
+    plot(lags, smooth_auto1, 'r-', 'LineWidth', 1, 'DisplayName', 'Auto-corr 1');
+    plot(lags, smooth_auto2, 'b-', 'LineWidth', 1, 'DisplayName', 'Auto-corr 2');
     hold off;
-
-    title(sprintf('Population correlogram: %s', meta.state));
+    title(sprintf('Auto-correlograms: %s, %s', meta.prepost, meta.state));
     xlabel('Lag (ms)');
     ylabel('Normalized correlation');
-    legend({'Shuffled 2SD', '', '', 'correlation'});
-    ylim([0, 2]);
-end
+    legend('show', 'Location', 'southeast');
+    % ylim([-1, 1]);
+    ylim([-0.05, 0.05]);
 
+    % Plot Fourier transform of signal and correlograms
+    sample_rate = 1000; % Hz
+    freqs = linspace(0, 100, 201); % Hz
+    spec_r1 = myFT(r1, sample_rate, freqs);
+    spec_r2 = myFT(r2, sample_rate, freqs);
+    spec_Xcorr = myFT(correlogram, sample_rate, freqs);
+    spec_Auto1 = myFT(auto1, sample_rate, freqs);
+    spec_Auto2 = myFT(auto2, sample_rate, freqs);
+
+    % xcorr spectrum
+    row = 4;
+    nexttile(i+n_state*(row-1));
+    plot(freqs, spec_Xcorr, 'm-', 'LineWidth', 1, 'DisplayName', 'Cross-corr');
+
+    % signal spectrum and auto-corr spectrum
+    row = 5;
+    nexttile(i+n_state*(row-1));
+    plot(freqs, spec_r1, 'r-', 'LineWidth', 1, 'DisplayName', 'Signal 1');
+    hold on;
+    plot(freqs, spec_r2, 'b-', 'LineWidth', 1, 'DisplayName', 'Signal 2');
+    plot(freqs, spec_Auto1, 'r--', 'LineWidth', 1, 'DisplayName', 'Auto-corr 1');
+    plot(freqs, spec_Auto2, 'b--', 'LineWidth', 1, 'DisplayName', 'Auto-corr 2');
+    hold off;
+
+end
 
 %% Export to pdf
 % Save current figure as vector PDF
@@ -353,8 +250,8 @@ save_folder = fullfile(root, 'Figures', 'Paper');
 check_path(save_folder);
 filename = fullfile(save_folder, 'Figure1.pdf');
 
-figWidth  = 8.0;   % inches
-figHeight = 12.0;   % inches
+figWidth  = 16.0;   % inches
+figHeight = 28.0;   % inches
 
 resolution = 300;  % dpi; mainly affects rasterized components
 % -------------------------
@@ -374,6 +271,13 @@ set(fig, 'Color', 'w');
 % Export as vector PDF
 exportgraphics(fig, filename, ...
     'ContentType', 'vector', ...
+    'BackgroundColor', 'white', ...
+    'Resolution', resolution);
+
+% Export as jpg for quick preview
+filename = fullfile(save_folder, 'Figure1_preview.jpg');
+exportgraphics(fig, filename, ...
+    'ContentType', 'image', ...
     'BackgroundColor', 'white', ...
     'Resolution', resolution);
 
@@ -439,6 +343,65 @@ close(fig);
 
 %% functions
 function [correlogram, lags] = norm_xcorr(r1, r2, max_lag)
+%NORM_XCORR Normalized cross-correlation between two signals.
+%
+%   [correlogram, lags] = norm_xcorr(r1, r2, max_lag)
+%
+%   Computes Pearson-normalized cross-correlation for lags:
+%       -max_lag : max_lag
+%
+%   Positive lag means r1 is delayed relative to r2.
+%
+%   Inputs:
+%       r1      - first signal, vector
+%       r2      - second signal, vector
+%       max_lag - maximum lag in samples
+%
+%   Outputs:
+%       correlogram - normalized cross-correlation values
+%       lags        - lag values in samples
+
+    r1 = r1(:);
+    r2 = r2(:);
+
+    N = min(length(r1), length(r2));
+    r1 = r1(1:N);
+    r2 = r2(1:N);
+
+    if max_lag >= N
+        error('max_lag must be smaller than the signal length.');
+    end
+
+    lags = -max_lag:max_lag;
+    correlogram = nan(size(lags));
+
+    for i = 1:length(lags)
+        lag = lags(i);
+
+        if lag >= 0
+            x = r1(1+lag:N);
+            y = r2(1:N-lag);
+        else
+            x = r1(1:N+lag);
+            y = r2(1-lag:N);
+        end
+
+        % Remove mean
+        x = x - mean(x);
+        y = y - mean(y);
+
+        % Normalize by energy
+        denom = sqrt(sum(x.^2) * sum(y.^2));
+
+        if denom > 0
+            correlogram(i) = sum(x .* y) / denom;
+        else
+            correlogram(i) = NaN;
+        end
+    end
+end
+
+function [correlogram, lags] = norm_xcorr2(r1, r2, max_lag)
     % Compute normalized cross-correlogram, not only by the number of overlapping points, but also by the overall firing rates of the two neurons.
     % Compute raw cross-correlogram
     [raw_correlogram, lags] = xcorr(r1, r2, max_lag, 'unbiased');
@@ -502,4 +465,47 @@ function p_val = twoProportionPValue(success1, trials1, success2, trials2)
     abs_z = abs(z);
     Phi = 0.5 * erfc(-abs_z / sqrt(2));
     p_val = 2 * (1 - Phi);
+end
+
+function convolved = same_conv(signal, kernel)
+    % Convolve signal and kernel, return the central part. Normalize the border part by only including the overlapping part of the kernel.
+    convolved = conv(signal, kernel, 'same');
+    weight = conv(ones(size(signal)), kernel, 'same');
+    convolved = convolved ./ weight;
+end
+
+function amp = myFT(signal, sample_rate, freq)
+%MYFT Real amplitude spectrum at specified frequencies.
+%
+%   amp = myFT(signal, sample_rate, freq)
+%
+%   Inputs:
+%       signal      - signal vector
+%       sample_rate - sampling rate in Hz
+%       freq        - frequency or vector of frequencies in Hz
+%
+%   Output:
+%       amp         - real amplitude spectrum at requested frequencies
+
+    signal = signal(:);
+    freq_shape = size(freq);
+    freq = freq(:);
+
+    N = length(signal);
+    n = (0:N-1).';
+
+    if any(abs(freq) > sample_rate / 2)
+        warning('Some frequencies exceed the Nyquist frequency.');
+    end
+
+    basis = exp(-1i * 2*pi/sample_rate * (n * freq.'));
+    spec = signal.' * basis;
+
+    amp = 2 * abs(spec) / N;
+
+    % Do not double DC component
+    dc_idx = (freq == 0);
+    amp(dc_idx) = abs(spec(dc_idx)) / N;
+
+    amp = reshape(amp, freq_shape);
 end

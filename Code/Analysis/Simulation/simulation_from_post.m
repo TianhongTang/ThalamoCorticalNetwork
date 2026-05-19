@@ -1,10 +1,10 @@
-function simulation_from_post(state, session_idx, parameters)
+function simulation_from_post(meta_session, parameters)
 % Generate simulated data for the GLM model
 % Use inferred post data
 % Validate possible model structures
 % UseGPU = gpuDeviceCount > 0;
 
-if nargin < 3 || isempty(parameters)
+if nargin < 2 || isempty(parameters)
     parameters = struct();
     parameters.parameter_tag = 'Default';
 elseif ~isstruct(parameters)
@@ -12,6 +12,15 @@ elseif ~isstruct(parameters)
 elseif ~isfield(parameters, 'parameter_tag')
     error('simulation_from_post:MissingField', 'parameters struct must include parameter_tag');
 end
+
+% check required fields in meta_session
+required_fields = {'animal_name', 'session_idx', 'state'};
+for field = required_fields
+    if ~isfield(meta_session, field)
+        error('simulation_from_post:MissingField', 'meta_session struct must include %s', field);
+    end
+end
+
 %% Get root folder
 code_depth = 4;
 script_path = mfilename('fullpath');
@@ -53,8 +62,7 @@ B = 30000;
 groups = {'ACC', 'VLPFC', 'Thal-ACC', 'Thal-VLPFC'}; % Two groups of thalamic neurons. Project to one area only
 n_groups = length(groups);
 
-fprintf('State: %s\n', state);
-session_name_full = sprintf('MuscimolPost%sCortexAlignLast', state);
+fprintf('State: %s\n', meta_session.state);
 
 %% default parameters
 p = struct();
@@ -80,9 +88,22 @@ for override_idx = 1:numel(override_fields)
 end
 
 %% Load post-Muscimol experimental data
-raster_folder = fullfile(root, 'Data', 'Working', 'raster');
-raster_file = fullfile(raster_folder, sprintf('raster_%s_%d.mat', session_name_full, session_idx));
-load(raster_file, 'cell_area');
+% load cell area info
+meta.prepost = 'Post';
+meta.injection = 'Muscimol';
+meta.filename = generate_filename('raster', meta);
+
+raster_path = fullfile(root, 'Data', 'Working', 'raster', meta.filename);
+raster_meta = load(raster_path, 'data');
+cell_area = raster_meta.data.cell_area;
+
+% load model parameters
+meta.kernel_name = kernel_name;
+meta.reg_name = reg;
+meta.epoch = 3000;
+meta.fold_idx = 0;
+meta.shuffle_idx = 0;
+
 
 model_folder = fullfile(root, 'Data', 'Working', 'GLM_models');
 model_filename = sprintf('GLM_%s_s%d_shuffle0_%s_%s_epoch%d_fold0.mat', session_name_full, session_idx, kernel_name, reg, 2500);
@@ -239,13 +260,6 @@ for session_type_idx = 1:3
         parpool;
     end
 
-    % progress bar
-    fprintf("Progress: \n[");
-    for i = 1:n_trials
-        fprintf(".");
-    end
-    fprintf("]\n[");
-
     parfor trial_idx = 1:n_trials
         raster = zeros(N, B);
 
@@ -286,10 +300,7 @@ for session_type_idx = 1:3
 
         rasters{trial_idx} = raster;
         firing_rates(:, trial_idx) = sum(raster, 2)/B;
-        fprintf("#");
     end
-
-    fprintf("]\n%s end\n", session_name_full);
 
     all_rasters{session_type_idx} = rasters;
     all_firing_rates{session_type_idx} = firing_rates;
