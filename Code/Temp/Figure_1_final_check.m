@@ -38,12 +38,12 @@ f = figure();
 tiles = tiledlayout(5, n_state, "TileSpacing", "Compact", "Padding", "Compact");
 
 %% parameters
-shuffle_N = 2;
+shuffle_N = 10;
 err_multi = 2; % threshold for significant J, in multiples of the error estimate from GLM.
 t_range = 1:60000;
 corr_range = 500; % ms
 smooth_window = 15; % ms
-spec_smooth_window = 5; % frequency-bin smoothing for FFT/PSD visualization only
+spec_smooth_window = 15; % frequency-bin smoothing for FFT/PSD visualization only
 psd_window_sec = 10; % Welch PSD window length for row 5 signal spectra
 psd_overlap_frac = 0.5; % Welch PSD fractional overlap
 mygauss = @(size, sigma) exp(-(-floor(size/2):floor(size/2)).^2/(2*sigma^2));
@@ -61,9 +61,9 @@ smooth_kernel = smooth_kernel / sum(smooth_kernel); % normalize kernel
 % selected_neurons = [16:21, 39, 44, 61:67, 83:93];
 % selected_neurons = [14:19, 33:40, 42, 44, 46, 49, 58:73, 83:95];
 % selected_neurons = [16, 61];
-% selected_neurons = [2, 42];
-selected_neurons = [29, 81];
-display_t_range = 1:60000;
+selected_neurons = [2, 42];
+% selected_neurons = [29, 81];
+display_t_range = 00001:2000;
 
 for i = 1:length(areas)
 % for i = 2:2
@@ -108,11 +108,11 @@ for i = 1:length(areas)
     title(sprintf('Example pair, %s, %s', meta.prepost, meta.state));
     xlabel('Time (ms)');
     % ylabel('Neuron No.');
-    % ylabel('');
-    % yticks([1, 2]);
-    % yticklabels({'ACC #2', 'VLPFC #1'});
-    % ytickangle(0);
-    % ylim([-1.5, 4.5]);
+    ylabel('');
+    yticks([1, 2]);
+    yticklabels({'ACC #2', 'VLPFC #1'});
+    ytickangle(0);
+    ylim([-1.5, 4.5]);
     % ylim([-1.5, 4.5]);
 end
 
@@ -143,6 +143,11 @@ for i = 1:length(areas)
     r2 = raster(selected_neurons(2), t_range);
     % smooth_r1 = movmean(r1, smooth_window);
     % smooth_r2 = movmean(r2, smooth_window);
+
+    % Print firing rates for sanity check
+    fprintf('Firing rates for %s %s %s:\n', meta.prepost, meta.state, meta.area);
+    fprintf('Neuron 1: %.3f Hz\n', mean(r1)*1000);
+    fprintf('Neuron 2: %.3f Hz\n', mean(r2)*1000);
 
     % Compute correlogram
     [correlogram, lags] = norm_xcorr(r1, r2, corr_range);
@@ -201,7 +206,7 @@ for i = 1:length(areas)
     ylabel('Normalized correlation');
     legend('show', 'Location', 'southeast');
     % ylim([-1, 1]);
-    ylim([-0.05, 0.05]);
+    ylim([-0.01, 0.01]);
 
     % Plot auto-correlograms
     row = 3;
@@ -218,23 +223,29 @@ for i = 1:length(areas)
     ylabel('Normalized correlation');
     legend('show', 'Location', 'southeast');
     % ylim([-1, 1]);
-    ylim([-0.05, 0.05]);
+    ylim([-0.03, 0.03]);
 
     % Row 4: FFT amplitude of the pairwise cross-correlogram.
     % Remove DC before FFT. Do not smooth before FFT; smooth only the
     % plotted spectrum for visualization.
     sample_rate = 1000; % Hz
-    freqs = linspace(0, 100, 201); % Hz
+    freqs = linspace(0, 150, 301); % Hz
     spec_Xcorr = myFT(remove_dc(correlogram), sample_rate, freqs);
+    power_Xcorr = abs(spec_Xcorr).^2;
+    % power_Xcorr_plot = smooth_spectrum_for_plot(power_Xcorr, spec_smooth_window);
     spec_Xcorr_plot = smooth_spectrum_for_plot(spec_Xcorr, spec_smooth_window);
 
     row = 4;
     tile = nexttile(i+n_state*(row-1));
+    % plot(tile, freqs, power_Xcorr_plot, 'm-', 'LineWidth', 1, ...
+    %     'DisplayName', 'Cross-corr FFT');
     plot(tile, freqs, spec_Xcorr_plot, 'm-', 'LineWidth', 1, ...
         'DisplayName', 'Cross-corr FFT');
     title(tile, sprintf('FFT of cross-corr: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'Amplitude');
+    % ylabel(tile, 'Power');
+    ylim([0, 1e-3]);
     legend(tile, 'show', 'Location', 'northeast');
 
     % Row 5: PSD of the original pair signals only.
@@ -259,6 +270,7 @@ for i = 1:length(areas)
     title(tile, sprintf('PSD of example signals: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'PSD');
+    ylim(tile, [0, 5e-5]);
     legend(tile, 'show', 'Location', 'northeast');
 
 end
