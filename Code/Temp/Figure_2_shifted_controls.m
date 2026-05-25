@@ -135,27 +135,37 @@ for i = 1:n_state
     psd_acc_plot = smooth_spectrum_for_plot(psd_acc, spec_smooth_window);
     psd_vlpfc_plot = smooth_spectrum_for_plot(psd_vlpfc, spec_smooth_window);
 
-    %% Compute shuffled controls.
-    % Same logic as Figure 1:
-    % - CCG and cross-PSD: use shuffled ACC/VLPFC population traces.
-    % - Signal PSDs: shuffled traces preserve value distribution but destroy
-    %   temporal structure.
+    %% Compute both shuffled and shifted controls.
+    % - Shuffled controls use random time permutation and are used for PSD.
+    % - Shifted controls use independent circular shifts, preserving each signal's
+    %   temporal structure, and are used for Xcorr, autocorr, and cross-PSD.
     shuffle_correlograms = zeros(shuffle_N, length(correlogram));
+    shuffle_auto_acc_controls = zeros(shuffle_N, length(auto_acc));
+    shuffle_auto_vlpfc_controls = zeros(shuffle_N, length(auto_vlpfc));
     shuffle_cpsd = zeros(shuffle_N, numel(spec_freqs));
     shuffle_psd_acc = zeros(shuffle_N, numel(spec_freqs));
     shuffle_psd_vlpfc = zeros(shuffle_N, numel(spec_freqs));
 
-    for j = 1:shuffle_N
-        fprintf('%d/%d population shuffles started\n', j, shuffle_N);
+    shifted_correlograms = zeros(shuffle_N, length(correlogram));
+    shifted_auto_acc_controls = zeros(shuffle_N, length(auto_acc));
+    shifted_auto_vlpfc_controls = zeros(shuffle_N, length(auto_vlpfc));
+    shifted_cpsd = zeros(shuffle_N, numel(spec_freqs));
 
+    for j = 1:shuffle_N
+        fprintf('%d/%d population controls started\n', j, shuffle_N);
+
+        % Shuffled controls: destroy temporal structure.
         shuffled_acc = pop_acc(randperm(length(pop_acc)));
         shuffled_vlpfc = pop_vlpfc(randperm(length(pop_vlpfc)));
 
-        % Control for lag-domain cross-correlation.
         [shuffle_corr, ~] = norm_xcorr(shuffled_acc, shuffled_vlpfc, corr_range);
-        shuffle_correlograms(j, :) = same_conv(shuffle_corr, smooth_kernel);
+        [shuffle_auto_acc, ~] = norm_xcorr(pop_acc, shuffled_acc, corr_range);
+        [shuffle_auto_vlpfc, ~] = norm_xcorr(pop_vlpfc, shuffled_vlpfc, corr_range);
 
-        % Controls for frequency-domain cross-PSD and individual PSDs.
+        shuffle_correlograms(j, :) = same_conv(shuffle_corr, smooth_kernel);
+        shuffle_auto_acc_controls(j, :) = same_conv(shuffle_auto_acc, smooth_kernel);
+        shuffle_auto_vlpfc_controls(j, :) = same_conv(shuffle_auto_vlpfc, smooth_kernel);
+
         [shuffled_psd_acc, shuffled_psd_vlpfc, shuffled_cpsd, ~, ~] = compute_pair_spectra( ...
             shuffled_acc, shuffled_vlpfc, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
 
@@ -163,12 +173,36 @@ for i = 1:n_state
         shuffle_psd_acc(j, :) = smooth_spectrum_for_plot(shuffled_psd_acc, spec_smooth_window);
         shuffle_psd_vlpfc(j, :) = smooth_spectrum_for_plot(shuffled_psd_vlpfc, spec_smooth_window);
 
-        fprintf('%d/%d population shuffles finished\n', j, shuffle_N);
+        % Shifted controls: preserve each population trace's temporal structure
+        % while disrupting the original alignment.
+        [shift_acc, shift_vlpfc] = random_distinct_circular_shifts(length(pop_acc), corr_range);
+        shifted_acc = circshift(pop_acc, shift_acc);
+        shifted_vlpfc = circshift(pop_vlpfc, shift_vlpfc);
+
+        [shifted_corr, ~] = norm_xcorr(shifted_acc, shifted_vlpfc, corr_range);
+        [shifted_auto_acc, ~] = norm_xcorr(pop_acc, shifted_acc, corr_range);
+        [shifted_auto_vlpfc, ~] = norm_xcorr(pop_vlpfc, shifted_vlpfc, corr_range);
+
+        shifted_correlograms(j, :) = same_conv(shifted_corr, smooth_kernel);
+        shifted_auto_acc_controls(j, :) = same_conv(shifted_auto_acc, smooth_kernel);
+        shifted_auto_vlpfc_controls(j, :) = same_conv(shifted_auto_vlpfc, smooth_kernel);
+
+        [~, ~, shifted_cpsd_j, ~, ~] = compute_pair_spectra( ...
+            shifted_acc, shifted_vlpfc, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
+        shifted_cpsd(j, :) = smooth_spectrum_for_plot(shifted_cpsd_j, spec_smooth_window);
+
+        fprintf('%d/%d population controls finished\n', j, shuffle_N);
     end
 
     % Shuffled controls.
     shuffle_mean = mean_omitnan(shuffle_correlograms);
     shuffle_std = std_omitnan(shuffle_correlograms);
+
+    shuffle_auto_acc_mean = mean_omitnan(shuffle_auto_acc_controls);
+    shuffle_auto_acc_std = std_omitnan(shuffle_auto_acc_controls);
+
+    shuffle_auto_vlpfc_mean = mean_omitnan(shuffle_auto_vlpfc_controls);
+    shuffle_auto_vlpfc_std = std_omitnan(shuffle_auto_vlpfc_controls);
 
     cpsd_shuffle_mean = mean_omitnan(shuffle_cpsd);
     cpsd_shuffle_std = std_omitnan(shuffle_cpsd);
@@ -179,22 +213,35 @@ for i = 1:n_state
     psd_vlpfc_shuffle_mean = mean_omitnan(shuffle_psd_vlpfc);
     psd_vlpfc_shuffle_std = std_omitnan(shuffle_psd_vlpfc);
 
-    %% Row 2: population cross-correlogram with shuffled control and significant segments.
+    % Shifted controls used for Xcorr, autocorr, and cross-PSD plotting.
+    shifted_ccg_mean = mean_omitnan(shifted_correlograms);
+    shifted_ccg_std = std_omitnan(shifted_correlograms);
+
+    shifted_auto_acc_mean = mean_omitnan(shifted_auto_acc_controls);
+    shifted_auto_acc_std = std_omitnan(shifted_auto_acc_controls);
+
+    shifted_auto_vlpfc_mean = mean_omitnan(shifted_auto_vlpfc_controls);
+    shifted_auto_vlpfc_std = std_omitnan(shifted_auto_vlpfc_controls);
+
+    cpsd_shifted_mean = mean_omitnan(shifted_cpsd);
+    cpsd_shifted_std = std_omitnan(shifted_cpsd);
+
+    %% Row 2: population cross-correlogram with shifted control and significant segments.
     row = 2;
     tile = nexttile(i + n_state*(row-1));
-    shuffle_upper = shuffle_mean + std_multiplier * shuffle_std;
-    shuffle_lower = shuffle_mean - std_multiplier * shuffle_std;
+    shifted_ccg_upper = shifted_ccg_mean + std_multiplier * shifted_ccg_std;
+    shifted_ccg_lower = shifted_ccg_mean - std_multiplier * shifted_ccg_std;
 
-    fill_control_band(tile, lags, shuffle_mean, shuffle_std, std_multiplier, ...
-        [0.8, 0.8, 0.8], 'Shuffled mean ± 2SD');
+    fill_control_band(tile, lags, shifted_ccg_mean, shifted_ccg_std, std_multiplier, ...
+        [0.8, 0.8, 0.8], 'Shifted mean ± 2SD');
     hold(tile, 'on');
     xline(tile, 0, 'k--', 'HandleVisibility', 'off');
     yline(tile, 0, 'k--', 'HandleVisibility', 'off');
     plot(tile, lags, smooth_correlogram, 'm-', 'LineWidth', 1, ...
         'DisplayName', 'ACC-VLPFC cross-corr');
 
-    ccg_sig_mask = (smooth_correlogram > shuffle_upper) | ...
-                   (smooth_correlogram < shuffle_lower);
+    ccg_sig_mask = (smooth_correlogram > shifted_ccg_upper) | ...
+                   (smooth_correlogram < shifted_ccg_lower);
     plot_significant_segments(tile, lags, smooth_correlogram, ccg_sig_mask, ...
         sig_min_run_bins, 'k', 'Significant');
     hold(tile, 'off');
@@ -205,18 +252,40 @@ for i = 1:n_state
     legend(tile, 'show', 'Location', 'southeast');
     ylim(tile, [-0.05, 0.05]);
 
-    %% Row 3: population auto-correlograms.
+    %% Row 3: population auto-correlograms with shifted self-controls.
     row = 3;
     tile = nexttile(i + n_state*(row-1));
+
+    fill_control_band(tile, lags, shifted_auto_acc_mean, shifted_auto_acc_std, ...
+        std_multiplier, [1.0, 0.85, 0.85], 'ACC shifted ± 2SD');
+    hold(tile, 'on');
+    fill_control_band(tile, lags, shifted_auto_vlpfc_mean, shifted_auto_vlpfc_std, ...
+        std_multiplier, [0.85, 0.85, 1.0], 'VLPFC shifted ± 2SD');
+
     plot(tile, lags, smooth_correlogram, 'm-', 'LineWidth', 2, ...
         'DisplayName', 'Cross-corr', 'Color', [1, 0, 1, 0.2]);
-    hold(tile, 'on');
     xline(tile, 0, 'k--', 'HandleVisibility', 'off');
     yline(tile, 0, 'k--', 'HandleVisibility', 'off');
     plot(tile, lags, smooth_auto_acc, 'r-', 'LineWidth', 1, ...
         'DisplayName', sprintf('ACC auto-corr, N=%d', N_acc));
     plot(tile, lags, smooth_auto_vlpfc, 'b-', 'LineWidth', 1, ...
         'DisplayName', sprintf('VLPFC auto-corr, N=%d', N_vlpfc));
+
+    auto_acc_upper = shifted_auto_acc_mean + std_multiplier * shifted_auto_acc_std;
+    auto_acc_lower = shifted_auto_acc_mean - std_multiplier * shifted_auto_acc_std;
+    auto_vlpfc_upper = shifted_auto_vlpfc_mean + std_multiplier * shifted_auto_vlpfc_std;
+    auto_vlpfc_lower = shifted_auto_vlpfc_mean - std_multiplier * shifted_auto_vlpfc_std;
+
+    auto_acc_sig_mask = (smooth_auto_acc > auto_acc_upper) | ...
+                        (smooth_auto_acc < auto_acc_lower);
+    auto_vlpfc_sig_mask = (smooth_auto_vlpfc > auto_vlpfc_upper) | ...
+                          (smooth_auto_vlpfc < auto_vlpfc_lower);
+
+    plot_significant_segments(tile, lags, smooth_auto_acc, auto_acc_sig_mask, ...
+        sig_min_run_bins, [0.5, 0, 0], 'ACC significant');
+    plot_significant_segments(tile, lags, smooth_auto_vlpfc, auto_vlpfc_sig_mask, ...
+        sig_min_run_bins, [0, 0, 0.5], 'VLPFC significant');
+
     hold(tile, 'off');
 
     title(tile, sprintf('Population auto-correlograms: %s, %s', meta.prepost, meta.state));
@@ -225,16 +294,30 @@ for i = 1:n_state
     legend(tile, 'show', 'Location', 'southeast');
     ylim(tile, [-0.05, 0.05]);
 
-    %% Row 4: population cross-PSD with shuffled control.
+    %% Row 4: population cross-PSD with shifted control.
     row = 4;
+
+    selected_control = 'shuffled'; % 'shuffled' or 'shifted'
+    if strcmp(selected_control, 'shuffled')
+        cpsd_control_mean = cpsd_shuffle_mean;
+        cpsd_control_std = cpsd_shuffle_std;
+        control_label = 'Shuffled';
+    elseif strcmp(selected_control, 'shifted')
+        cpsd_control_mean = cpsd_shifted_mean;
+        cpsd_control_std = cpsd_shifted_std;
+        control_label = 'Shifted';
+    else
+        error('Invalid control type selected. Use "shuffled" or "shifted".');
+    end
+
     tile = nexttile(i + n_state*(row-1));
-    fill_control_band(tile, spec_freqs, cpsd_shuffle_mean, cpsd_shuffle_std, ...
-        std_multiplier, [0.8, 0.8, 0.8], 'Shuffled mean ± 2SD');
+    fill_control_band(tile, spec_freqs, cpsd_control_mean, cpsd_control_std, ...
+        std_multiplier, [0.8, 0.8, 0.8], sprintf('%s mean ± 2SD', control_label));
     hold(tile, 'on');
     plot(tile, spec_freqs, cpsd_plot, 'm-', 'LineWidth', 1, ...
         'DisplayName', 'Cross-PSD');
 
-    cpsd_upper = cpsd_shuffle_mean + std_multiplier * cpsd_shuffle_std;
+    cpsd_upper = cpsd_control_mean + std_multiplier * cpsd_control_std;
     cpsd_sig_mask = cpsd_plot > cpsd_upper;
     plot_significant_segments(tile, spec_freqs, cpsd_plot, cpsd_sig_mask, ...
         sig_min_run_bins, 'k', 'Significant');
@@ -243,6 +326,7 @@ for i = 1:n_state
     title(tile, sprintf('Population cross-PSD: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'Cross-PSD');
+    ylim([0, 6e-7]);
     legend(tile, 'show', 'Location', 'northeast');
 
     %% Row 5: population PSDs with shuffled controls.
@@ -274,6 +358,7 @@ for i = 1:n_state
     title(tile, sprintf('Population signal PSD: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'PSD');
+    ylim(tile, [0, 2e-6]);
     legend(tile, 'show', 'Location', 'northeast');
 end
 
@@ -664,6 +749,53 @@ function s = std_omitnan(A)
         end
     end
 end
+
+
+function shift_val = random_circular_shift(signal_len, min_shift)
+    % Draw a circular shift that avoids near-zero shifts when possible.
+    if signal_len <= 1
+        shift_val = 0;
+        return;
+    end
+
+    min_shift = min(max(round(min_shift), 1), max(signal_len - 1, 1));
+    max_shift = max(signal_len - min_shift, 1);
+
+    if max_shift >= min_shift
+        shift_val = randi([min_shift, max_shift]);
+    else
+        shift_val = randi(signal_len - 1);
+    end
+end
+
+function [shift1, shift2] = random_distinct_circular_shifts(signal_len, min_relative_shift)
+    % Draw two non-identical circular shifts with a relative shift that is
+    % not close to zero when possible.
+    if signal_len <= 1
+        shift1 = 0;
+        shift2 = 0;
+        return;
+    end
+
+    min_relative_shift = min(max(round(min_relative_shift), 1), floor(signal_len / 2));
+    max_tries = 1000;
+
+    for attempt = 1:max_tries %#ok<NASGU>
+        shift1 = random_circular_shift(signal_len, min_relative_shift);
+        shift2 = random_circular_shift(signal_len, min_relative_shift);
+
+        rel_shift = mod(shift2 - shift1, signal_len);
+        circular_distance = min(rel_shift, signal_len - rel_shift);
+
+        if shift1 ~= shift2 && circular_distance >= min_relative_shift
+            return;
+        end
+    end
+
+    shift1 = random_circular_shift(signal_len, min_relative_shift);
+    shift2 = mod(shift1 + min_relative_shift - 1, signal_len) + 1;
+end
+
 
 function amp = myFT(signal, sample_rate, freq)
 %MYFT Real amplitude spectrum at specified frequencies.
