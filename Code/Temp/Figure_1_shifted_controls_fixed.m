@@ -173,18 +173,16 @@ for i = 1:length(areas)
     % correlogram) with PSD(original signal), which have different scales.
     [psd_r1, psd_r2, cpsd, coherence, spec_freqs] = compute_pair_spectra( ...
         r1, r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
-    coh = cpsd ./ sqrt(psd_r1 .* psd_r2);
 
     coherence_plot = smooth_spectrum_for_plot(coherence, spec_smooth_window);
     cpsd_plot = smooth_spectrum_for_plot(cpsd, spec_smooth_window);
     psd_r1_plot = smooth_spectrum_for_plot(psd_r1, spec_smooth_window);
     psd_r2_plot = smooth_spectrum_for_plot(psd_r2, spec_smooth_window);
-    coh_plot = smooth_spectrum_for_plot(coh, spec_smooth_window);
 
     % Compute both shuffled and shifted controls.
     % - Shuffled controls use random time permutation and are used for PSD.
     % - Shifted controls use independent circular shifts, preserving each signal's
-    %   temporal structure, and are used for Xcorr, autocorr, and cross-PSD.
+    %   temporal structure, and are used for Xcorr, autocorr, cross-PSD, and coherence.
     shuffled_correlograms = zeros(shuffle_N, length(correlogram));
     shuffled_auto1_controls = zeros(shuffle_N, length(auto1));
     shuffled_auto2_controls = zeros(shuffle_N, length(auto2));
@@ -213,9 +211,8 @@ for i = 1:length(areas)
         shuffled_auto1_controls(j, :) = same_conv(shuffled_auto1, smooth_kernel);
         shuffled_auto2_controls(j, :) = same_conv(shuffled_auto2, smooth_kernel);
 
-        [shuffled_psd_r1, shuffled_psd_r2, shuffled_cpsd, ~, ~] = compute_pair_spectra( ...
+        [shuffled_psd_r1, shuffled_psd_r2, shuffled_cpsd, shuffled_coh, ~] = compute_pair_spectra( ...
             shuffled_r1, shuffled_r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
-        shuffled_coh = shuffled_cpsd ./ sqrt(shuffled_psd_r1 .* shuffled_psd_r2);
 
         shuffled_cpsds(j, :) = smooth_spectrum_for_plot(shuffled_cpsd, spec_smooth_window);
         shuffled_psd_r1s(j, :) = smooth_spectrum_for_plot(shuffled_psd_r1, spec_smooth_window);
@@ -237,33 +234,35 @@ for i = 1:length(areas)
         shifted_auto1_controls(j, :) = same_conv(shifted_auto1, smooth_kernel);
         shifted_auto2_controls(j, :) = same_conv(shifted_auto2, smooth_kernel);
 
-        [~, ~, shifted_cpsd_j, ~, ~] = compute_pair_spectra( ...
+        [~, ~, shifted_cpsd_j, shifted_coh_j, ~] = compute_pair_spectra( ...
             shifted_r1, shifted_r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
         shifted_cpsds(j, :) = smooth_spectrum_for_plot(shifted_cpsd_j, spec_smooth_window);
-        shifted_coh = shifted_cpsd ./ sqrt(shifted_psd_r1 .* shifted_psd_r2);
-        shifted_cohs(j, :) = smooth_spectrum_for_plot(shifted_coh, spec_smooth_window);
+        shifted_cohs(j, :) = smooth_spectrum_for_plot(shifted_coh_j, spec_smooth_window);
 
         fprintf('%d/%d controls finished\n', j, shuffle_N);
     end
 
     % Shuffled controls.
-    shuffle_mean = mean_omitnan(shuffle_correlograms);
-    shuffle_std = std_omitnan(shuffle_correlograms);
+    shuffled_ccg_mean = mean_omitnan(shuffled_correlograms);
+    shuffled_ccg_std = std_omitnan(shuffled_correlograms);
 
-    shuffle_auto1_mean = mean_omitnan(shuffle_auto1_controls);
-    shuffle_auto1_std = std_omitnan(shuffle_auto1_controls);
+    shuffled_auto1_mean = mean_omitnan(shuffled_auto1_controls);
+    shuffled_auto1_std = std_omitnan(shuffled_auto1_controls);
 
-    shuffle_auto2_mean = mean_omitnan(shuffle_auto2_controls);
-    shuffle_auto2_std = std_omitnan(shuffle_auto2_controls);
+    shuffled_auto2_mean = mean_omitnan(shuffled_auto2_controls);
+    shuffled_auto2_std = std_omitnan(shuffled_auto2_controls);
 
-    cpsd_shuffle_mean = mean_omitnan(shuffle_cpsd);
-    cpsd_shuffle_std = std_omitnan(shuffle_cpsd);
+    shuffled_cpsd_mean = mean_omitnan(shuffled_cpsds);
+    shuffled_cpsd_std = std_omitnan(shuffled_cpsds);
 
-    psd_r1_shuffle_mean = mean_omitnan(shuffle_psd_r1);
-    psd_r1_shuffle_std = std_omitnan(shuffle_psd_r1);
+    shuffled_psd_r1_mean = mean_omitnan(shuffled_psd_r1s);
+    shuffled_psd_r1_std = std_omitnan(shuffled_psd_r1s);
 
-    psd_r2_shuffle_mean = mean_omitnan(shuffle_psd_r2);
-    psd_r2_shuffle_std = std_omitnan(shuffle_psd_r2);
+    shuffled_psd_r2_mean = mean_omitnan(shuffled_psd_r2s);
+    shuffled_psd_r2_std = std_omitnan(shuffled_psd_r2s);
+
+    shuffled_coh_mean = mean_omitnan(shuffled_cohs);
+    shuffled_coh_std = std_omitnan(shuffled_cohs);
 
     % Shifted controls used for Xcorr, autocorr, and cross-PSD plotting.
     shifted_ccg_mean = mean_omitnan(shifted_correlograms);
@@ -275,8 +274,11 @@ for i = 1:length(areas)
     shifted_auto2_mean = mean_omitnan(shifted_auto2_controls);
     shifted_auto2_std = std_omitnan(shifted_auto2_controls);
 
-    cpsd_shifted_mean = mean_omitnan(shifted_cpsd);
-    cpsd_shifted_std = std_omitnan(shifted_cpsd);
+    shifted_cpsd_mean = mean_omitnan(shifted_cpsds);
+    shifted_cpsd_std = std_omitnan(shifted_cpsds);
+
+    shifted_coh_mean = mean_omitnan(shifted_cohs);
+    shifted_coh_std = std_omitnan(shifted_cohs);
 
     %% Row 2: Cross-correlogram with shifted control and significant segments.
     row = 2;
@@ -348,12 +350,12 @@ for i = 1:length(areas)
 
     selected_control = 'shifted'; % 'shuffled' or 'shifted'
     if strcmp(selected_control, 'shuffled')
-        cpsd_control_mean = cpsd_shuffle_mean;
-        cpsd_control_std = cpsd_shuffle_std;
+        cpsd_control_mean = shuffled_cpsd_mean;
+        cpsd_control_std = shuffled_cpsd_std;
         control_label = 'Shuffled';
     elseif strcmp(selected_control, 'shifted')
-        cpsd_control_mean = cpsd_shifted_mean;
-        cpsd_control_std = cpsd_shifted_std;
+        cpsd_control_mean = shifted_cpsd_mean;
+        cpsd_control_std = shifted_cpsd_std;
         control_label = 'Shifted';
     else
         error('Invalid control type selected. Use "shuffled" or "shifted".');
@@ -382,10 +384,10 @@ for i = 1:length(areas)
     row = 5;
     tile = nexttile(i+n_state*(row-1));
 
-    fill_control_band(tile, spec_freqs, psd_r1_shuffle_mean, psd_r1_shuffle_std, ...
+    fill_control_band(tile, spec_freqs, shuffled_psd_r1_mean, shuffled_psd_r1_std, ...
         std_multiplier, [1.0, 0.85, 0.85], 'Signal 1 shuffled ± 2SD');
     hold(tile, 'on');
-    fill_control_band(tile, spec_freqs, psd_r2_shuffle_mean, psd_r2_shuffle_std, ...
+    fill_control_band(tile, spec_freqs, shuffled_psd_r2_mean, shuffled_psd_r2_std, ...
         std_multiplier, [0.85, 0.85, 1.0], 'Signal 2 shuffled ± 2SD');
 
     plot(tile, spec_freqs, psd_r1_plot, 'r-', 'LineWidth', 1, ...
@@ -393,8 +395,8 @@ for i = 1:length(areas)
     plot(tile, spec_freqs, psd_r2_plot, 'b-', 'LineWidth', 1, ...
         'DisplayName', 'Signal 2 PSD');
 
-    psd_r1_upper = psd_r1_shuffle_mean + std_multiplier * psd_r1_shuffle_std;
-    psd_r2_upper = psd_r2_shuffle_mean + std_multiplier * psd_r2_shuffle_std;
+    psd_r1_upper = shuffled_psd_r1_mean + std_multiplier * shuffled_psd_r1_std;
+    psd_r2_upper = shuffled_psd_r2_mean + std_multiplier * shuffled_psd_r2_std;
     psd_r1_sig_mask = psd_r1_plot > psd_r1_upper;
     psd_r2_sig_mask = psd_r2_plot > psd_r2_upper;
 
@@ -418,19 +420,19 @@ for i = 1:length(areas)
     legend(tile, 'show', 'Location', 'northeast');
 
 
-    %% Row 6: Spectral coherence, estimated from the original signals.
-    % This replaces FFT(normalized cross-correlogram). Coherence is the
-    % normalized cross-spectrum: |Sxy|^2 / (Sxx*Syy), so it is comparable
-    % across frequencies and conditions.
+    %% Row 6: Spectral coherence with shuffled control.
+    % Coherence is the normalized cross-spectrum: |Sxy|^2 / (Sxx*Syy).
+    % Global circular shifts only rotate cross-spectral phase and do not
+    % reliably change coherence magnitude, so use shuffled control here.
     row = 6;
     tile = nexttile(i+n_state*(row-1));
-    fill_control_band(tile, spec_freqs, coh_shuffle_mean, coh_shuffle_std, ...
+    fill_control_band(tile, spec_freqs, shuffled_coh_mean, shuffled_coh_std, ...
         std_multiplier, [0.8, 0.8, 0.8], 'Shuffled mean ± 2SD');
     hold(tile, 'on');
     plot(tile, spec_freqs, coherence_plot, 'm-', 'LineWidth', 1, ...
         'DisplayName', 'Coherence');
 
-    coh_upper = coh_shuffle_mean + std_multiplier * coh_shuffle_std;
+    coh_upper = shuffled_coh_mean + std_multiplier * shuffled_coh_std;
     coh_sig_mask = coherence_plot > coh_upper;
     plot_significant_segments(tile, spec_freqs, coherence_plot, coh_sig_mask, ...
         sig_min_run_bins, 'k', 'Significant');
@@ -438,9 +440,8 @@ for i = 1:length(areas)
 
     title(tile, sprintf('Spectral coherence: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
-    % ylabel(tile, 'Coherence');
     ylabel(tile, 'Coherence');
-    % ylim(tile, [0, 1]);
+    ylim(tile, [0, 1]);
     legend(tile, 'show', 'Location', 'northeast');
 end
 

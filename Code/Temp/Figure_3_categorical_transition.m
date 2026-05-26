@@ -44,6 +44,9 @@ density_clip_percentile = [0.5, 99.5]; % Robust density axis limits; reduces out
 density_use_log_count = true; % Plot log10(count+1) so sparse bins are visible.
 category_labels = {'Negative', 'Non-sig', 'Positive'};
 
+%% Load from metadata
+mt = load_meta(root, 'table'); % metadata table
+
 %% Load all four states first
 state_data = struct();
 for i = 1:n_state
@@ -71,11 +74,11 @@ pre_close = state_data(find(strcmp({state_data.prepost}, 'Pre')  & strcmp({state
 post_open  = state_data(find(strcmp({state_data.prepost}, 'Post') & strcmp({state_data.state}, 'RestOpen'), 1));
 post_close = state_data(find(strcmp({state_data.prepost}, 'Post') & strcmp({state_data.state}, 'RestClose'), 1));
 
-[x_pre, y_pre, label_pre] = make_open_close_vectors(pre_open, pre_close);
-[x_post, y_post, label_post] = make_open_close_vectors(post_open, post_close);
+[data_pre, label_pre] = make_open_close_vectors(pre_open, pre_close);
+[data_post, label_post] = make_open_close_vectors(post_open, post_close);
 
-[rho_pre, p_pre, n_pre] = pearson_stats(x_pre, y_pre);
-[rho_post, p_post, n_post] = pearson_stats(x_post, y_post);
+[rho_pre, p_pre, n_pre] = pearson_stats(abs(data_pre.x), abs(data_pre.y));
+[rho_post, p_post, n_post] = pearson_stats(abs(data_post.x), abs(data_post.y));
 
 [cat_counts_pre, agreement_pre, kappa_pre, cat_n_pre] = make_open_close_category_counts(pre_open, pre_close, err_multi);
 [cat_counts_post, agreement_post, kappa_post, cat_n_post] = make_open_close_category_counts(post_open, post_close, err_multi);
@@ -87,22 +90,22 @@ fprintf('Post categorical agreement: agreement = %.6f, kappa = %.6f, n = %d\n', 
 
 % Row 2 col 1: Pre scatter
 ax = nexttile(5);
-plot_open_close_scatter(ax, x_pre, y_pre, rho_pre, p_pre, n_pre, scatter_marker_size, scatter_alpha, ...
+plot_open_close_scatter(ax, data_pre, rho_pre, p_pre, n_pre, scatter_marker_size, scatter_alpha, ...
     sprintf('Pre scatter: %s', label_pre));
 
 % Row 2 col 2: Pre density
 ax = nexttile(6);
-plot_open_close_density(ax, x_pre, y_pre, rho_pre, p_pre, n_pre, density_nbin, density_clip_percentile, density_use_log_count, ...
+plot_open_close_density(ax, data_pre.x, data_pre.y, rho_pre, p_pre, n_pre, density_nbin, density_clip_percentile, density_use_log_count, ...
     sprintf('Pre density: %s', label_pre));
 
 % Row 2 col 3: Post scatter
 ax = nexttile(7);
-plot_open_close_scatter(ax, x_post, y_post, rho_post, p_post, n_post, scatter_marker_size, scatter_alpha, ...
+plot_open_close_scatter(ax, data_post, rho_post, p_post, n_post, scatter_marker_size, scatter_alpha, ...
     sprintf('Post scatter: %s', label_post));
 
 % Row 2 col 4: Post density
 ax = nexttile(8);
-plot_open_close_density(ax, x_post, y_post, rho_post, p_post, n_post, density_nbin, density_clip_percentile, density_use_log_count, ...
+plot_open_close_density(ax, data_post.x, data_post.y, rho_post, p_post, n_post, density_nbin, density_clip_percentile, density_use_log_count, ...
     sprintf('Post density: %s', label_post));
 
 %% Row 3: categorical Open-Close transition tables
@@ -186,7 +189,7 @@ function state_struct = load_state_connectivity(root, meta, prepost, state)
     state_struct.err21 = err(filter2, filter1);
 end
 
-function [x, y, label_text] = make_open_close_vectors(open_state, close_state)
+function [data, label_text] = make_open_close_vectors(open_state, close_state)
     validate_matching_filters(open_state, close_state);
 
     % Compare corresponding cross-area directed Jij values.
@@ -194,15 +197,38 @@ function [x, y, label_text] = make_open_close_vectors(open_state, close_state)
     y12 = close_state.J12(:);
     x21 = open_state.J21(:);
     y21 = close_state.J21(:);
+    xerr12 = open_state.err12(:);
+    yerr12 = close_state.err12(:);
+    xerr21 = open_state.err21(:);
+    yerr21 = close_state.err21(:);
 
     x = [x12; x21];
     y = [y12; y21];
+    xerr = [xerr12; xerr21];
+    yerr = [yerr12; yerr21];
 
+    % Finite filter
     valid = isfinite(x) & isfinite(y);
     x = x(valid);
     y = y(valid);
+    xerr = xerr(valid);
+    yerr = yerr(valid);
 
-    label_text = 'ACC↔VLPFC Jij';
+    data = struct();
+
+    % Significance filter
+    % significant = abs(x) > xerr & abs(y) > yerr;
+    pos = x > xerr & y > yerr;
+    neg = x < -xerr & y < -yerr;
+    
+    data.xpos = x(pos);
+    data.ypos = y(pos);
+    data.xneg = x(neg);
+    data.yneg = y(neg);
+    data.x = [data.xpos; data.xneg];
+    data.y = [data.ypos; data.yneg];
+
+    label_text = 'Significant ACC↔VLPFC Jij';
 end
 
 
@@ -309,20 +335,26 @@ function [rho, pval, n_valid] = pearson_stats(x, y)
     pval = P(1, 2);
 end
 
-function plot_open_close_scatter(ax, x, y, rho, pval, n_valid, marker_size, marker_alpha, title_text)
-    scatter(ax, x, y, marker_size, 'filled', ...
-        'MarkerFaceColor', [0.2, 0.2, 0.2], ...
+function plot_open_close_scatter(ax, data, rho, pval, n_valid, marker_size, marker_alpha, title_text)
+    scatter(ax, data.xpos, data.ypos, marker_size, 'filled', ...
+        'MarkerFaceColor', [1, 0.2, 0.2], ...
         'MarkerFaceAlpha', marker_alpha, ...
         'MarkerEdgeAlpha', marker_alpha, ...
-        'DisplayName', 'J_{ij}');
+        'DisplayName', 'positive');
     hold(ax, 'on');
-    plot_identity_line(ax, x, y);
+    scatter(ax, -data.xneg, -data.yneg, marker_size, 'filled', ...
+        'MarkerFaceColor', [0.2, 0.2, 1], ...
+        'MarkerFaceAlpha', marker_alpha, ...
+        'MarkerEdgeAlpha', marker_alpha, ...
+        'DisplayName', 'negative');
+    plot_identity_line(ax, data.xpos, data.ypos);
     hold(ax, 'off');
 
     axis(ax, 'square');
-    xlabel(ax, 'Open J_{ij}');
-    ylabel(ax, 'Close J_{ij}');
+    xlabel(ax, 'Open |J_{ij}|');
+    ylabel(ax, 'Close |J_{ij}|');
     title(ax, title_text);
+    legend(ax, 'Location', 'best');
     add_stats_text(ax, rho, pval, n_valid);
 end
 

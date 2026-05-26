@@ -47,7 +47,7 @@ std_multiplier = 2; % threshold for shuffled controls, in multiples of shuffled 
 sig_min_run_bins = 5; % only mark significance if it lasts for at least this many consecutive bins.
 t_range = 1:60000;
 display_t_range = 1:2000; % time range for row 1 firing-rate traces.
-corr_range = 1000; % ms.
+corr_range = 5000; % ms.
 smooth_window = 25; % ms.
 sample_rate = 1000; % Hz.
 freqs = linspace(0, 150, 301); % Hz.
@@ -297,7 +297,7 @@ for i = 1:n_state
     %% Row 4: population cross-PSD with shifted control.
     row = 4;
 
-    selected_control = 'shuffled'; % 'shuffled' or 'shifted'
+    selected_control = 'shifted'; % 'shuffled' or 'shifted'
     if strcmp(selected_control, 'shuffled')
         cpsd_control_mean = cpsd_shuffle_mean;
         cpsd_control_std = cpsd_shuffle_std;
