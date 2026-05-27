@@ -148,11 +148,7 @@ function tasks = build_training_tasks(root, dataset_names, session_nums, dataset
                                 end
 
                                 task_idx = task_idx + 1;
-                                if task_idx == 1
-                                    tasks = task; % initialize struct array
-                                else
-                                    tasks(task_idx) = task; %#ok<AGROW>
-                                end
+                                tasks(task_idx) = task; %#ok<AGROW>
                             end
                         end
                     end

@@ -16,23 +16,29 @@ addpath(fullfile(root, 'Code', 'Utils'));
 % set up output folder
 output_folder = fullfile(root, 'Data', 'Extracted');
 check_path(output_folder);
-datetime_str = datetime('now', 'Format', 'yyyyMMdd_HHmmss');
+datetime_str = string(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
 output_folder = fullfile(output_folder, datetime_str);
 check_path(output_folder);
 
 % load metadata
-metadata = load(fullfile(root, 'Data', 'Meta', 'metadata.mat'));
+load(fullfile(root, 'Data', 'Working', 'Meta', 'metadata.mat'), 'metadata');
 
 % File filter
-data_type = 'GLM';
+data_type = 'raster';
 mt = struct2table(metadata.(data_type));
-mt = mt(mt.epoch == 3000, :);
+mt = mt(strcmp(mt.area, "Cortex") & ...
+        strcmp(mt.align, 'Longest') & ...
+        cellfun(@(x) ~isempty(x) && x == 15, mt.resting_dur_threshold), :);
+
+% data_type = 'GLM';
+% mt = struct2table(metadata.(data_type));
+% mt = mt(mt.epoch == 3000);
 
 % Copy files
 for i = 1:height(mt)
     file_name = mt.file_name{i};
 
-    src_path = fullfile(root, 'Data', data_type, file_name);
+    src_path = fullfile(root, 'Data', 'Working', data_type, file_name);
     dst_path = fullfile(output_folder, file_name);
     copyfile(src_path, dst_path);
 end
