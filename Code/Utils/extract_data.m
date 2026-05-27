@@ -24,15 +24,15 @@ check_path(output_folder);
 load(fullfile(root, 'Data', 'Working', 'Meta', 'metadata.mat'), 'metadata');
 
 % File filter
-data_type = 'raster';
-mt = struct2table(metadata.(data_type));
-mt = mt(strcmp(mt.area, "Cortex") & ...
-        strcmp(mt.align, 'Longest') & ...
-        cellfun(@(x) ~isempty(x) && x == 15, mt.resting_dur_threshold), :);
-
-% data_type = 'GLM';
+% data_type = 'raster';
 % mt = struct2table(metadata.(data_type));
-% mt = mt(mt.epoch == 3000);
+% mt = mt(strcmp(mt.area, "Cortex") & ...
+%         strcmp(mt.align, 'Longest') & ...
+%         cellfun(@(x) ~isempty(x) && x == 15, mt.resting_dur_threshold), :);
+
+data_type = 'GLM';
+mt = struct2table(metadata.(data_type));
+mt = mt(mt.epoch == 3000, :);
 
 % Copy files
 for i = 1:height(mt)
