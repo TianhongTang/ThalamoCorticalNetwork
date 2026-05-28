@@ -18,12 +18,13 @@ resting_dur_threshold = 15;
 mt = load_meta(root, 'table'); % metadata table
 
 animals = {'Slayer', 'Emperor', 'Both'};
+animal_labels = {'Slayer', 'Emperor', 'All animals'};
 injection_types = {'Muscimol', 'Saline'};
 states = {'RestOpen', 'RestClose'};
 state_labels = {'Eyes Open', 'Eyes Closed'};
 posneg_labels = {'Positive J', 'Negative J'};
 prepost_labels = {'Pre', 'Post'};
-alignment = 'Last';
+alignment = 'Longest';
 
 %% Fig1: pre vs post. Fig2: open vs closed
 for kernel_idx = 1:3
@@ -34,6 +35,7 @@ for kernel_idx = 1:3
         injection = injection_types{injection_idx};
         for animal_idx = 1:3
             animal_name = animals{animal_idx};
+            animal_label = animal_labels{animal_idx};
             for state_idx = 1:2
                 state = states{state_idx};
                 state_label = state_labels{state_idx};
@@ -166,8 +168,8 @@ for kernel_idx = 1:3
                 xticklabels(tile, posneg_labels);
                 ylabel(tile, 'Significant J %');
                 legend(tile, prepost_labels, 'Location', 'Best');
-                title(tile, sprintf('%s, %s', animal_name, state_label));
-                ylim([0, 30]);
+                title(tile, sprintf('%s, %s', animal_label, state_label));
+                ylim([0, 20]);
 
                 disp(J_counts);
                 disp(total_counts);
@@ -175,10 +177,42 @@ for kernel_idx = 1:3
         end
         sgtitle(f1, sprintf("%s, Kernel %d, Pre vs Post", injection, kernel_idx), 'FontSize', 14);
 
-        save_folder = fullfile(root, 'Figures', 'J_hist');
+        % save_folder = fullfile(root, 'Figures', 'J_hist');
+        % check_path(save_folder);
+        % save_path = fullfile(save_folder, sprintf('J_hist_prepost_k%d_%s.png', kernel_idx, injection));
+        % saveas(f1, save_path);
+
+        % Export to pdf and preview image
+        fig = f1;
+        
+        save_folder = fullfile(root, 'Figures', 'Paper');
         check_path(save_folder);
-        save_path = fullfile(save_folder, sprintf('J_hist_prepost_k%d_%s.png', kernel_idx, injection));
-        saveas(f1, save_path);
+        
+        figWidth  = 12.0;   % inches.
+        figHeight = 8.0;   % inches.
+        resolution = 300;   % dpi; mainly affects rasterized components.
+        
+        set(fig, 'Units', 'inches');
+        fig.Position(3:4) = [figWidth, figHeight];
+        
+        set(fig, 'PaperUnits', 'inches');
+        set(fig, 'PaperSize', [figWidth, figHeight]);
+        set(fig, 'PaperPosition', [0, 0, figWidth, figHeight]);
+        set(fig, 'Color', 'w');
+        
+        preview_filename = fullfile(save_folder, sprintf('J_hist_prepost_k%d_%s_preview.jpg', kernel_idx, injection));
+        exportgraphics(fig, preview_filename, ...
+            'ContentType', 'image', ...
+            'BackgroundColor', 'white', ...
+            'Resolution', resolution);
+        
+        pdf_filename = fullfile(save_folder, sprintf('J_hist_prepost_k%d_%s.pdf', kernel_idx, injection));
+        exportgraphics(fig, pdf_filename, ...
+            'ContentType', 'vector', ...
+            'BackgroundColor', 'white', ...
+            'Resolution', resolution);
+ 
+        close(fig);
 
         % fig 2: open vs closed, can combine with previous one
         f2 = figure('Position', [100, 100, 1200, 800], 'Visible', 'off');
@@ -187,6 +221,7 @@ for kernel_idx = 1:3
         injection = injection_types{injection_idx};
         for animal_idx = 1:3
             animal_name = animals{animal_idx};
+            animal_label = animal_labels{animal_idx};
             for prepost_idx = 1:2
                 prepost_str = prepost_labels{prepost_idx};
 
@@ -319,8 +354,8 @@ for kernel_idx = 1:3
                 xticklabels(tile, posneg_labels);
                 ylabel(tile, 'Significant J %');
                 legend(tile, state_labels, 'Location', 'Best');
-                title(tile, sprintf('%s, %s', animal_name, prepost_str));
-                ylim([0, 30]);
+                title(tile, sprintf('%s, %s', animal_label, prepost_str));
+                ylim([0, 20]);
 
                 disp(J_counts);
                 disp(total_counts);
@@ -328,10 +363,43 @@ for kernel_idx = 1:3
         end
         sgtitle(f2, sprintf("%s, Kernel %d, Open vs Closed", injection, kernel_idx), 'FontSize', 14);
 
-        save_folder = fullfile(root, 'Figures', 'J_hist');
+        % save_folder = fullfile(root, 'Figures', 'J_hist');
+        % check_path(save_folder);
+        % save_path = fullfile(save_folder, sprintf('J_hist_openclosed_k%d_%s.png', kernel_idx, injection));
+        % saveas(f2, save_path);
+
+        % Export to pdf and preview image
+        fig = f2;
+        
+        save_folder = fullfile(root, 'Figures', 'Paper');
         check_path(save_folder);
-        save_path = fullfile(save_folder, sprintf('J_hist_openclosed_k%d_%s.png', kernel_idx, injection));
-        saveas(f2, save_path);
+        
+        figWidth  = 12.0;   % inches.
+        figHeight = 8.0;   % inches.
+        resolution = 300;   % dpi; mainly affects rasterized components.
+        
+        set(fig, 'Units', 'inches');
+        fig.Position(3:4) = [figWidth, figHeight];
+        
+        set(fig, 'PaperUnits', 'inches');
+        set(fig, 'PaperSize', [figWidth, figHeight]);
+        set(fig, 'PaperPosition', [0, 0, figWidth, figHeight]);
+        set(fig, 'Color', 'w');
+        
+        preview_filename = fullfile(save_folder, sprintf('J_hist_openclosed_k%d_%s_preview.jpg', kernel_idx, injection));
+        exportgraphics(fig, preview_filename, ...
+            'ContentType', 'image', ...
+            'BackgroundColor', 'white', ...
+            'Resolution', resolution);
+        
+        pdf_filename = fullfile(save_folder, sprintf('J_hist_openclosed_k%d_%s.pdf', kernel_idx, injection));
+        exportgraphics(fig, pdf_filename, ...
+            'ContentType', 'vector', ...
+            'BackgroundColor', 'white', ...
+            'Resolution', resolution);
+        
+        close(fig);
+
     end
 end
 

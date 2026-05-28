@@ -1,7 +1,5 @@
-%% Figure 2: Example session population-level ACC-VLPFC analyses.
-% Positive lag in correlogram: signal1(ACC population) is later than signal2(VLPFC population).
-% Same layout and spectral-control logic as Figure 1, replacing the example
-% neuron pair with population-average firing-rate traces.
+%% Figure 1: An example neuron pair showing state-dependent changes in firing and correlation.
+% Positive lag in correlogram: signal1(ACC) is later than signal2(VLPFC). 
 
 clear;
 %% Get root folder
@@ -11,7 +9,6 @@ root = script_path;
 for i = 1:code_depth
     root = fileparts(root);
 end
-
 % include code folder and utils
 addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
@@ -27,18 +24,16 @@ meta.align = 'Longest';
 meta.session_idx = 6;
 meta.resting_dur_threshold = 15;
 
+% areas    = {'Full',     'Full',      'Cortex',   'Cortex'};
 areas    = {'Cortex',   'Cortex',    'Cortex',   'Cortex'};
 preposts = {'Pre',      'Pre',       'Post',     'Post'};
 states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
+% areas    = {'Cortex',   'Cortex',  };
+% preposts = {'Pre',      'Pre',     };
+% states   = {'RestOpen', 'RestClose'};
 n_state = numel(areas);
 
-% figure: same row structure as Figure 1.
-% Row 1 = ACC/VLPFC population firing-rate traces.
-% Row 2 = population cross-correlogram.
-% Row 3 = population auto-correlograms.
-% Row 4 = population cross-PSD.
-% Row 5 = ACC/VLPFC population PSDs.
-% Row 6 = ACC-VLPFC population spectral coherence.
+% figure
 f = figure('Color', 'w', 'Visible', 'off');
 tiles = tiledlayout(6, n_state, "TileSpacing", "Compact", "Padding", "Compact");
 
@@ -47,8 +42,8 @@ shuffle_N = 10;
 std_multiplier = 2; % threshold for shuffled controls, in multiples of shuffled SD.
 sig_min_run_corr = 50; % only mark significance if it lasts for at least this many consecutive bins, for correlograms.
 sig_min_run_spec = 15; % for spectral plots.
+err_multi = 2; % threshold for significant J, in multiples of the error estimate from GLM.
 t_range = 1:60000;
-display_t_range = 1:2000; % time range for row 1 firing-rate traces.
 corr_range = 1500; % ms.
 smooth_window = 25; % ms.
 sample_rate = 1000; % Hz.
@@ -56,14 +51,87 @@ freqs = linspace(0, 150, 301); % Hz.
 spec_smooth_window = 15; % frequency-bin smoothing for spectral visualization only.
 psd_window_sec = 10; % Welch PSD window length for row 5 signal spectra.
 psd_overlap_frac = 0.5; % Welch PSD fractional overlap.
-
-% Same triangular smoothing kernel as Figure 1.
+mygauss = @(size, sigma) exp(-(-floor(size/2):floor(size/2)).^2/(2*sigma^2));
+% smooth_kernel = mygauss(10*smooth_window+1, smooth_window); % gaussian kernel
+% smooth_kernel = ones(1, smooth_window); % moving average kernel
 smooth_kernel = 1 - abs(-smooth_window:smooth_window) / smooth_window;
 smooth_kernel = smooth_kernel / sum(smooth_kernel); % normalize kernel
 
-%% Rows 1-6: population firing rate, correlation, and spectra
-for i = 1:n_state
-    % Load raster data.
+%% Row 1: Raster of selected neurons
+
+% Example session: Slayer Mus 6. Selected t_range. Justification: Best sleep period for Pre-eyeclose.
+% Remove this range in population analysis, or add proper filters to select sleep periods.
+
+% selected_neurons = 1:95;
+% selected_neurons = [16:21, 39, 44, 61:67, 83:93];
+% selected_neurons = [14:19, 33:40, 42, 44, 46, 49, 58:73, 83:95];
+% selected_neurons = [16, 61];
+selected_neurons = [2, 42];
+% selected_neurons = [29, 81];
+display_t_range = 00001:2000;
+
+for i = 1:length(areas)
+% for i = 2:2
+    % Load data
+    meta.area = areas{i};
+    meta.prepost = preposts{i};
+    meta.state = states{i};
+    meta.filename = generate_filename('raster', meta);
+
+    raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
+    fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+    fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
+    fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
+
+    % Plot
+    % N = raster_data.meta.N;
+
+    cell_area = raster_data.data.cell_area;
+    % tile = nexttile(i*2-1);
+    tile = nexttile(i);
+    raster = raster_data.data.rasters{1}(:, display_t_range);
+
+    cell_area = cell_area(selected_neurons);
+    raster = raster(selected_neurons, :);
+
+    N = numel(selected_neurons);
+    colors = zeros(N, 3);
+    for j = 1:N
+        switch cell_area{j}
+            case 'Thalamus'
+                colors(j, :) = [1, 0, 1];
+            case 'ACC'
+                colors(j, :) = [0, 0, 1]; % blue
+            case 'VLPFC'
+                colors(j, :) = [1, 0, 0]; % red
+            otherwise
+                colors(j, :) = [0, 0, 0]; % black
+        end
+    end
+    cla(tile);
+    raster_visualization_plot(tile, raster, colors)
+    title(sprintf('Example pair, %s, %s', meta.prepost, meta.state));
+    xlabel('Time (ms)');
+    % ylabel('Neuron No.');
+    ylabel('');
+    yticks([1, 2]);
+    yticklabels({'ACC #2', 'VLPFC #1'});
+    ytickangle(0);
+    ylim([-1.5, 4.5]);
+    ylim([-1.5, 4.5]);
+end
+
+%% Row 2: Pairwise correlogram between selected neurons. Row 3: Auto-corrogram for the same neurons.
+% f = figure();
+% tiles = tiledlayout(2, 2, "TileSpacing", "Compact", "Padding", "Compact");
+
+% selected_neurons = [85, 86];
+% selected_neurons = [33, 61];
+% selected_neurons = [2, 42];
+% selected_neurons = [35, 60];
+
+for i = 1:length(areas)
+    % Load data
     meta.area = areas{i};
     meta.prepost = preposts{i};
     meta.state = states{i};
@@ -75,172 +143,147 @@ for i = 1:n_state
     fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
 
     raster = raster_data.data.rasters{1};
-    t_idx = safe_time_range(t_range, size(raster, 2), meta, 't_range');
-    display_idx = safe_time_range(display_t_range, size(raster, 2), meta, 'display_t_range');
 
-    cell_area = raster_data.data.cell_area;
-    [filter_acc, filter_vlpfc] = get_area_filters(cell_area);
-    check_area_filters(filter_acc, filter_vlpfc, meta);
+    r1 = raster(selected_neurons(1), t_range);
+    r2 = raster(selected_neurons(2), t_range);
+    % smooth_r1 = movmean(r1, smooth_window);
+    % smooth_r2 = movmean(r2, smooth_window);
 
-    r_acc = raster(filter_acc, t_idx);
-    r_vlpfc = raster(filter_vlpfc, t_idx);
+    % Print firing rates for sanity check
+    fprintf('Firing rates for %s %s %s:\n', meta.prepost, meta.state, meta.area);
+    fprintf('Neuron 1: %.3f Hz\n', mean(r1)*1000);
+    fprintf('Neuron 2: %.3f Hz\n', mean(r2)*1000);
 
-    N_acc = sum(filter_acc);
-    N_vlpfc = sum(filter_vlpfc);
+    % Compute correlogram
+    [correlogram, lags] = norm_xcorr(r1, r2, corr_range);
+    [auto1, ~] = norm_xcorr(r1, r1, corr_range);
+    [auto2, ~] = norm_xcorr(r2, r2, corr_range);
+    % [correlogram, lags] = norm_xcorr(smooth_r1, smooth_r2, corr_range);
+    % [auto1, ~] = norm_xcorr(smooth_r1, smooth_r1, corr_range);
+    % [auto2, ~] = norm_xcorr(smooth_r2, smooth_r2, corr_range);
 
-    % Population-average activity: mean spikes/bin across neurons.
-    % Multiplying by sample_rate converts it to average firing rate in Hz/neuron.
-    pop_acc = mean(r_acc, 1);
-    pop_vlpfc = mean(r_vlpfc, 1);
-
-    % Display-only population firing-rate traces for row 1.
-    pop_acc_display = mean(raster(filter_acc, display_idx), 1) * sample_rate;
-    pop_vlpfc_display = mean(raster(filter_vlpfc, display_idx), 1) * sample_rate;
-    pop_acc_display_plot = same_conv(pop_acc_display, smooth_kernel);
-    pop_vlpfc_display_plot = same_conv(pop_vlpfc_display, smooth_kernel);
-    display_time_ms = display_idx - display_idx(1);
-
-    fprintf('Population firing rates for %s %s %s:\n', meta.prepost, meta.state, meta.area);
-    fprintf('ACC population mean: %.3f Hz/neuron, N=%d\n', mean(pop_acc) * sample_rate, N_acc);
-    fprintf('VLPFC population mean: %.3f Hz/neuron, N=%d\n', mean(pop_vlpfc) * sample_rate, N_vlpfc);
-
-    %% Row 1: population firing-rate traces.
-    row = 1;
-    tile = nexttile(i + n_state*(row-1));
-    plot(tile, display_time_ms, pop_acc_display_plot, 'r-', 'LineWidth', 1, ...
-        'DisplayName', sprintf('ACC, N=%d', N_acc));
-    hold(tile, 'on');
-    plot(tile, display_time_ms, pop_vlpfc_display_plot, 'b-', 'LineWidth', 1, ...
-        'DisplayName', sprintf('VLPFC, N=%d', N_vlpfc));
-    hold(tile, 'off');
-    title(tile, sprintf('Population firing rate: %s, %s', meta.prepost, meta.state));
-    xlabel(tile, 'Time (ms)');
-    ylabel(tile, 'Firing rate (Hz/neuron)');
-    legend(tile, 'show', 'Location', 'northeast');
-
-    %% Compute population correlations.
-    [correlogram, lags] = norm_xcorr(pop_acc, pop_vlpfc, corr_range);
-    [auto_acc, ~] = norm_xcorr(pop_acc, pop_acc, corr_range);
-    [auto_vlpfc, ~] = norm_xcorr(pop_vlpfc, pop_vlpfc, corr_range);
-
+    % smooth_correlogram = movmean(correlogram, smooth_window);
+    % smooth_auto1 = movmean(auto1, smooth_window);
+    % smooth_auto2 = movmean(auto2, smooth_window);
     smooth_correlogram = same_conv(correlogram, smooth_kernel);
-    smooth_auto_acc = same_conv(auto_acc, smooth_kernel);
-    smooth_auto_vlpfc = same_conv(auto_vlpfc, smooth_kernel);
+    smooth_auto1 = same_conv(auto1, smooth_kernel);
+    smooth_auto2 = same_conv(auto2, smooth_kernel);
 
-    % Row 4/5 spectra are computed from the original population signals with
-    % the same Welch/cross-spectral framework as Figure 1.
-    [psd_acc, psd_vlpfc, cpsd, coherence, spec_freqs] = compute_pair_spectra( ...
-        pop_acc, pop_vlpfc, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
+    % Row 4/5 spectra are computed from the original signals with the same
+    % Welch/cross-spectral framework. This avoids comparing FFT(normalized
+    % correlogram) with PSD(original signal), which have different scales.
+    [psd_r1, psd_r2, cpsd, coherence, spec_freqs] = compute_pair_spectra( ...
+        r1, r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
 
     coherence_plot = smooth_spectrum_for_plot(coherence, spec_smooth_window);
     cpsd_plot = smooth_spectrum_for_plot(cpsd, spec_smooth_window);
-    psd_acc_plot = smooth_spectrum_for_plot(psd_acc, spec_smooth_window);
-    psd_vlpfc_plot = smooth_spectrum_for_plot(psd_vlpfc, spec_smooth_window);
+    psd_r1_plot = smooth_spectrum_for_plot(psd_r1, spec_smooth_window);
+    psd_r2_plot = smooth_spectrum_for_plot(psd_r2, spec_smooth_window);
 
-    %% Compute both shuffled and shifted controls.
+    % Compute both shuffled and shifted controls.
     % - Shuffled controls use random time permutation and are used for PSD.
     % - Shifted controls use independent circular shifts, preserving each signal's
     %   temporal structure, and are used for Xcorr, autocorr, cross-PSD, and coherence.
-    shuffle_correlograms = zeros(shuffle_N, length(correlogram));
-    shuffle_auto_acc_controls = zeros(shuffle_N, length(auto_acc));
-    shuffle_auto_vlpfc_controls = zeros(shuffle_N, length(auto_vlpfc));
-    shuffle_cpsd = zeros(shuffle_N, numel(spec_freqs));
-    shuffle_coh = zeros(shuffle_N, numel(spec_freqs));
-    shuffle_psd_acc = zeros(shuffle_N, numel(spec_freqs));
-    shuffle_psd_vlpfc = zeros(shuffle_N, numel(spec_freqs));
+    shuffled_correlograms = zeros(shuffle_N, length(correlogram));
+    shuffled_auto1_controls = zeros(shuffle_N, length(auto1));
+    shuffled_auto2_controls = zeros(shuffle_N, length(auto2));
+    shuffled_cpsds = zeros(shuffle_N, numel(spec_freqs));
+    shuffled_psd_r1s = zeros(shuffle_N, numel(spec_freqs));
+    shuffled_psd_r2s = zeros(shuffle_N, numel(spec_freqs));
+    shuffled_cohs = zeros(shuffle_N, numel(spec_freqs));
 
     shifted_correlograms = zeros(shuffle_N, length(correlogram));
-    shifted_auto_acc_controls = zeros(shuffle_N, length(auto_acc));
-    shifted_auto_vlpfc_controls = zeros(shuffle_N, length(auto_vlpfc));
-    shifted_cpsd = zeros(shuffle_N, numel(spec_freqs));
-    shifted_coh = zeros(shuffle_N, numel(spec_freqs));
-
+    shifted_auto1_controls = zeros(shuffle_N, length(auto1));
+    shifted_auto2_controls = zeros(shuffle_N, length(auto2));
+    shifted_cpsds = zeros(shuffle_N, numel(spec_freqs));
+    shifted_cohs = zeros(shuffle_N, numel(spec_freqs));
     for j = 1:shuffle_N
-        fprintf('%d/%d population controls started\n', j, shuffle_N);
+        fprintf('%d/%d controls started\n', j, shuffle_N);
 
         % Shuffled controls: destroy temporal structure.
-        shuffled_acc = pop_acc(randperm(length(pop_acc)));
-        shuffled_vlpfc = pop_vlpfc(randperm(length(pop_vlpfc)));
+        shuffled_r1 = r1(randperm(length(r1)));
+        shuffled_r2 = r2(randperm(length(r2)));
 
-        [shuffle_corr, ~] = norm_xcorr(shuffled_acc, shuffled_vlpfc, corr_range);
-        [shuffle_auto_acc, ~] = norm_xcorr(pop_acc, shuffled_acc, corr_range);
-        [shuffle_auto_vlpfc, ~] = norm_xcorr(pop_vlpfc, shuffled_vlpfc, corr_range);
+        [shuffled_corr, ~] = norm_xcorr(shuffled_r1, shuffled_r2, corr_range);
+        [shuffled_auto1, ~] = norm_xcorr(r1, shuffled_r1, corr_range);
+        [shuffled_auto2, ~] = norm_xcorr(r2, shuffled_r2, corr_range);
 
-        shuffle_correlograms(j, :) = same_conv(shuffle_corr, smooth_kernel);
-        shuffle_auto_acc_controls(j, :) = same_conv(shuffle_auto_acc, smooth_kernel);
-        shuffle_auto_vlpfc_controls(j, :) = same_conv(shuffle_auto_vlpfc, smooth_kernel);
+        shuffled_correlograms(j, :) = same_conv(shuffled_corr, smooth_kernel);
+        shuffled_auto1_controls(j, :) = same_conv(shuffled_auto1, smooth_kernel);
+        shuffled_auto2_controls(j, :) = same_conv(shuffled_auto2, smooth_kernel);
 
-        [shuffled_psd_acc, shuffled_psd_vlpfc, shuffled_cpsd, shuffled_coh_j, ~] = compute_pair_spectra( ...
-            shuffled_acc, shuffled_vlpfc, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
+        [shuffled_psd_r1, shuffled_psd_r2, shuffled_cpsd, shuffled_coh, ~] = compute_pair_spectra( ...
+            shuffled_r1, shuffled_r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
 
-        shuffle_cpsd(j, :) = smooth_spectrum_for_plot(shuffled_cpsd, spec_smooth_window);
-        shuffle_coh(j, :) = smooth_spectrum_for_plot(shuffled_coh_j, spec_smooth_window);
-        shuffle_psd_acc(j, :) = smooth_spectrum_for_plot(shuffled_psd_acc, spec_smooth_window);
-        shuffle_psd_vlpfc(j, :) = smooth_spectrum_for_plot(shuffled_psd_vlpfc, spec_smooth_window);
+        shuffled_cpsds(j, :) = smooth_spectrum_for_plot(shuffled_cpsd, spec_smooth_window);
+        shuffled_psd_r1s(j, :) = smooth_spectrum_for_plot(shuffled_psd_r1, spec_smooth_window);
+        shuffled_psd_r2s(j, :) = smooth_spectrum_for_plot(shuffled_psd_r2, spec_smooth_window);
+        shuffled_cohs(j, :) = smooth_spectrum_for_plot(shuffled_coh, spec_smooth_window);
 
-        % Shifted controls: preserve each population trace's temporal structure
-        % while disrupting the original alignment.
-        [shift_acc, shift_vlpfc] = random_distinct_circular_shifts(length(pop_acc), corr_range);
-        shifted_acc = circshift(pop_acc, shift_acc);
-        shifted_vlpfc = circshift(pop_vlpfc, shift_vlpfc);
+        % Shifted controls: preserve each signal's temporal structure while
+        % disrupting the original alignment between signals and between each
+        % signal and its unshifted copy.
+        [shift_r1, shift_r2] = random_distinct_circular_shifts(length(r1), corr_range);
+        shifted_r1 = circshift(r1, shift_r1);
+        shifted_r2 = circshift(r2, shift_r2);
 
-        [shifted_corr, ~] = norm_xcorr(shifted_acc, shifted_vlpfc, corr_range);
-        [shifted_auto_acc, ~] = norm_xcorr(pop_acc, shifted_acc, corr_range);
-        [shifted_auto_vlpfc, ~] = norm_xcorr(pop_vlpfc, shifted_vlpfc, corr_range);
+        [shifted_corr, ~] = norm_xcorr(shifted_r1, shifted_r2, corr_range);
+        [shifted_auto1, ~] = norm_xcorr(r1, shifted_r1, corr_range);
+        [shifted_auto2, ~] = norm_xcorr(r2, shifted_r2, corr_range);
 
         shifted_correlograms(j, :) = same_conv(shifted_corr, smooth_kernel);
-        shifted_auto_acc_controls(j, :) = same_conv(shifted_auto_acc, smooth_kernel);
-        shifted_auto_vlpfc_controls(j, :) = same_conv(shifted_auto_vlpfc, smooth_kernel);
+        shifted_auto1_controls(j, :) = same_conv(shifted_auto1, smooth_kernel);
+        shifted_auto2_controls(j, :) = same_conv(shifted_auto2, smooth_kernel);
 
         [~, ~, shifted_cpsd_j, shifted_coh_j, ~] = compute_pair_spectra( ...
-            shifted_acc, shifted_vlpfc, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
-        shifted_cpsd(j, :) = smooth_spectrum_for_plot(shifted_cpsd_j, spec_smooth_window);
-        shifted_coh(j, :) = smooth_spectrum_for_plot(shifted_coh_j, spec_smooth_window);
+            shifted_r1, shifted_r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
+        shifted_cpsds(j, :) = smooth_spectrum_for_plot(shifted_cpsd_j, spec_smooth_window);
+        shifted_cohs(j, :) = smooth_spectrum_for_plot(shifted_coh_j, spec_smooth_window);
 
-        fprintf('%d/%d population controls finished\n', j, shuffle_N);
+        fprintf('%d/%d controls finished\n', j, shuffle_N);
     end
 
     % Shuffled controls.
-    shuffle_mean = mean_omitnan(shuffle_correlograms);
-    shuffle_std = std_omitnan(shuffle_correlograms);
+    shuffled_ccg_mean = mean_omitnan(shuffled_correlograms);
+    shuffled_ccg_std = std_omitnan(shuffled_correlograms);
 
-    shuffle_auto_acc_mean = mean_omitnan(shuffle_auto_acc_controls);
-    shuffle_auto_acc_std = std_omitnan(shuffle_auto_acc_controls);
+    shuffled_auto1_mean = mean_omitnan(shuffled_auto1_controls);
+    shuffled_auto1_std = std_omitnan(shuffled_auto1_controls);
 
-    shuffle_auto_vlpfc_mean = mean_omitnan(shuffle_auto_vlpfc_controls);
-    shuffle_auto_vlpfc_std = std_omitnan(shuffle_auto_vlpfc_controls);
+    shuffled_auto2_mean = mean_omitnan(shuffled_auto2_controls);
+    shuffled_auto2_std = std_omitnan(shuffled_auto2_controls);
 
-    cpsd_shuffle_mean = mean_omitnan(shuffle_cpsd);
-    cpsd_shuffle_std = std_omitnan(shuffle_cpsd);
+    shuffled_cpsd_mean = mean_omitnan(shuffled_cpsds);
+    shuffled_cpsd_std = std_omitnan(shuffled_cpsds);
 
-    coh_shuffle_mean = mean_omitnan(shuffle_coh);
-    coh_shuffle_std = std_omitnan(shuffle_coh);
+    shuffled_psd_r1_mean = mean_omitnan(shuffled_psd_r1s);
+    shuffled_psd_r1_std = std_omitnan(shuffled_psd_r1s);
 
-    psd_acc_shuffle_mean = mean_omitnan(shuffle_psd_acc);
-    psd_acc_shuffle_std = std_omitnan(shuffle_psd_acc);
+    shuffled_psd_r2_mean = mean_omitnan(shuffled_psd_r2s);
+    shuffled_psd_r2_std = std_omitnan(shuffled_psd_r2s);
 
-    psd_vlpfc_shuffle_mean = mean_omitnan(shuffle_psd_vlpfc);
-    psd_vlpfc_shuffle_std = std_omitnan(shuffle_psd_vlpfc);
+    shuffled_coh_mean = mean_omitnan(shuffled_cohs);
+    shuffled_coh_std = std_omitnan(shuffled_cohs);
 
     % Shifted controls used for Xcorr, autocorr, and cross-PSD plotting.
     shifted_ccg_mean = mean_omitnan(shifted_correlograms);
     shifted_ccg_std = std_omitnan(shifted_correlograms);
 
-    shifted_auto_acc_mean = mean_omitnan(shifted_auto_acc_controls);
-    shifted_auto_acc_std = std_omitnan(shifted_auto_acc_controls);
+    shifted_auto1_mean = mean_omitnan(shifted_auto1_controls);
+    shifted_auto1_std = std_omitnan(shifted_auto1_controls);
 
-    shifted_auto_vlpfc_mean = mean_omitnan(shifted_auto_vlpfc_controls);
-    shifted_auto_vlpfc_std = std_omitnan(shifted_auto_vlpfc_controls);
+    shifted_auto2_mean = mean_omitnan(shifted_auto2_controls);
+    shifted_auto2_std = std_omitnan(shifted_auto2_controls);
 
-    cpsd_shifted_mean = mean_omitnan(shifted_cpsd);
-    cpsd_shifted_std = std_omitnan(shifted_cpsd);
+    shifted_cpsd_mean = mean_omitnan(shifted_cpsds);
+    shifted_cpsd_std = std_omitnan(shifted_cpsds);
 
-    shifted_coh_mean = mean_omitnan(shifted_coh);
-    shifted_coh_std = std_omitnan(shifted_coh);
+    shifted_coh_mean = mean_omitnan(shifted_cohs);
+    shifted_coh_std = std_omitnan(shifted_cohs);
 
-    %% Row 2: population cross-correlogram with shifted control and significant segments.
+    %% Row 2: Cross-correlogram with shifted control and significant segments.
     row = 2;
-    tile = nexttile(i + n_state*(row-1));
+    tile = nexttile(i+n_state*(row-1));
     shifted_ccg_upper = shifted_ccg_mean + std_multiplier * shifted_ccg_std;
     shifted_ccg_lower = shifted_ccg_mean - std_multiplier * shifted_ccg_std;
 
@@ -250,7 +293,7 @@ for i = 1:n_state
     xline(tile, 0, 'k--', 'HandleVisibility', 'off');
     yline(tile, 0, 'k--', 'HandleVisibility', 'off');
     plot(tile, lags, smooth_correlogram, 'm-', 'LineWidth', 1, ...
-        'DisplayName', 'ACC-VLPFC cross-corr');
+        'DisplayName', 'Cross-corr');
 
     ccg_sig_mask = (smooth_correlogram > shifted_ccg_upper) | ...
                    (smooth_correlogram < shifted_ccg_lower);
@@ -258,73 +301,70 @@ for i = 1:n_state
         sig_min_run_corr, 'k', 'Significant');
     hold(tile, 'off');
 
-    title(tile, sprintf('Population correlogram: %s, %s', meta.prepost, meta.state));
+    title(tile, sprintf('Correlogram: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Lag (ms)');
     ylabel(tile, 'Normalized correlation');
-    legend(tile, 'show', 'Location', 'northeast');
+    legend(tile, 'show', 'Location', 'southeast');
     xlim(tile, [-corr_range, corr_range]);
-    ylim(tile, [-0.02, 0.03]);
+    ylim(tile, [-0.003, 0.005]);
 
-    %% Row 3: population auto-correlograms with shifted self-controls.
+    %% Row 3: Auto-correlograms with shifted self-controls.
     row = 3;
-    tile = nexttile(i + n_state*(row-1));
+    tile = nexttile(i+n_state*(row-1));
 
-    fill_control_band(tile, lags, shifted_auto_acc_mean, shifted_auto_acc_std, ...
-        std_multiplier, [1.0, 0.85, 0.85], 'ACC shifted ± 2SD');
+    fill_control_band(tile, lags, shifted_auto1_mean, shifted_auto1_std, ...
+        std_multiplier, [1.0, 0.85, 0.85], 'Auto 1 shifted ± 2SD');
     hold(tile, 'on');
-    fill_control_band(tile, lags, shifted_auto_vlpfc_mean, shifted_auto_vlpfc_std, ...
-        std_multiplier, [0.85, 0.85, 1.0], 'VLPFC shifted ± 2SD');
+    fill_control_band(tile, lags, shifted_auto2_mean, shifted_auto2_std, ...
+        std_multiplier, [0.85, 0.85, 1.0], 'Auto 2 shifted ± 2SD');
 
     plot(tile, lags, smooth_correlogram, 'm-', 'LineWidth', 2, ...
         'DisplayName', 'Cross-corr', 'Color', [1, 0, 1, 0.2]);
     xline(tile, 0, 'k--', 'HandleVisibility', 'off');
     yline(tile, 0, 'k--', 'HandleVisibility', 'off');
-    plot(tile, lags, smooth_auto_acc, 'r-', 'LineWidth', 1, ...
-        'DisplayName', sprintf('ACC auto-corr, N=%d', N_acc));
-    plot(tile, lags, smooth_auto_vlpfc, 'b-', 'LineWidth', 1, ...
-        'DisplayName', sprintf('VLPFC auto-corr, N=%d', N_vlpfc));
+    plot(tile, lags, smooth_auto1, 'r-', 'LineWidth', 1, ...
+        'DisplayName', 'Auto-corr 1');
+    plot(tile, lags, smooth_auto2, 'b-', 'LineWidth', 1, ...
+        'DisplayName', 'Auto-corr 2');
 
-    auto_acc_upper = shifted_auto_acc_mean + std_multiplier * shifted_auto_acc_std;
-    auto_acc_lower = shifted_auto_acc_mean - std_multiplier * shifted_auto_acc_std;
-    auto_vlpfc_upper = shifted_auto_vlpfc_mean + std_multiplier * shifted_auto_vlpfc_std;
-    auto_vlpfc_lower = shifted_auto_vlpfc_mean - std_multiplier * shifted_auto_vlpfc_std;
+    auto1_upper = shifted_auto1_mean + std_multiplier * shifted_auto1_std;
+    auto1_lower = shifted_auto1_mean - std_multiplier * shifted_auto1_std;
+    auto2_upper = shifted_auto2_mean + std_multiplier * shifted_auto2_std;
+    auto2_lower = shifted_auto2_mean - std_multiplier * shifted_auto2_std;
 
-    auto_acc_sig_mask = (smooth_auto_acc > auto_acc_upper) | ...
-                        (smooth_auto_acc < auto_acc_lower);
-    auto_vlpfc_sig_mask = (smooth_auto_vlpfc > auto_vlpfc_upper) | ...
-                          (smooth_auto_vlpfc < auto_vlpfc_lower);
+    auto1_sig_mask = (smooth_auto1 > auto1_upper) | (smooth_auto1 < auto1_lower);
+    auto2_sig_mask = (smooth_auto2 > auto2_upper) | (smooth_auto2 < auto2_lower);
 
-    plot_significant_segments(tile, lags, smooth_auto_acc, auto_acc_sig_mask, ...
-        sig_min_run_corr, [0.5, 0, 0], 'ACC significant');
-    plot_significant_segments(tile, lags, smooth_auto_vlpfc, auto_vlpfc_sig_mask, ...
-        sig_min_run_corr, [0, 0, 0.5], 'VLPFC significant');
+    plot_significant_segments(tile, lags, smooth_auto1, auto1_sig_mask, ...
+        sig_min_run_corr, [0.5, 0, 0], 'Auto 1 significant');
+    plot_significant_segments(tile, lags, smooth_auto2, auto2_sig_mask, ...
+        sig_min_run_corr, [0, 0, 0.5], 'Auto 2 significant');
 
     hold(tile, 'off');
-
-    title(tile, sprintf('Population auto-correlograms: %s, %s', meta.prepost, meta.state));
+    title(tile, sprintf('Auto-correlograms: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Lag (ms)');
     ylabel(tile, 'Normalized correlation');
     legend(tile, 'show', 'Location', 'southeast');
     xlim(tile, [-corr_range, corr_range]);
     ylim(tile, [-0.05, 0.05]);
 
-    %% Row 4: population cross-PSD with shifted control.
+    %% Row 4: Cross-PSD for the original signals, with shifted control.
     row = 4;
 
     selected_control = 'shifted'; % 'shuffled' or 'shifted'
     if strcmp(selected_control, 'shuffled')
-        cpsd_control_mean = cpsd_shuffle_mean;
-        cpsd_control_std = cpsd_shuffle_std;
+        cpsd_control_mean = shuffled_cpsd_mean;
+        cpsd_control_std = shuffled_cpsd_std;
         control_label = 'Shuffled';
     elseif strcmp(selected_control, 'shifted')
-        cpsd_control_mean = cpsd_shifted_mean;
-        cpsd_control_std = cpsd_shifted_std;
+        cpsd_control_mean = shifted_cpsd_mean;
+        cpsd_control_std = shifted_cpsd_std;
         control_label = 'Shifted';
     else
         error('Invalid control type selected. Use "shuffled" or "shifted".');
     end
 
-    tile = nexttile(i + n_state*(row-1));
+    tile = nexttile(i+n_state*(row-1));
     fill_control_band(tile, spec_freqs, cpsd_control_mean, cpsd_control_std, ...
         std_multiplier, [0.8, 0.8, 0.8], sprintf('%s mean ± 2SD', control_label));
     hold(tile, 'on');
@@ -337,50 +377,58 @@ for i = 1:n_state
         sig_min_run_spec, 'k', 'Significant');
     hold(tile, 'off');
 
-    title(tile, sprintf('Population cross-PSD: %s, %s', meta.prepost, meta.state));
+    title(tile, sprintf('Cross-PSD: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'Cross-PSD');
-    ylim([0, 6e-7]);
+    ylim(tile, [0, 1e-5]);
     legend(tile, 'show', 'Location', 'northeast');
 
-    %% Row 5: population PSDs with shuffled controls.
+    %% Row 5: PSD of the original pair signals, with shuffled controls.
     row = 5;
-    tile = nexttile(i + n_state*(row-1));
+    tile = nexttile(i+n_state*(row-1));
 
-    fill_control_band(tile, spec_freqs, psd_acc_shuffle_mean, psd_acc_shuffle_std, ...
-        std_multiplier, [1.0, 0.85, 0.85], 'ACC shuffled ± 2SD');
+    fill_control_band(tile, spec_freqs, shuffled_psd_r1_mean, shuffled_psd_r1_std, ...
+        std_multiplier, [1.0, 0.85, 0.85], 'Signal 1 shuffled ± 2SD');
     hold(tile, 'on');
-    fill_control_band(tile, spec_freqs, psd_vlpfc_shuffle_mean, psd_vlpfc_shuffle_std, ...
-        std_multiplier, [0.85, 0.85, 1.0], 'VLPFC shuffled ± 2SD');
+    fill_control_band(tile, spec_freqs, shuffled_psd_r2_mean, shuffled_psd_r2_std, ...
+        std_multiplier, [0.85, 0.85, 1.0], 'Signal 2 shuffled ± 2SD');
 
-    plot(tile, spec_freqs, psd_acc_plot, 'r-', 'LineWidth', 1, ...
-        'DisplayName', 'ACC population PSD');
-    plot(tile, spec_freqs, psd_vlpfc_plot, 'b-', 'LineWidth', 1, ...
-        'DisplayName', 'VLPFC population PSD');
+    plot(tile, spec_freqs, psd_r1_plot, 'r-', 'LineWidth', 1, ...
+        'DisplayName', 'Signal 1 PSD');
+    plot(tile, spec_freqs, psd_r2_plot, 'b-', 'LineWidth', 1, ...
+        'DisplayName', 'Signal 2 PSD');
 
-    psd_acc_upper = psd_acc_shuffle_mean + std_multiplier * psd_acc_shuffle_std;
-    psd_vlpfc_upper = psd_vlpfc_shuffle_mean + std_multiplier * psd_vlpfc_shuffle_std;
-    psd_acc_sig_mask = psd_acc_plot > psd_acc_upper;
-    psd_vlpfc_sig_mask = psd_vlpfc_plot > psd_vlpfc_upper;
+    psd_r1_upper = shuffled_psd_r1_mean + std_multiplier * shuffled_psd_r1_std;
+    psd_r2_upper = shuffled_psd_r2_mean + std_multiplier * shuffled_psd_r2_std;
+    psd_r1_sig_mask = psd_r1_plot > psd_r1_upper;
+    psd_r2_sig_mask = psd_r2_plot > psd_r2_upper;
 
-    plot_significant_segments(tile, spec_freqs, psd_acc_plot, psd_acc_sig_mask, ...
-        sig_min_run_spec, [0.5, 0, 0], 'ACC significant');
-    plot_significant_segments(tile, spec_freqs, psd_vlpfc_plot, psd_vlpfc_sig_mask, ...
-        sig_min_run_spec, [0, 0, 0.5], 'VLPFC significant');
+    plot_significant_segments(tile, spec_freqs, psd_r1_plot, psd_r1_sig_mask, ...
+        sig_min_run_spec, [0.5, 0, 0], 'Signal 1 significant');
+    plot_significant_segments(tile, spec_freqs, psd_r2_plot, psd_r2_sig_mask, ...
+        sig_min_run_spec, [0, 0, 0.5], 'Signal 2 significant');
     hold(tile, 'off');
 
-    title(tile, sprintf('Population signal PSD: %s, %s', meta.prepost, meta.state));
+    title(tile, sprintf('Signal PSD: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'PSD');
-    ylim(tile, [0, 2e-6]);
+
+    y_candidates = [psd_r1_plot(:); psd_r2_plot(:); ...
+        psd_r1_upper(:); psd_r2_upper(:)];
+    y_candidates = y_candidates(isfinite(y_candidates));
+    % if ~isempty(y_candidates) && max(y_candidates) > 0
+    %     ylim(tile, [0, 1.1 * max(y_candidates)]);
+    % end
+    ylim([0, 6e-5]);
     legend(tile, 'show', 'Location', 'northeast');
 
-    %% Row 6: population spectral coherence with shuffled control.
+
+    %% Row 6: Spectral coherence with shuffled control.
     % Coherence is the normalized cross-spectrum: |Sxy|^2 / (Sxx*Syy).
     % Global circular shifts only rotate cross-spectral phase and do not
     % reliably change coherence magnitude, so use shuffled control here.
     row = 6;
-    tile = nexttile(i + n_state*(row-1));
+    tile = nexttile(i+n_state*(row-1));
     selected_control = 'shifted'; % 'shuffled' or 'shifted'
     if strcmp(selected_control, 'shuffled')
         coh_control_mean = shuffled_coh_mean;
@@ -406,7 +454,7 @@ for i = 1:n_state
         sig_min_run_spec, 'k', 'Significant');
     hold(tile, 'off');
 
-    title(tile, sprintf('Population spectral coherence: %s, %s', meta.prepost, meta.state));
+    title(tile, sprintf('Spectral coherence: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'Coherence');
     ylim(tile, [0, 0.3]);
@@ -431,13 +479,13 @@ set(fig, 'PaperSize', [figWidth, figHeight]);
 set(fig, 'PaperPosition', [0, 0, figWidth, figHeight]);
 set(fig, 'Color', 'w');
 
-preview_filename = fullfile(save_folder, 'Figure2_preview.jpg');
+preview_filename = fullfile(save_folder, 'Figure1_preview.jpg');
 exportgraphics(fig, preview_filename, ...
     'ContentType', 'image', ...
     'BackgroundColor', 'white', ...
     'Resolution', resolution);
 
-pdf_filename = fullfile(save_folder, 'Figure2.pdf');
+pdf_filename = fullfile(save_folder, 'Figure1.pdf');
 exportgraphics(fig, pdf_filename, ...
     'ContentType', 'vector', ...
     'BackgroundColor', 'white', ...
@@ -445,36 +493,64 @@ exportgraphics(fig, pdf_filename, ...
 
 close(fig);
 
+
+% %% Fig 2: J counting bar plot
+% % counting
+% pos_counts = zeros(1, length(areas));
+% neg_counts = zeros(1, length(areas));
+% max_counts = zeros(1, length(areas));
+% for i = 1:length(areas)
+%     % Load data
+%     meta.area = areas{i};
+%     meta.prepost = preposts{i};
+%     meta.state = states{i};
+%     meta.shuffle_idx = 0;
+%     meta.kernel_name = 'DeltaPure';
+%     meta.reg_name = 'L2=0_2';
+%     meta.epoch = 3000;
+%     meta.fold_idx = 0;
+
+%     % Load raster data for neuron area info
+%     meta.filename = generate_filename('raster', meta);
+%     raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
+%     fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+%     fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
+%     fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
+
+%     % split neurons by area
+%     cell_area = raster_data.data.cell_area;
+%     filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
+%     filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
+
+%     % Load GLM data for connectivity info
+%     meta.filename = generate_filename('GLM', meta);
+%     GLM_data = load(fullfile(root, 'Data', 'Working', 'GLM', meta.filename));
+%     fprintf('Loaded GLM data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+%     N = GLM_data.meta.N;
+%     J = GLM_data.data.model_par(:, (2:N+1)); % kernel 1 weights
+%     err = GLM_data.data.model_err.total(:, (2:N+1));
+
+%     % Count significant J
+%     pos_count = sum(J(filter1, filter2) > err_multi*err(filter1, filter2), 'all') + ...
+%     sum(J(filter2, filter1) > err_multi*err(filter2, filter1), 'all');
+%     neg_count = sum(J(filter1, filter2) < -err_multi*err(filter1, filter2), 'all') + ...
+%     sum(J(filter2, filter1) < -err_multi*err(filter2, filter1), 'all');
+%     max_count = numel(J(filter1, filter2)) + numel(J(filter2, filter1));
+%     pos_counts(i) = pos_count;
+%     neg_counts(i) = neg_count;
+%     max_counts(i) = max_count;
+% end
+
+% % Plot
+% f = figure();
+% % x axis: states. Groups: positive vs negative connections.
+% pos_ratios = pos_counts ./ max_counts;
+% neg_ratios = neg_counts ./ max_counts;
+
+
+
+
 %% functions
-function [filter_acc, filter_vlpfc] = get_area_filters(cell_area)
-    filter_acc = ismember(cell_area, {'ACC'});
-    filter_vlpfc = ismember(cell_area, {'VLPFC'});
-end
-
-function check_area_filters(filter_acc, filter_vlpfc, meta)
-    if ~any(filter_acc)
-        error('No ACC neurons found for %s %s %s.', meta.prepost, meta.state, meta.area);
-    end
-    if ~any(filter_vlpfc)
-        error('No VLPFC neurons found for %s %s %s.', meta.prepost, meta.state, meta.area);
-    end
-end
-
-function t_idx = safe_time_range(t_range, raster_len, meta, range_name)
-    if nargin < 4
-        range_name = 't_range';
-    end
-    t_idx = t_range(t_range >= 1 & t_range <= raster_len);
-    if isempty(t_idx)
-        error('Requested %s is outside raster length for %s %s %s.', ...
-            range_name, meta.prepost, meta.state, meta.area);
-    end
-    if numel(t_idx) < numel(t_range)
-        warning('Truncated %s for %s %s %s to fit raster length %d.', ...
-            range_name, meta.prepost, meta.state, meta.area, raster_len);
-    end
-end
-
 function [correlogram, lags] = norm_xcorr(r1, r2, max_lag)
 %NORM_XCORR Normalized cross-correlation between two signals.
 %

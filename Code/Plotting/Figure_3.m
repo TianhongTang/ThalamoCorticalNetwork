@@ -36,6 +36,7 @@ n_state = numel(states);
 %% Parameters
 kernel_idx = 1;
 err_multi = 1; % threshold for significant J, in multiples of the GLM error estimate.
+network_err_multi = 2;
 density_nbin = 60;
 scatter_marker_size = 8;
 scatter_alpha = 0.25;
@@ -113,7 +114,8 @@ for session_i = 1:numel(meta_array)
         cat_counts_pre_total = cat_counts_pre_total + cat_counts_pre;
         cat_counts_post_total = cat_counts_post_total + cat_counts_post;
 
-        if isempty(first_valid_state_data)
+        % Not use first but 12th session.
+        if isempty(first_valid_state_data) && session_i==12
             first_valid_state_data = state_data;
             first_valid_label = session_label;
         end
@@ -168,7 +170,7 @@ for state_i = 1:n_state
     call_plot_network(ax, ...
         first_valid_state_data(state_i).J12, first_valid_state_data(state_i).J21, ...
         first_valid_state_data(state_i).err12, first_valid_state_data(state_i).err21, ...
-        err_multi, [], []);
+        network_err_multi, [], []);
     title(ax, sprintf('Example network: %s, %s\n%s', ...
         first_valid_state_data(state_i).prepost, first_valid_state_data(state_i).state, first_valid_label), ...
         'Interpreter', 'none');
