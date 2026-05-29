@@ -58,6 +58,9 @@ spec_smooth_window = 15; % frequency-bin smoothing for spectral visualization on
 psd_window_sec = 10; % Welch PSD window length for row 5 signal spectra.
 psd_overlap_frac = 0.5; % Welch PSD fractional overlap.
 
+legend_mode = 'simple'; % 'simple' or 'complex'. simple hides control/significance entries from legends.
+% legend_mode = 'complex';
+
 % Same triangular smoothing kernel as Figure 1.
 smooth_kernel = 1 - abs(-smooth_window:smooth_window) / smooth_window;
 smooth_kernel = smooth_kernel / sum(smooth_kernel); % normalize kernel
@@ -246,7 +249,7 @@ for i = 1:n_state
     shifted_ccg_lower = shifted_ccg_mean - std_multiplier * shifted_ccg_std;
 
     fill_control_band(tile, lags, shifted_ccg_mean, shifted_ccg_std, std_multiplier, ...
-        [0.8, 0.8, 0.8], 'Shifted mean ± 2SD');
+        [0.8, 0.8, 0.8], legend_label('Shifted mean ± 2SD', legend_mode));
     hold(tile, 'on');
     xline(tile, 0, 'k--', 'HandleVisibility', 'off');
     yline(tile, 0, 'k--', 'HandleVisibility', 'off');
@@ -256,7 +259,7 @@ for i = 1:n_state
     ccg_sig_mask = (smooth_correlogram > shifted_ccg_upper) | ...
                    (smooth_correlogram < shifted_ccg_lower);
     plot_significant_segments(tile, lags, smooth_correlogram, ccg_sig_mask, ...
-        sig_min_run_corr, 'k', 'Significant');
+        sig_min_run_corr, 'k', legend_label('Significant', legend_mode));
     hold(tile, 'off');
 
     title(tile, sprintf('Population correlogram: %s, %s', meta.prepost, meta.state));
@@ -271,10 +274,10 @@ for i = 1:n_state
     tile = nexttile(column + n_column*(i-1));
 
     fill_control_band(tile, lags, shifted_auto_acc_mean, shifted_auto_acc_std, ...
-        std_multiplier, [1.0, 0.85, 0.85], 'ACC shifted ± 2SD');
+        std_multiplier, [1.0, 0.85, 0.85], legend_label('ACC shifted ± 2SD', legend_mode));
     hold(tile, 'on');
     fill_control_band(tile, lags, shifted_auto_vlpfc_mean, shifted_auto_vlpfc_std, ...
-        std_multiplier, [0.85, 0.85, 1.0], 'VLPFC shifted ± 2SD');
+        std_multiplier, [0.85, 0.85, 1.0], legend_label('VLPFC shifted ± 2SD', legend_mode));
 
     plot(tile, lags, smooth_correlogram, 'm-', 'LineWidth', 2, ...
         'DisplayName', 'Cross-corr', 'Color', [1, 0, 1, 0.2]);
@@ -296,9 +299,9 @@ for i = 1:n_state
                           (smooth_auto_vlpfc < auto_vlpfc_lower);
 
     plot_significant_segments(tile, lags, smooth_auto_acc, auto_acc_sig_mask, ...
-        sig_min_run_corr, [0.5, 0, 0], 'ACC significant');
+        sig_min_run_corr, [0.5, 0, 0], legend_label('ACC significant', legend_mode));
     plot_significant_segments(tile, lags, smooth_auto_vlpfc, auto_vlpfc_sig_mask, ...
-        sig_min_run_corr, [0, 0, 0.5], 'VLPFC significant');
+        sig_min_run_corr, [0, 0, 0.5], legend_label('VLPFC significant', legend_mode));
 
     hold(tile, 'off');
 
@@ -327,7 +330,7 @@ for i = 1:n_state
 
     tile = nexttile(column + n_column*(i-1));
     fill_control_band(tile, spec_freqs, cpsd_control_mean, cpsd_control_std, ...
-        std_multiplier, [0.8, 0.8, 0.8], sprintf('%s mean ± 2SD', control_label));
+        std_multiplier, [0.8, 0.8, 0.8], legend_label(sprintf('%s mean ± 2SD', control_label), legend_mode));
     hold(tile, 'on');
     plot(tile, spec_freqs, cpsd_plot, 'm-', 'LineWidth', 1, ...
         'DisplayName', 'Cross-PSD');
@@ -335,7 +338,7 @@ for i = 1:n_state
     cpsd_upper = cpsd_control_mean + std_multiplier * cpsd_control_std;
     cpsd_sig_mask = cpsd_plot > cpsd_upper;
     plot_significant_segments(tile, spec_freqs, cpsd_plot, cpsd_sig_mask, ...
-        sig_min_run_spec, 'k', 'Significant');
+        sig_min_run_spec, 'k', legend_label('Significant', legend_mode));
     hold(tile, 'off');
 
     title(tile, sprintf('Population cross-PSD: %s, %s', meta.prepost, meta.state));
@@ -349,10 +352,10 @@ for i = 1:n_state
     tile = nexttile(column + n_column*(i-1));
 
     fill_control_band(tile, spec_freqs, psd_acc_shuffle_mean, psd_acc_shuffle_std, ...
-        std_multiplier, [1.0, 0.85, 0.85], 'ACC shuffled ± 2SD');
+        std_multiplier, [1.0, 0.85, 0.85], legend_label('ACC shuffled ± 2SD', legend_mode));
     hold(tile, 'on');
     fill_control_band(tile, spec_freqs, psd_vlpfc_shuffle_mean, psd_vlpfc_shuffle_std, ...
-        std_multiplier, [0.85, 0.85, 1.0], 'VLPFC shuffled ± 2SD');
+        std_multiplier, [0.85, 0.85, 1.0], legend_label('VLPFC shuffled ± 2SD', legend_mode));
 
     plot(tile, spec_freqs, psd_acc_plot, 'r-', 'LineWidth', 1, ...
         'DisplayName', 'ACC population PSD');
@@ -365,9 +368,9 @@ for i = 1:n_state
     psd_vlpfc_sig_mask = psd_vlpfc_plot > psd_vlpfc_upper;
 
     plot_significant_segments(tile, spec_freqs, psd_acc_plot, psd_acc_sig_mask, ...
-        sig_min_run_spec, [0.5, 0, 0], 'ACC significant');
+        sig_min_run_spec, [0.5, 0, 0], legend_label('ACC significant', legend_mode));
     plot_significant_segments(tile, spec_freqs, psd_vlpfc_plot, psd_vlpfc_sig_mask, ...
-        sig_min_run_spec, [0, 0, 0.5], 'VLPFC significant');
+        sig_min_run_spec, [0, 0, 0.5], legend_label('VLPFC significant', legend_mode));
     hold(tile, 'off');
 
     title(tile, sprintf('Population signal PSD: %s, %s', meta.prepost, meta.state));
@@ -384,8 +387,8 @@ for i = 1:n_state
     tile = nexttile(column + n_column*(i-1));
     selected_control = 'shifted'; % 'shuffled' or 'shifted'
     if strcmp(selected_control, 'shuffled')
-        coh_control_mean = shuffled_coh_mean;
-        coh_control_std = shuffled_coh_std;
+        coh_control_mean = coh_shuffle_mean;
+        coh_control_std = coh_shuffle_std;
         control_label = 'Shuffled';
     elseif strcmp(selected_control, 'shifted')
         coh_control_mean = shifted_coh_mean;
@@ -396,7 +399,7 @@ for i = 1:n_state
     end
     
     fill_control_band(tile, spec_freqs, coh_control_mean, coh_control_std, ...
-        std_multiplier, [0.8, 0.8, 0.8], sprintf('%s mean ± 2SD', control_label));
+        std_multiplier, [0.8, 0.8, 0.8], legend_label(sprintf('%s mean ± 2SD', control_label), legend_mode));
     hold(tile, 'on');
     plot(tile, spec_freqs, coherence_plot, 'm-', 'LineWidth', 1, ...
         'DisplayName', 'Coherence');
@@ -404,7 +407,7 @@ for i = 1:n_state
     coh_upper = coh_control_mean + std_multiplier * coh_control_std;
     coh_sig_mask = coherence_plot > coh_upper;
     plot_significant_segments(tile, spec_freqs, coherence_plot, coh_sig_mask, ...
-        sig_min_run_spec, 'k', 'Significant');
+        sig_min_run_spec, 'k', legend_label('Significant', legend_mode));
     hold(tile, 'off');
 
     title(tile, sprintf('Population spectral coherence: %s, %s', meta.prepost, meta.state));
@@ -721,6 +724,19 @@ function [win, noverlap] = make_welch_window(N, sample_rate, window_sec, overlap
     noverlap = min(floor(overlap_frac * win_len), win_len - 1);
 end
 
+function label = legend_label(full_label, legend_mode)
+    % Return legend label based on the global legend style.
+    % 'complex': include control bands and significance traces in legends.
+    % 'simple' : hide those helper traces from legends.
+    if strcmpi(legend_mode, 'complex')
+        label = full_label;
+    elseif strcmpi(legend_mode, 'simple')
+        label = '';
+    else
+        error('Invalid legend_mode. Use ''simple'' or ''complex''.');
+    end
+end
+
 function fill_control_band(tile, x, control_mean, control_std, multiplier, color, display_name)
     % Plot mean ± multiplier*SD as a shaded control band.
     x = x(:).';
@@ -735,10 +751,17 @@ function fill_control_band(tile, x, control_mean, control_std, multiplier, color
         return;
     end
 
-    fill(tile, [x(valid), fliplr(x(valid))], ...
-        [upper(valid), fliplr(lower(valid))], ...
-        color, 'EdgeColor', 'none', 'FaceAlpha', 0.35, ...
-        'DisplayName', display_name);
+    if ~isempty(display_name)
+        fill(tile, [x(valid), fliplr(x(valid))], ...
+            [upper(valid), fliplr(lower(valid))], ...
+            color, 'EdgeColor', 'none', 'FaceAlpha', 0.35, ...
+            'DisplayName', display_name);
+    else
+        fill(tile, [x(valid), fliplr(x(valid))], ...
+            [upper(valid), fliplr(lower(valid))], ...
+            color, 'EdgeColor', 'none', 'FaceAlpha', 0.35, ...
+            'HandleVisibility', 'off');
+    end
 end
 
 function plot_significant_segments(tile, x, y, sig_mask, min_run_bins, color, display_name)
@@ -749,6 +772,9 @@ function plot_significant_segments(tile, x, y, sig_mask, min_run_bins, color, di
 
     runs = find_logical_runs(sig_mask);
     has_label = false;
+    if isempty(display_name)
+        has_label = true; % No label to add. Skip.
+    end
 
     for r = 1:size(runs, 1)
         idx = runs(r, 1):runs(r, 2);

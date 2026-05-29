@@ -34,8 +34,9 @@ states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
 n_state = numel(areas);
 
 % figure
+n_column = 6;
 f = figure('Color', 'w', 'Visible', 'off');
-tiles = tiledlayout(6, n_state, "TileSpacing", "Compact", "Padding", "Compact");
+tiles = tiledlayout(n_state, n_column, "TileSpacing", "Compact", "Padding", "Compact");
 
 %% parameters
 shuffle_N = 10;
@@ -57,7 +58,7 @@ mygauss = @(size, sigma) exp(-(-floor(size/2):floor(size/2)).^2/(2*sigma^2));
 smooth_kernel = 1 - abs(-smooth_window:smooth_window) / smooth_window;
 smooth_kernel = smooth_kernel / sum(smooth_kernel); % normalize kernel
 
-%% Row 1: Raster of selected neurons
+%% Column 1: Raster of selected neurons
 
 % Example session: Slayer Mus 6. Selected t_range. Justification: Best sleep period for Pre-eyeclose.
 % Remove this range in population analysis, or add proper filters to select sleep periods.
@@ -88,7 +89,8 @@ for i = 1:length(areas)
 
     cell_area = raster_data.data.cell_area;
     % tile = nexttile(i*2-1);
-    tile = nexttile(i);
+    column = 1;
+    tile = nexttile(column+(i-1)*n_column);
     raster = raster_data.data.rasters{1}(:, display_t_range);
 
     cell_area = cell_area(selected_neurons);
@@ -121,7 +123,7 @@ for i = 1:length(areas)
     ylim([-1.5, 4.5]);
 end
 
-%% Row 2: Pairwise correlogram between selected neurons. Row 3: Auto-corrogram for the same neurons.
+%% Column 2: Pairwise correlogram between selected neurons. Column 3: Auto-corrogram for the same neurons.
 % f = figure();
 % tiles = tiledlayout(2, 2, "TileSpacing", "Compact", "Padding", "Compact");
 
@@ -169,7 +171,7 @@ for i = 1:length(areas)
     smooth_auto1 = same_conv(auto1, smooth_kernel);
     smooth_auto2 = same_conv(auto2, smooth_kernel);
 
-    % Row 4/5 spectra are computed from the original signals with the same
+    % Column 4/5 spectra are computed from the original signals with the same
     % Welch/cross-spectral framework. This avoids comparing FFT(normalized
     % correlogram) with PSD(original signal), which have different scales.
     [psd_r1, psd_r2, cpsd, coherence, spec_freqs] = compute_pair_spectra( ...
@@ -281,9 +283,9 @@ for i = 1:length(areas)
     shifted_coh_mean = mean_omitnan(shifted_cohs);
     shifted_coh_std = std_omitnan(shifted_cohs);
 
-    %% Row 2: Cross-correlogram with shifted control and significant segments.
-    row = 2;
-    tile = nexttile(i+n_state*(row-1));
+    %% Column 2: Cross-correlogram with shifted control and significant segments.
+    column = 2;
+    tile = nexttile(column+n_column*(i-1));
     shifted_ccg_upper = shifted_ccg_mean + std_multiplier * shifted_ccg_std;
     shifted_ccg_lower = shifted_ccg_mean - std_multiplier * shifted_ccg_std;
 
@@ -308,15 +310,21 @@ for i = 1:length(areas)
     xlim(tile, [-corr_range, corr_range]);
     ylim(tile, [-0.003, 0.005]);
 
-    %% Row 3: Auto-correlograms with shifted self-controls.
-    row = 3;
-    tile = nexttile(i+n_state*(row-1));
+    %% Column 3: Auto-correlograms with shifted self-controls.
+    column = 3;
+    tile = nexttile(column+n_column*(i-1));
 
+    % fill_control_band(tile, lags, shifted_auto1_mean, shifted_auto1_std, ...
+    %     std_multiplier, [1.0, 0.85, 0.85], 'Auto 1 shifted ± 2SD');
+    % hold(tile, 'on');
+    % fill_control_band(tile, lags, shifted_auto2_mean, shifted_auto2_std, ...
+    %     std_multiplier, [0.85, 0.85, 1.0], 'Auto 2 shifted ± 2SD');    
+    
     fill_control_band(tile, lags, shifted_auto1_mean, shifted_auto1_std, ...
-        std_multiplier, [1.0, 0.85, 0.85], 'Auto 1 shifted ± 2SD');
+        std_multiplier, [1.0, 0.85, 0.85], '');
     hold(tile, 'on');
     fill_control_band(tile, lags, shifted_auto2_mean, shifted_auto2_std, ...
-        std_multiplier, [0.85, 0.85, 1.0], 'Auto 2 shifted ± 2SD');
+        std_multiplier, [0.85, 0.85, 1.0], '');
 
     plot(tile, lags, smooth_correlogram, 'm-', 'LineWidth', 2, ...
         'DisplayName', 'Cross-corr', 'Color', [1, 0, 1, 0.2]);
@@ -335,10 +343,15 @@ for i = 1:length(areas)
     auto1_sig_mask = (smooth_auto1 > auto1_upper) | (smooth_auto1 < auto1_lower);
     auto2_sig_mask = (smooth_auto2 > auto2_upper) | (smooth_auto2 < auto2_lower);
 
+    % plot_significant_segments(tile, lags, smooth_auto1, auto1_sig_mask, ...
+    %     sig_min_run_corr, [0.5, 0, 0], 'Auto 1 significant');
+    % plot_significant_segments(tile, lags, smooth_auto2, auto2_sig_mask, ...
+    %     sig_min_run_corr, [0, 0, 0.5], 'Auto 2 significant');
+
     plot_significant_segments(tile, lags, smooth_auto1, auto1_sig_mask, ...
-        sig_min_run_corr, [0.5, 0, 0], 'Auto 1 significant');
+        sig_min_run_corr, [0.5, 0, 0], '');
     plot_significant_segments(tile, lags, smooth_auto2, auto2_sig_mask, ...
-        sig_min_run_corr, [0, 0, 0.5], 'Auto 2 significant');
+        sig_min_run_corr, [0, 0, 0.5], '');
 
     hold(tile, 'off');
     title(tile, sprintf('Auto-correlograms: %s, %s', meta.prepost, meta.state));
@@ -348,8 +361,8 @@ for i = 1:length(areas)
     xlim(tile, [-corr_range, corr_range]);
     ylim(tile, [-0.05, 0.05]);
 
-    %% Row 4: Cross-PSD for the original signals, with shifted control.
-    row = 4;
+    %% Column 4: Cross-PSD for the original signals, with shifted control.
+    column = 4;
 
     selected_control = 'shifted'; % 'shuffled' or 'shifted'
     if strcmp(selected_control, 'shuffled')
@@ -364,7 +377,7 @@ for i = 1:length(areas)
         error('Invalid control type selected. Use "shuffled" or "shifted".');
     end
 
-    tile = nexttile(i+n_state*(row-1));
+    tile = nexttile(column+n_column*(i-1));
     fill_control_band(tile, spec_freqs, cpsd_control_mean, cpsd_control_std, ...
         std_multiplier, [0.8, 0.8, 0.8], sprintf('%s mean ± 2SD', control_label));
     hold(tile, 'on');
@@ -383,15 +396,21 @@ for i = 1:length(areas)
     ylim(tile, [0, 1e-5]);
     legend(tile, 'show', 'Location', 'northeast');
 
-    %% Row 5: PSD of the original pair signals, with shuffled controls.
-    row = 5;
-    tile = nexttile(i+n_state*(row-1));
+    %% Column 5: PSD of the original pair signals, with shuffled controls.
+    column = 5;
+    tile = nexttile(column+n_column*(i-1));
+
+    % fill_control_band(tile, spec_freqs, shuffled_psd_r1_mean, shuffled_psd_r1_std, ...
+    %     std_multiplier, [1.0, 0.85, 0.85], 'Signal 1 shuffled ± 2SD');
+    % hold(tile, 'on');
+    % fill_control_band(tile, spec_freqs, shuffled_psd_r2_mean, shuffled_psd_r2_std, ...
+    %     std_multiplier, [0.85, 0.85, 1.0], 'Signal 2 shuffled ± 2SD');
 
     fill_control_band(tile, spec_freqs, shuffled_psd_r1_mean, shuffled_psd_r1_std, ...
-        std_multiplier, [1.0, 0.85, 0.85], 'Signal 1 shuffled ± 2SD');
+        std_multiplier, [1.0, 0.85, 0.85], '');
     hold(tile, 'on');
     fill_control_band(tile, spec_freqs, shuffled_psd_r2_mean, shuffled_psd_r2_std, ...
-        std_multiplier, [0.85, 0.85, 1.0], 'Signal 2 shuffled ± 2SD');
+        std_multiplier, [0.85, 0.85, 1.0], '');
 
     plot(tile, spec_freqs, psd_r1_plot, 'r-', 'LineWidth', 1, ...
         'DisplayName', 'Signal 1 PSD');
@@ -403,10 +422,15 @@ for i = 1:length(areas)
     psd_r1_sig_mask = psd_r1_plot > psd_r1_upper;
     psd_r2_sig_mask = psd_r2_plot > psd_r2_upper;
 
+    % plot_significant_segments(tile, spec_freqs, psd_r1_plot, psd_r1_sig_mask, ...
+    %     sig_min_run_spec, [0.5, 0, 0], 'Signal 1 significant');
+    % plot_significant_segments(tile, spec_freqs, psd_r2_plot, psd_r2_sig_mask, ...
+    %     sig_min_run_spec, [0, 0, 0.5], 'Signal 2 significant');
+
     plot_significant_segments(tile, spec_freqs, psd_r1_plot, psd_r1_sig_mask, ...
-        sig_min_run_spec, [0.5, 0, 0], 'Signal 1 significant');
+        sig_min_run_spec, [0.5, 0, 0], '');
     plot_significant_segments(tile, spec_freqs, psd_r2_plot, psd_r2_sig_mask, ...
-        sig_min_run_spec, [0, 0, 0.5], 'Signal 2 significant');
+        sig_min_run_spec, [0, 0, 0.5], '');
     hold(tile, 'off');
 
     title(tile, sprintf('Signal PSD: %s, %s', meta.prepost, meta.state));
@@ -423,12 +447,12 @@ for i = 1:length(areas)
     legend(tile, 'show', 'Location', 'northeast');
 
 
-    %% Row 6: Spectral coherence with shuffled control.
+    %% Column 6: Spectral coherence with shuffled control.
     % Coherence is the normalized cross-spectrum: |Sxy|^2 / (Sxx*Syy).
     % Global circular shifts only rotate cross-spectral phase and do not
     % reliably change coherence magnitude, so use shuffled control here.
-    row = 6;
-    tile = nexttile(i+n_state*(row-1));
+    column = 6;
+    tile = nexttile(column+n_column*(i-1));
     selected_control = 'shifted'; % 'shuffled' or 'shifted'
     if strcmp(selected_control, 'shuffled')
         coh_control_mean = shuffled_coh_mean;
@@ -467,8 +491,8 @@ fig = gcf;
 save_folder = fullfile(root, 'Figures', 'Paper');
 check_path(save_folder);
 
-figWidth  = 16.0;   % inches.
-figHeight = 24.0;   % inches.
+figWidth  = 4*n_column;   % inches.
+figHeight = 4*n_state;   % inches.
 resolution = 300;   % dpi; mainly affects rasterized components.
 
 set(fig, 'Units', 'inches');
@@ -810,10 +834,17 @@ function fill_control_band(tile, x, control_mean, control_std, multiplier, color
         return;
     end
 
-    fill(tile, [x(valid), fliplr(x(valid))], ...
-        [upper(valid), fliplr(lower(valid))], ...
-        color, 'EdgeColor', 'none', 'FaceAlpha', 0.35, ...
-        'DisplayName', display_name);
+    if ~isempty(display_name)
+        fill(tile, [x(valid), fliplr(x(valid))], ...
+            [upper(valid), fliplr(lower(valid))], ...
+            color, 'EdgeColor', 'none', 'FaceAlpha', 0.35, ...
+            'DisplayName', display_name);
+    else
+        fill(tile, [x(valid), fliplr(x(valid))], ...
+            [upper(valid), fliplr(lower(valid))], ...
+            color, 'EdgeColor', 'none', 'FaceAlpha', 0.35, ...
+            'HandleVisibility', 'off');
+    end
 end
 
 function plot_significant_segments(tile, x, y, sig_mask, min_run_bins, color, display_name)
@@ -824,6 +855,9 @@ function plot_significant_segments(tile, x, y, sig_mask, min_run_bins, color, di
 
     runs = find_logical_runs(sig_mask);
     has_label = false;
+    if isempty(display_name)
+        has_label = true; % No label to add. Skip.
+    end
 
     for r = 1:size(runs, 1)
         idx = runs(r, 1):runs(r, 2);
