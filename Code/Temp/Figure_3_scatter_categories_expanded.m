@@ -1,9 +1,8 @@
 %% Figure 3: Aggregated multi-session Open-Close network/correlation analysis
 % Data from all selected metadata rows are pooled into one figure.
 % Row 1: example network plots from the first valid selected session.
-% Row 2: pooled all-connection scatter and density plots.
-% Row 3-4: pooled scatter plots for selected connection subsets.
-% Row 5: categorical transition tables.
+% Row 2: pooled Open-Close density plots, separated by positive/negative connections.
+% Row 3: pooled scatter plots and categorical transition tables.
 
 clear;
 %% Get root folder
@@ -35,7 +34,7 @@ states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
 n_state = numel(states);
 
 %% Parameters
-kernel_idx = 2;
+kernel_idx = 1;
 err_multi = 1; % threshold for significant J, in multiples of the GLM error estimate.
 network_err_multi = 2;
 density_nbin = 60;
@@ -44,26 +43,6 @@ scatter_alpha = 0.25;
 density_clip_percentile = [0.5, 99.5];
 density_use_log_count = true;
 category_labels = {'Negative', 'Non-sig', 'Positive'};
-
-n_row = 4;
-n_col = 5;
-
-show_legend = true; % true or false, applied to all scatter-plot legends.
-
-colors = struct();
-colors.non_sig = [0.65, 0.65, 0.65];
-colors.open_only = [0.1, 0.75, 0.1];
-colors.close_only = [0.95, 0.55, 0.1];
-colors.both_sig = [0.45, 0.1, 0.75];
-
-colors.pos = [1, 0.2, 0.2];
-colors.neg = [0.1, 0.45, 1];
-colors.switch_posneg = [1.0, 0.5, 0.0];
-colors.switch_negpos = [0.0, 0.65, 0.8];
-colors.switch = [0.45, 0.1, 0.75];
-
-colors.identity_line = [1, 0, 0];
-colors.zero_line = [0, 0, 0];
 
 skip_failed_sessions = false;
 max_sessions_to_include = inf; % set smaller while debugging.
@@ -160,9 +139,6 @@ end
 fprintf('\nValid sessions: %d. Failed sessions: %d.\n', valid_session_count, failed_session_count);
 
 %% Pooled statistics
-[rho_pre_orig, p_pre_orig, n_pre_orig] = pearson_stats(data_pre_all.x_orig, data_pre_all.y_orig);
-[rho_post_orig, p_post_orig, n_post_orig] = pearson_stats(data_post_all.x_orig, data_post_all.y_orig);
-
 [rho_pre_all, p_pre_all, n_pre_all] = pearson_stats(data_pre_all.x_abs, data_pre_all.y_abs);
 [rho_post_all, p_post_all, n_post_all] = pearson_stats(data_post_all.x_abs, data_post_all.y_abs);
 
@@ -198,114 +174,95 @@ fprintf('Pooled Post categorical agreement: agreement = %.6f, kappa = %.6f, n = 
 
 %% Figure
 f = figure('Color', 'w');
-tiles = tiledlayout(n_row, n_col, "TileSpacing", "Compact", "Padding", "Compact");
-tile_idx = @(row, col) (row - 1) * n_col + col;
+tiles = tiledlayout(5, 4, "TileSpacing", "Compact", "Padding", "Compact");
 
-%% Transposed layout (4 rows x 5 columns)
+%% Row 1: example network plot from the first valid session
+for state_i = 1:n_state
+    ax = nexttile(state_i);
+    call_plot_network(ax, ...
+        first_valid_state_data(state_i).J12, first_valid_state_data(state_i).J21, ...
+        first_valid_state_data(state_i).err12, first_valid_state_data(state_i).err21, ...
+        network_err_multi, [], []);
+    title(ax, sprintf('Example network: %s, %s\n%s', ...
+        first_valid_state_data(state_i).prepost, first_valid_state_data(state_i).state, first_valid_label), ...
+        'Interpreter', 'none');
+end
 
-% Row 1
-ax = nexttile(tile_idx(1, 1));
-call_plot_network(ax, ...
-    first_valid_state_data(1).J12, first_valid_state_data(1).J21, ...
-    first_valid_state_data(1).err12, first_valid_state_data(1).err21, ...
-    network_err_multi, [], []);
-title(ax, sprintf('Example network: %s, %s\n%s', ...
-    first_valid_state_data(1).prepost, first_valid_state_data(1).state, first_valid_label), ...
-    'Interpreter', 'none');
+%% Row 2: pooled density plots, positive and negative separated
+ax = nexttile(5);
+plot_open_close_density(ax, data_pre_all.xpos_abs, data_pre_all.ypos_abs, ...
+    rho_pre_pos, p_pre_pos, n_pre_pos, density_nbin, density_clip_percentile, density_use_log_count, ...
+    sprintf('Pooled Pre positive density, sessions=%d', valid_session_count));
 
-ax = nexttile(tile_idx(1, 2));
-plot_open_close_scatter(ax, data_pre_all, 'all_signed', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Pre all connections, sessions=%d', valid_session_count));
+ax = nexttile(6);
+plot_open_close_density(ax, data_pre_all.xneg_abs, data_pre_all.yneg_abs, ...
+    rho_pre_neg, p_pre_neg, n_pre_neg, density_nbin, density_clip_percentile, density_use_log_count, ...
+    sprintf('Pooled Pre negative density, sessions=%d', valid_session_count));
 
-ax = nexttile(tile_idx(1, 3));
+ax = nexttile(7);
+plot_open_close_density(ax, data_post_all.xpos_abs, data_post_all.ypos_abs, ...
+    rho_post_pos, p_post_pos, n_post_pos, density_nbin, density_clip_percentile, density_use_log_count, ...
+    sprintf('Pooled Post positive density, sessions=%d', valid_session_count));
+
+ax = nexttile(8);
+plot_open_close_density(ax, data_post_all.xneg_abs, data_post_all.yneg_abs, ...
+    rho_post_neg, p_post_neg, n_post_neg, density_nbin, density_clip_percentile, density_use_log_count, ...
+    sprintf('Pooled Post negative density, sessions=%d', valid_session_count));
+
+%% Row 3-4: pooled scatter plots.
+% Row 3:
+%   9/11 = either-significant signed scatter.
+%   10/12 = both-significant signed scatter.
+% Row 4:
+%   13/15  = same-sign significant abs scatter.
+%   14/16 = sign-switch significant abs scatter.
+
+ax = nexttile(9);
 plot_open_close_scatter(ax, data_pre_all, 'either_sig_signed', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Pre either significant signed, sessions=%d', valid_session_count));
+    scatter_marker_size, scatter_alpha, sprintf('Pooled Pre either significant signed, sessions=%d', valid_session_count));
 
-ax = nexttile(tile_idx(1, 4));
+ax = nexttile(10);
+plot_open_close_scatter(ax, data_pre_all, 'both_sig_signed', ...
+    scatter_marker_size, scatter_alpha, sprintf('Pooled Pre both significant signed, sessions=%d', valid_session_count));
+
+ax = nexttile(11);
+plot_open_close_scatter(ax, data_post_all, 'either_sig_signed', ...
+    scatter_marker_size, scatter_alpha, sprintf('Pooled Post either significant signed, sessions=%d', valid_session_count));
+
+ax = nexttile(12);
+plot_open_close_scatter(ax, data_post_all, 'both_sig_signed', ...
+    scatter_marker_size, scatter_alpha, sprintf('Pooled Post both significant signed, sessions=%d', valid_session_count));
+
+ax = nexttile(13);
 plot_open_close_scatter(ax, data_pre_all, 'same_abs', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Pre same-sign abs, sessions=%d', valid_session_count));
+    scatter_marker_size, scatter_alpha, sprintf('Pooled Pre same-sign abs, sessions=%d', valid_session_count));
 
-ax = nexttile(tile_idx(1, 5));
+ax = nexttile(14);
+plot_open_close_scatter(ax, data_pre_all, 'switch_abs', ...
+    scatter_marker_size, scatter_alpha, sprintf('Pooled Pre sign-switch abs, sessions=%d', valid_session_count));
+
+ax = nexttile(15);
+plot_open_close_scatter(ax, data_post_all, 'same_abs', ...
+    scatter_marker_size, scatter_alpha, sprintf('Pooled Post same-sign abs, sessions=%d', valid_session_count));
+
+ax = nexttile(16);
+plot_open_close_scatter(ax, data_post_all, 'switch_abs', ...
+    scatter_marker_size, scatter_alpha, sprintf('Pooled Post sign-switch abs, sessions=%d', valid_session_count));
+
+%% Row 5: Categorical transition tables, 3x3 & 2x2.
+ax = nexttile(17);
 plot_category_transition_table(ax, cat_counts_pre_total, category_labels, agreement_pre, kappa_pre, cat_n_pre, ...
     sprintf('Pooled Pre categorical 3x3, sessions=%d', valid_session_count));
 
-% Row 2
-ax = nexttile(tile_idx(2, 1));
-call_plot_network(ax, ...
-    first_valid_state_data(2).J12, first_valid_state_data(2).J21, ...
-    first_valid_state_data(2).err12, first_valid_state_data(2).err21, ...
-    network_err_multi, [], []);
-title(ax, sprintf('Example network: %s, %s\n%s', ...
-    first_valid_state_data(2).prepost, first_valid_state_data(2).state, first_valid_label), ...
-    'Interpreter', 'none');
-
-ax = nexttile(tile_idx(2, 2));
-plot_open_close_density(ax, data_pre_all.x_orig, data_pre_all.y_orig, ...
-    rho_pre_orig, p_pre_orig, n_pre_orig, density_nbin, density_clip_percentile, density_use_log_count, ...
-    sprintf('Pooled Pre all-connection density, sessions=%d', valid_session_count), 'signed', colors);
-
-ax = nexttile(tile_idx(2, 3));
-plot_open_close_scatter(ax, data_pre_all, 'both_sig_signed', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Pre both significant signed, sessions=%d', valid_session_count));
-
-ax = nexttile(tile_idx(2, 4));
-plot_open_close_scatter(ax, data_pre_all, 'switch_abs', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Pre sign-switch abs, sessions=%d', valid_session_count));
-
-ax = nexttile(tile_idx(2, 5));
+ax = nexttile(18);
 plot_category_transition_table(ax, cat_counts_pre_2x2, category_labels_2x2, agreement_pre_2x2, kappa_pre_2x2, cat_n_pre_2x2, ...
     sprintf('Pooled Pre categorical 2x2, sessions=%d', valid_session_count));
 
-% Row 3
-ax = nexttile(tile_idx(3, 1));
-call_plot_network(ax, ...
-    first_valid_state_data(3).J12, first_valid_state_data(3).J21, ...
-    first_valid_state_data(3).err12, first_valid_state_data(3).err21, ...
-    network_err_multi, [], []);
-title(ax, sprintf('Example network: %s, %s\n%s', ...
-    first_valid_state_data(3).prepost, first_valid_state_data(3).state, first_valid_label), ...
-    'Interpreter', 'none');
-
-ax = nexttile(tile_idx(3, 2));
-plot_open_close_scatter(ax, data_post_all, 'all_signed', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Post all connections, sessions=%d', valid_session_count));
-
-ax = nexttile(tile_idx(3, 3));
-plot_open_close_scatter(ax, data_post_all, 'either_sig_signed', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Post either significant signed, sessions=%d', valid_session_count));
-
-ax = nexttile(tile_idx(3, 4));
-plot_open_close_scatter(ax, data_post_all, 'same_abs', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Post same-sign abs, sessions=%d', valid_session_count));
-
-ax = nexttile(tile_idx(3, 5));
+ax = nexttile(19);
 plot_category_transition_table(ax, cat_counts_post_total, category_labels, agreement_post, kappa_post, cat_n_post, ...
     sprintf('Pooled Post categorical 3x3, sessions=%d', valid_session_count));
 
-% Row 4
-ax = nexttile(tile_idx(4, 1));
-call_plot_network(ax, ...
-    first_valid_state_data(4).J12, first_valid_state_data(4).J21, ...
-    first_valid_state_data(4).err12, first_valid_state_data(4).err21, ...
-    network_err_multi, [], []);
-title(ax, sprintf('Example network: %s, %s\n%s', ...
-    first_valid_state_data(4).prepost, first_valid_state_data(4).state, first_valid_label), ...
-    'Interpreter', 'none');
-
-ax = nexttile(tile_idx(4, 2));
-plot_open_close_density(ax, data_post_all.x_orig, data_post_all.y_orig, ...
-    rho_post_orig, p_post_orig, n_post_orig, density_nbin, density_clip_percentile, density_use_log_count, ...
-    sprintf('Pooled Post all-connection density, sessions=%d', valid_session_count), 'signed', colors);
-
-ax = nexttile(tile_idx(4, 3));
-plot_open_close_scatter(ax, data_post_all, 'both_sig_signed', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Post both significant signed, sessions=%d', valid_session_count));
-
-ax = nexttile(tile_idx(4, 4));
-plot_open_close_scatter(ax, data_post_all, 'switch_abs', ...
-    scatter_marker_size, scatter_alpha, colors, show_legend, sprintf('Pooled Post sign-switch abs, sessions=%d', valid_session_count));
-
-ax = nexttile(tile_idx(4, 5));
+ax = nexttile(20);
 plot_category_transition_table(ax, cat_counts_post_2x2, category_labels_2x2, agreement_post_2x2, kappa_post_2x2, cat_n_post_2x2, ...
     sprintf('Pooled Post categorical 2x2, sessions=%d', valid_session_count));
 
@@ -315,8 +272,8 @@ fig = gcf;
 save_folder = fullfile(root, 'Figures', 'Paper');
 check_path(save_folder);
 
-figWidth  = 4*n_col;  % inches
-figHeight = 4*n_row; % inches
+figWidth  = 16.0;   % inches
+figHeight = 25.0;   % inches
 resolution = 300;  % dpi; mainly affects rasterized components
 
 set(fig, 'Units', 'inches');
@@ -759,62 +716,24 @@ function [rho, pval, n_valid] = pearson_stats(x, y)
     pval = P(1, 2);
 end
 
-function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha, colors, show_legend, title_text)
+function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha, title_text)
     cla(ax);
     hold(ax, 'on');
 
     switch plot_mode
-        case 'all_signed'
-            x = data.x_orig;
-            y = data.y_orig;
-            open_sig = data.open_cat_orig ~= 0;
-            close_sig = data.close_cat_orig ~= 0;
-
-            none_sig = ~open_sig & ~close_sig;
-            open_only = open_sig & ~close_sig;
-            close_only = ~open_sig & close_sig;
-            both_sig = open_sig & close_sig;
-
-            scatter(ax, x(none_sig), y(none_sig), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.non_sig, ...
-                'MarkerFaceAlpha', marker_alpha, ...
-                'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'both non-sig');
-            scatter(ax, x(open_only), y(open_only), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.open_only, ...
-                'MarkerFaceAlpha', marker_alpha, ...
-                'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'open only');
-            scatter(ax, x(close_only), y(close_only), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.close_only, ...
-                'MarkerFaceAlpha', marker_alpha, ...
-                'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'close only');
-            scatter(ax, x(both_sig), y(both_sig), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.both_sig, ...
-                'MarkerFaceAlpha', marker_alpha, ...
-                'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'both sig');
-
-            axis_limit = get_symmetric_axis_limit(x, y);
-            xlabel_text = 'Open J_{ij}';
-            ylabel_text = 'Close J_{ij}';
-            axis_mode = 'signed';
-
         case 'same_abs'
             x = data.x_abs;
             y = data.y_abs;
             scatter(ax, data.xpos_abs, data.ypos_abs, marker_size, 'filled', ...
-                'MarkerFaceColor', colors.pos, ...
+                'MarkerFaceColor', [1, 0.2, 0.2], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'pos');
+                'DisplayName', 'pos→pos');
             scatter(ax, data.xneg_abs, data.yneg_abs, marker_size, 'filled', ...
-                'MarkerFaceColor', colors.neg, ...
+                'MarkerFaceColor', [0.2, 0.2, 1], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'neg');
-
+                'DisplayName', 'neg→neg');
             axis_limit = [0, max(3.5, get_positive_axis_max(x, y))];
             xlabel_text = 'Open |J_{ij}|';
             ylabel_text = 'Close |J_{ij}|';
@@ -824,16 +743,15 @@ function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha,
             x = data.xswitch_abs;
             y = data.yswitch_abs;
             scatter(ax, data.xswitch_posneg_abs, data.yswitch_posneg_abs, marker_size, 'filled', ...
-                'MarkerFaceColor', colors.switch_posneg, ...
+                'MarkerFaceColor', [1.0, 0.5, 0.0], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'open pos / close neg');
+                'DisplayName', 'pos→neg');
             scatter(ax, data.xswitch_negpos_abs, data.yswitch_negpos_abs, marker_size, 'filled', ...
-                'MarkerFaceColor', colors.switch_negpos, ...
+                'MarkerFaceColor', [0.0, 0.65, 0.8], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'open neg / close pos');
-
+                'DisplayName', 'neg→pos');
             axis_limit = [0, max(3.5, get_positive_axis_max(x, y))];
             xlabel_text = 'Open |J_{ij}|';
             ylabel_text = 'Close |J_{ij}|';
@@ -849,21 +767,20 @@ function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha,
             both = open_sig & close_sig;
 
             scatter(ax, x(open_only), y(open_only), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.open_only, ...
+                'MarkerFaceColor', [0.1, 0.45, 0.95], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
                 'DisplayName', 'open only');
             scatter(ax, x(close_only), y(close_only), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.close_only, ...
+                'MarkerFaceColor', [0.95, 0.55, 0.1], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
                 'DisplayName', 'close only');
             scatter(ax, x(both), y(both), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.both_sig, ...
+                'MarkerFaceColor', [0.45, 0.1, 0.75], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
                 'DisplayName', 'both sig');
-
             axis_limit = get_symmetric_axis_limit(x, y);
             xlabel_text = 'Open J_{ij}';
             ylabel_text = 'Close J_{ij}';
@@ -875,26 +792,31 @@ function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha,
             open_cat = data.open_cat_both_sig;
             close_cat = data.close_cat_both_sig;
 
-            pos_mask = open_cat == 1 & close_cat == 1;
-            neg_mask = open_cat == -1 & close_cat == -1;
-            switch_mask = (open_cat ~= 0) & (close_cat ~= 0) & (open_cat ~= close_cat);
+            pp = open_cat == 1 & close_cat == 1;
+            nn = open_cat == -1 & close_cat == -1;
+            pn = open_cat == 1 & close_cat == -1;
+            np = open_cat == -1 & close_cat == 1;
 
-            scatter(ax, x(pos_mask), y(pos_mask), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.pos, ...
+            scatter(ax, x(pp), y(pp), marker_size, 'filled', ...
+                'MarkerFaceColor', [1, 0.2, 0.2], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'pos');
-            scatter(ax, x(neg_mask), y(neg_mask), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.neg, ...
+                'DisplayName', 'pos→pos');
+            scatter(ax, x(nn), y(nn), marker_size, 'filled', ...
+                'MarkerFaceColor', [0.2, 0.2, 1], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'neg');
-            scatter(ax, x(switch_mask), y(switch_mask), marker_size, 'filled', ...
-                'MarkerFaceColor', colors.switch, ...
+                'DisplayName', 'neg→neg');
+            scatter(ax, x(pn), y(pn), marker_size, 'filled', ...
+                'MarkerFaceColor', [1.0, 0.5, 0.0], ...
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'switch');
-
+                'DisplayName', 'pos→neg');
+            scatter(ax, x(np), y(np), marker_size, 'filled', ...
+                'MarkerFaceColor', [0.0, 0.65, 0.8], ...
+                'MarkerFaceAlpha', marker_alpha, ...
+                'MarkerEdgeAlpha', marker_alpha, ...
+                'DisplayName', 'neg→pos');
             axis_limit = get_symmetric_axis_limit(x, y);
             xlabel_text = 'Open J_{ij}';
             ylabel_text = 'Close J_{ij}';
@@ -907,10 +829,10 @@ function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha,
     [rho, pval, n_valid] = pearson_stats(x, y);
     cos_sim = cosine_similarity_omitnan(x, y);
 
-    plot(ax, axis_limit, axis_limit, '--', 'Color', colors.identity_line, 'LineWidth', 1, 'HandleVisibility', 'off');
+    plot(ax, axis_limit, axis_limit, 'r--', 'LineWidth', 1, 'HandleVisibility', 'off');
     if strcmp(axis_mode, 'signed')
-        xline(ax, 0, ':', 'Color', colors.zero_line, 'HandleVisibility', 'off');
-        yline(ax, 0, ':', 'Color', colors.zero_line, 'HandleVisibility', 'off');
+        xline(ax, 0, 'k:', 'HandleVisibility', 'off');
+        yline(ax, 0, 'k:', 'HandleVisibility', 'off');
     end
 
     xlim(ax, axis_limit);
@@ -922,11 +844,7 @@ function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha,
     ylabel(ax, ylabel_text);
     title(ax, sprintf('%s\nPearson r = %.6f (p = %.3e, n = %d)\ncos sim = %.6f', ...
         title_text, rho, pval, n_valid, cos_sim), 'Interpreter', 'none');
-    if show_legend
-        legend(ax, 'Location', 'northeast');
-    else
-        legend(ax, 'off');
-    end
+    legend(ax, 'Location', 'northeast');
     add_stats_text(ax, rho, pval, n_valid);
 end
 
@@ -968,20 +886,7 @@ function cos_sim = cosine_similarity_omitnan(x, y)
     end
 end
 
-
-function plot_open_close_density(ax, x, y, rho, pval, n_valid, nbin, clip_percentile, use_log_count, title_text, axis_mode, colors)
-    if nargin < 10 || isempty(title_text)
-        title_text = '';
-    end
-    if nargin < 11 || isempty(axis_mode)
-        axis_mode = 'abs';
-    end
-    if nargin < 12 || isempty(colors)
-        colors = struct();
-        colors.identity_line = [1, 0, 0];
-        colors.zero_line = [0, 0, 0];
-    end
-
+function plot_open_close_density(ax, x, y, rho, pval, n_valid, nbin, clip_percentile, use_log_count, title_text)
     [edges_x, edges_y, n_in_range] = make_density_edges(x, y, nbin, clip_percentile);
     count_mat = histcounts2(x, y, edges_x, edges_y);
 
@@ -997,13 +902,8 @@ function plot_open_close_density(ax, x, y, rho, pval, n_valid, nbin, clip_percen
     imagesc(ax, centers_x, centers_y, plot_mat);
     set(ax, 'YDir', 'normal');
     hold(ax, 'on');
-    plot_identity_line_with_limits(ax, edges_x(1), edges_x(end), edges_y(1), edges_y(end), colors.identity_line);
-    if strcmp(axis_mode, 'signed')
-        xline(ax, 0, ':', 'Color', colors.zero_line, 'HandleVisibility', 'off');
-        yline(ax, 0, ':', 'Color', colors.zero_line, 'HandleVisibility', 'off');
-    end
+    plot_identity_line_with_limits(ax, edges_x(1), edges_x(end), edges_y(1), edges_y(end));
     hold(ax, 'off');
-
     cb = colorbar(ax);
     if use_log_count
         ylabel(cb, 'log_{10}(count + 1)');
@@ -1014,20 +914,14 @@ function plot_open_close_density(ax, x, y, rho, pval, n_valid, nbin, clip_percen
     axis(ax, 'square');
     xlim(ax, [edges_x(1), edges_x(end)]);
     ylim(ax, [edges_y(1), edges_y(end)]);
-    if strcmp(axis_mode, 'signed')
-        xlabel(ax, 'Open J_{ij}');
-        ylabel(ax, 'Close J_{ij}');
-    else
-        xlabel(ax, 'Open |J_{ij}|');
-        ylabel(ax, 'Close |J_{ij}|');
-    end
+    xlabel(ax, 'Open |J_{ij}|');
+    ylabel(ax, 'Close |J_{ij}|');
     title(ax, title_text, 'Interpreter', 'none');
     add_stats_text(ax, rho, pval, n_valid);
 
-    fprintf('%s density: total n = %d, in density range = %d, max bin count = %d', ...
+    fprintf('%s density: total n = %d, in density range = %d, max bin count = %d\n', ...
         title_text, n_valid, n_in_range, max(count_mat(:)));
 end
-
 
 function [edges_x, edges_y, n_in_range] = make_density_edges(x, y, nbin, clip_percentile)
     valid = isfinite(x) & isfinite(y);
@@ -1107,21 +1001,17 @@ function plot_identity_line(ax, x, y)
     ylim(ax, [vmin, vmax]);
 end
 
-function plot_identity_line_with_limits(ax, xmin, xmax, ymin, ymax, line_color)
+function plot_identity_line_with_limits(ax, xmin, xmax, ymin, ymax)
     vmin = max(xmin, ymin);
     vmax = min(xmax, ymax);
-    if nargin < 6 || isempty(line_color)
-        line_color = [1, 0, 0];
-    end
     if isfinite(vmin) && isfinite(vmax) && vmin < vmax
-        plot(ax, [vmin, vmax], [vmin, vmax], '--', 'Color', line_color, 'LineWidth', 1, 'HandleVisibility', 'off');
+        plot(ax, [vmin, vmax], [vmin, vmax], 'r--', 'LineWidth', 1, 'HandleVisibility', 'off');
     else
         vals_min = min([xmin, ymin]);
         vals_max = max([xmax, ymax]);
-        plot(ax, [vals_min, vals_max], [vals_min, vals_max], '--', 'Color', line_color, 'LineWidth', 1, 'HandleVisibility', 'off');
+        plot(ax, [vals_min, vals_max], [vals_min, vals_max], 'r--', 'LineWidth', 1, 'HandleVisibility', 'off');
     end
 end
-
 
 function add_stats_text(ax, rho, pval, n_valid)
     if nargin < 4
