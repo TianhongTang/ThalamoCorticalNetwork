@@ -35,7 +35,7 @@ states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
 n_state = numel(states);
 
 %% Parameters
-kernel_idx = 2;
+kernel_idx = 1;
 err_multi = 1; % threshold for significant J, in multiples of the GLM error estimate.
 network_err_multi = 2;
 density_nbin = 60;
@@ -820,7 +820,7 @@ function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha,
             ylabel_text = 'Close |J_{ij}|';
             axis_mode = 'positive';
 
-        case 'switch_abs'
+        case 'switch_abs_both'
             x = data.xswitch_abs;
             y = data.yswitch_abs;
             scatter(ax, data.xswitch_posneg_abs, data.yswitch_posneg_abs, marker_size, 'filled', ...
@@ -833,6 +833,20 @@ function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha,
                 'MarkerFaceAlpha', marker_alpha, ...
                 'MarkerEdgeAlpha', marker_alpha, ...
                 'DisplayName', 'open neg / close pos');
+
+            axis_limit = [0, max(3.5, get_positive_axis_max(x, y))];
+            xlabel_text = 'Open |J_{ij}|';
+            ylabel_text = 'Close |J_{ij}|';
+            axis_mode = 'positive';
+
+        case 'switch_abs'
+            x = data.xswitch_abs;
+            y = data.yswitch_abs;
+            scatter(ax, x, y, marker_size, 'filled', ... 
+                'MarkerFaceColor', colors.switch, ...
+                'MarkerFaceAlpha', marker_alpha, ...
+                'MarkerEdgeAlpha', marker_alpha, ...
+                'DisplayName', 'switch');
 
             axis_limit = [0, max(3.5, get_positive_axis_max(x, y))];
             xlabel_text = 'Open |J_{ij}|';
@@ -923,7 +937,7 @@ function plot_open_close_scatter(ax, data, plot_mode, marker_size, marker_alpha,
     title(ax, sprintf('%s\nPearson r = %.6f (p = %.3e, n = %d)\ncos sim = %.6f', ...
         title_text, rho, pval, n_valid, cos_sim), 'Interpreter', 'none');
     if show_legend
-        legend(ax, 'Location', 'northeast');
+        legend(ax, 'Location', 'northeastoutside');
     else
         legend(ax, 'off');
     end

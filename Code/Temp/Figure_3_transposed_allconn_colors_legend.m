@@ -35,7 +35,7 @@ states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
 n_state = numel(states);
 
 %% Parameters
-kernel_idx = 2;
+kernel_idx = 1;
 err_multi = 1; % threshold for significant J, in multiples of the GLM error estimate.
 network_err_multi = 2;
 density_nbin = 60;
