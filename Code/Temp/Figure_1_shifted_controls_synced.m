@@ -20,8 +20,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 meta = struct();
 meta.animal_name = 'Slayer';
 meta.injection = 'Muscimol';
-meta.align = 'Longest';
-meta.session_idx = 6;
+meta.align = 'Last';
+meta.session_idx = 8;
 meta.resting_dur_threshold = 15;
 
 % areas    = {'Full',     'Full',      'Cortex',   'Cortex'};
@@ -39,14 +39,14 @@ f = figure('Color', 'w', 'Visible', 'off');
 tiles = tiledlayout(n_state, n_column, "TileSpacing", "Compact", "Padding", "Compact");
 
 %% parameters
-shuffle_N = 10;
+shuffle_N = 2;
 std_multiplier = 2; % threshold for shuffled controls, in multiples of shuffled SD.
 sig_min_run_corr = 50; % only mark significance if it lasts for at least this many consecutive bins, for correlograms.
 sig_min_run_spec = 15; % for spectral plots.
 err_multi = 2; % threshold for significant J, in multiples of the error estimate from GLM.
-t_range = 1:60000;
-corr_range = 1500; % ms.
-smooth_window = 25; % ms.
+t_range = 1:10000;
+corr_range = 100; % ms.
+smooth_window = 1; % ms.
 sample_rate = 1000; % Hz.
 freqs = linspace(0, 150, 301); % Hz.
 spec_smooth_window = 15; % frequency-bin smoothing for spectral visualization only.
@@ -67,9 +67,9 @@ smooth_kernel = smooth_kernel / sum(smooth_kernel); % normalize kernel
 % selected_neurons = [16:21, 39, 44, 61:67, 83:93];
 % selected_neurons = [14:19, 33:40, 42, 44, 46, 49, 58:73, 83:95];
 % selected_neurons = [16, 61];
-selected_neurons = [2, 42];
-% selected_neurons = [29, 81];
-display_t_range = 00001:2000;
+% selected_neurons = [2, 42]; % [Latest version]
+selected_neurons = [23, 58];
+display_t_range = 00001:10000;
 
 for i = 1:length(areas)
 % for i = 2:2
@@ -308,7 +308,7 @@ for i = 1:length(areas)
     ylabel(tile, 'Normalized correlation');
     legend(tile, 'show', 'Location', 'southeast');
     xlim(tile, [-corr_range, corr_range]);
-    ylim(tile, [-0.003, 0.005]);
+    ylim(tile, [-0.03, 0.05]);
 
     %% Column 3: Auto-correlograms with shifted self-controls.
     column = 3;
