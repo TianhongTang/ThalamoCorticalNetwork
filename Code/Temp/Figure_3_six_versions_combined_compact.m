@@ -343,23 +343,23 @@ function render_comparison_figure(root, cfg, pooled_one, params)
         add_panel_label(ax, row_bottom, 1, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 2));
-        plot_pair_scatter(ax, data, 'same_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s same-sign abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+        plot_pair_scatter(ax, data, 'either_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
+            sprintf('%s either significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
         add_panel_label(ax, row_top, 2, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 2));
-        plot_pair_scatter(ax, data, 'switch_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s sign-switch abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+        plot_pair_scatter(ax, data, 'both_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
+            sprintf('%s both significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
         add_panel_label(ax, row_bottom, 2, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 3));
-        plot_pair_scatter(ax, data, 'either_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s either significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+        plot_pair_scatter(ax, data, 'same_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
+            sprintf('%s same-sign abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
         add_panel_label(ax, row_top, 3, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 3));
-        plot_pair_scatter(ax, data, 'both_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s both significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+        plot_pair_scatter(ax, data, 'switch_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
+            sprintf('%s sign-switch abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
         add_panel_label(ax, row_bottom, 3, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 4));
