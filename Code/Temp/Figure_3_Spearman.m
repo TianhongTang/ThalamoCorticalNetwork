@@ -67,6 +67,7 @@ params.n_row = n_row;
 params.n_col = n_col;
 params.figure_visible = figure_visible;
 params.show_legend = show_legend;
+params.show_inset_stat = show_inset_stat;
 params.colors = colors;
 
 figure_configs = build_figure_configs(kernel_idx_1, kernel_idx_2);
@@ -322,33 +323,33 @@ function render_comparison_figure(root, cfg, pooled_one, params)
 
         ax = nexttile(tile_idx(row_top, 1));
         plot_pair_scatter(ax, data, 'all_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s all connections, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit);
+            sprintf('%s all connections, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit, params.show_inset_stat);
         add_panel_label(ax, row_top, 1, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 1));
         plot_pair_density(ax, data.x_orig, data.y_orig, pearson_r_orig, pearson_p_orig, spearman_rho_orig, spearman_p_orig, n_orig, params.density_nbin, params.density_clip_percentile, ...
             params.density_use_log_count, sprintf('%s all-connection density, sessions=%d', ctx.name, pooled_one.valid_session_count), ...
-            'signed', params.colors, ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit);
+            'signed', params.colors, ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit, params.show_inset_stat);
         add_panel_label(ax, row_bottom, 1, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 2));
         plot_pair_scatter(ax, data, 'either_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s either significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+            sprintf('%s either significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, [], params.show_inset_stat);
         add_panel_label(ax, row_top, 2, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 2));
         plot_pair_scatter(ax, data, 'both_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s both significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+            sprintf('%s both significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, [], params.show_inset_stat);
         add_panel_label(ax, row_bottom, 2, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 3));
         plot_pair_scatter(ax, data, 'same_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s same-sign abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+            sprintf('%s same-sign abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, [], params.show_inset_stat);
         add_panel_label(ax, row_top, 3, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 3));
         plot_pair_scatter(ax, data, 'switch_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s sign-switch abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+            sprintf('%s sign-switch abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, [], params.show_inset_stat);
         add_panel_label(ax, row_bottom, 3, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 4));
@@ -787,12 +788,15 @@ function [rho, pval, n_valid] = pearson_stats(x, y)
     [rho, pval, ~, ~, n_valid] = correlation_stats(x, y);
 end
 
-function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, colors, show_legend, title_text, x_label, y_label, axis_limit_override)
+function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, colors, show_legend, title_text, x_label, y_label, axis_limit_override, show_inset_stat)
     cla(ax);
     hold(ax, 'on');
 
     if nargin < 11
         axis_limit_override = [];
+    end
+    if nargin < 12
+        show_inset_stat = true;
     end
 
     switch plot_mode
@@ -927,14 +931,29 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
     axis(ax, 'square');
     xlabel(ax, xlabel_text);
     ylabel(ax, ylabel_text);
-    title(ax, sprintf('%s\nPearson r = %.6f (p = %.3e, n = %d)\nSpearman rho = %.6f (p = %.3e)\ncos sim = %.6f', ...
-        title_text, pearson_r, pearson_p, n_valid, spearman_rho, spearman_p, cos_sim), 'Interpreter', 'none');
+
+    % Panel title with stats
+    if pearson_p > 0.001
+        pearson_p_str = sprintf('%.3f', pearson_p);
+    else
+        pearson_p_str = sprintf('%.3e', pearson_p);
+    end
+    if spearman_p > 0.001
+        spearman_p_str = sprintf('%.3f', spearman_p);
+    else
+        spearman_p_str = sprintf('%.3e', spearman_p);
+    end
+    title(ax, sprintf('%s\nPearson r = %.6f (p = %s, n = %d)\nSpearman rho = %.6f (p = %s)\ncos sim = %.6f', ...
+        title_text, pearson_r, pearson_p_str, n_valid, spearman_rho, spearman_p_str, cos_sim), 'Interpreter', 'none');
+
     if show_legend
         legend(ax, 'Location', 'northeastoutside');
     else
         legend(ax, 'off');
     end
-    add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    if show_inset_stat
+        add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    end
 end
 
 function vmax = get_positive_axis_max(x, y)
@@ -975,7 +994,7 @@ function cos_sim = cosine_similarity_omitnan(x, y)
     end
 end
 
-function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid, nbin, clip_percentile, use_log_count, title_text, axis_mode, colors, x_label, y_label, axis_limit_override)
+function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid, nbin, clip_percentile, use_log_count, title_text, axis_mode, colors, x_label, y_label, axis_limit_override, show_inset_stat)
     if nargin < 12 || isempty(title_text)
         title_text = '';
     end
@@ -989,6 +1008,9 @@ function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearma
     end
     if nargin < 17
         axis_limit_override = [];
+    end
+    if nargin < 18
+        show_inset_stat = true;
     end
 
     [edges_x, edges_y, n_in_range] = make_density_edges(x, y, nbin, clip_percentile, axis_limit_override);
@@ -1031,7 +1053,9 @@ function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearma
         ylabel(ax, sprintf('%s |J_{ij}|', y_label));
     end
     title(ax, title_text, 'Interpreter', 'none');
-    add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    if show_inset_stat
+        add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    end
 
     fprintf('%s density: total n = %d, in density range = %d, max bin count = %d\n', ...
         title_text, n_valid, n_in_range, max(count_mat(:)));

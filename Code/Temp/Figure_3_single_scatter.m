@@ -1,8 +1,5 @@
-%% Figure 3: Pooled connection-pair correlation analyses
-% Generates six 4x4 figures comparing different condition pairs:
-%   1-2. Open vs Close for kernel 1 or kernel 2, split by Pre/Post.
-%   3-4. Pre vs Post for kernel 1 or kernel 2, split by RestOpen/RestClose.
-%   5-6. Kernel 1 vs Kernel 2 for Pre or Post, split by RestOpen/RestClose.
+%% Figure 3 single scatter: compact 2x2 scatter comparison
+% Draws four scatter panels with configurable x/y conditions and plot mode.
 
 clear;
 
@@ -17,27 +14,51 @@ addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
 %% Parameters
+
 kernel_idx_1 = 1;
 kernel_idx_2 = 2;
 
-err_multi = 1; % significance threshold for J.
-network_err_multi = 2;
-density_nbin = 60;
+err_multi = 1;
 scatter_marker_size = 8;
 scatter_alpha = 0.25;
-density_clip_percentile = [0.5, 99.5];
-density_use_log_count = true;
-category_labels = {'Negative', 'Non-sig', 'Positive'};
-
-n_row = 4;
-n_col = 4;
 figure_visible = 'off';
 show_legend = true;
 show_inset_stat = false;
+use_common_axis_limit = true;
 
-preferred_example_session_index = 12; % fallback: first valid session.
+preferred_example_session_index = 12; %#ok<NASGU>
 skip_failed_sessions = false;
-max_sessions_to_include = inf; % set smaller for debugging.
+max_sessions_to_include = inf;
+
+% Plot mode options:
+%   'all_signed'
+%   'either_sig_signed'
+%   'both_sig_signed'
+%   'same_abs'
+%   'switch_abs'
+single_scatter_plot_mode = 'same_abs';
+
+% Panel grid. Use either 'prepost', 'state', or 'kernel_idx'.
+% Example below: rows = Pre/Post, columns = K1/K2.
+row_variable = 'prepost';
+row_values = {'Pre', 'Post'};
+row_labels = {'Pre', 'Post'};
+
+col_variable = 'kernel_idx';
+col_values = {kernel_idx_1, kernel_idx_2};
+col_labels = {sprintf('K%d', kernel_idx_1), sprintf('K%d', kernel_idx_2)};
+
+% X/Y condition templates.
+% For each field, use:
+%   'row' = take value from row_values according to row_variable
+%   'col' = take value from col_values according to col_variable
+%   fixed value = use the same value in every panel
+%
+% Current setting: Open vs Close, split by Pre/Post x K1/K2.
+x_condition_template = make_condition_template('row', 'RestOpen',  'col', 'Open');
+y_condition_template = make_condition_template('row', 'RestClose', 'col', 'Close');
+
+figure_title = 'Open vs Close: Pre/Post x K1/K2';
 
 colors = struct();
 colors.non_sig = [0.65, 0.65, 0.65];
@@ -54,28 +75,11 @@ colors.switch = [0.45, 0.10, 0.75];
 colors.identity_line = [1, 0, 0];
 colors.zero_line = [0, 0, 0];
 
-params = struct();
-params.err_multi = err_multi;
-params.network_err_multi = network_err_multi;
-params.density_nbin = density_nbin;
-params.scatter_marker_size = scatter_marker_size;
-params.scatter_alpha = scatter_alpha;
-params.density_clip_percentile = density_clip_percentile;
-params.density_use_log_count = density_use_log_count;
-params.category_labels = category_labels;
-params.n_row = n_row;
-params.n_col = n_col;
-params.figure_visible = figure_visible;
-params.show_legend = show_legend;
-params.colors = colors;
-
-figure_configs = build_figure_configs(kernel_idx_1, kernel_idx_2);
-
 %% Load and filter metadata
+
 mt = load_meta(root, 'table');
 mt = mt.GLM;
 
-% Edit this filter for the final session set.
 selected_rows = default_metadata_filter(mt);
 
 selected_mt = mt(selected_rows, :);
@@ -88,58 +92,49 @@ if isempty(meta_array)
     error('No metadata rows selected.');
 end
 
-%% Initialize pooled outputs
-n_fig = numel(figure_configs);
-pooled = struct([]);
-for fig_i = 1:n_fig
-    pooled(fig_i).contexts = struct([]);
-    for ctx_i = 1:numel(figure_configs(fig_i).contexts)
-        pooled(fig_i).contexts(ctx_i).data = empty_connection_data();
-        pooled(fig_i).contexts(ctx_i).cat_counts = zeros(numel(category_labels), numel(category_labels));
+%% Build panel configs
+
+n_panel_row = numel(row_values);
+n_panel_col = numel(col_values);
+
+panel_configs = struct([]);
+for row_i = 1:n_panel_row
+    for col_i = 1:n_panel_col
+        row_value = row_values{row_i};
+        col_value = col_values{col_i};
+
+        panel_configs(row_i, col_i).x = resolve_condition_template( ...
+            x_condition_template, row_variable, row_value, col_variable, col_value);
+        panel_configs(row_i, col_i).y = resolve_condition_template( ...
+            y_condition_template, row_variable, row_value, col_variable, col_value);
+        panel_configs(row_i, col_i).title = sprintf('%s | %s', row_labels{row_i}, col_labels{col_i});
+        panel_configs(row_i, col_i).data = empty_connection_data();
     end
-    pooled(fig_i).example_states = cell(4, 1);
-    pooled(fig_i).example_label = '';
 end
+
+%% Pool data
 
 valid_session_count = 0;
 failed_session_count = 0;
-first_valid_loaded = [];
-first_valid_label = '';
-preferred_loaded = [];
-preferred_label = '';
 
-%% Pool data across selected sessions
 for session_i = 1:numel(meta_array)
     meta = meta_array(session_i);
     session_label = make_session_label(meta);
     fprintf('\n===== Loading %s (%d/%d) =====\n', session_label, session_i, numel(meta_array));
 
     try
-        loaded_states = load_all_required_states(root, meta, [kernel_idx_1, kernel_idx_2]);
+        state_cache = struct();
 
-        if isempty(first_valid_loaded)
-            first_valid_loaded = loaded_states;
-            first_valid_label = session_label;
-        end
-        if session_i == preferred_example_session_index
-            preferred_loaded = loaded_states;
-            preferred_label = session_label;
-        end
+        for row_i = 1:n_panel_row
+            for col_i = 1:n_panel_col
+                cond_x = panel_configs(row_i, col_i).x;
+                cond_y = panel_configs(row_i, col_i).y;
 
-        for fig_i = 1:n_fig
-            cfg = figure_configs(fig_i);
-            for ctx_i = 1:numel(cfg.contexts)
-                cond_x = cfg.contexts(ctx_i).x;
-                cond_y = cfg.contexts(ctx_i).y;
-
-                state_x = loaded_states.(state_key(cond_x.prepost, cond_x.state, cond_x.kernel_idx));
-                state_y = loaded_states.(state_key(cond_y.prepost, cond_y.state, cond_y.kernel_idx));
+                [state_x, state_cache] = get_state_cached(root, meta, cond_x, state_cache);
+                [state_y, state_cache] = get_state_cached(root, meta, cond_y, state_cache);
 
                 [pair_data, ~] = make_pair_vectors(state_x, state_y, err_multi);
-                pooled(fig_i).contexts(ctx_i).data = append_connection_data(pooled(fig_i).contexts(ctx_i).data, pair_data);
-
-                [pair_counts, ~, ~, ~] = make_pair_category_counts(state_x, state_y, err_multi);
-                pooled(fig_i).contexts(ctx_i).cat_counts = pooled(fig_i).contexts(ctx_i).cat_counts + pair_counts;
+                panel_configs(row_i, col_i).data = append_connection_data(panel_configs(row_i, col_i).data, pair_data);
             end
         end
 
@@ -161,104 +156,165 @@ end
 
 fprintf('\nValid sessions: %d. Failed sessions: %d.\n', valid_session_count, failed_session_count);
 
-if isempty(preferred_loaded)
-    preferred_loaded = first_valid_loaded;
-    preferred_label = first_valid_label;
+%% Render figure
+
+if use_common_axis_limit
+    axis_limit_override = get_common_axis_limit_for_panels(panel_configs, single_scatter_plot_mode);
+else
+    axis_limit_override = [];
 end
 
-for fig_i = 1:n_fig
-    cfg = figure_configs(fig_i);
-    pooled(fig_i).example_label = preferred_label;
-    for ctx_i = 1:numel(cfg.contexts)
-        row_top = (ctx_i - 1) * 2 + 1;
-        row_bottom = row_top + 1;
-        pooled(fig_i).example_states{row_top} = preferred_loaded.(state_key(cfg.contexts(ctx_i).x.prepost, cfg.contexts(ctx_i).x.state, cfg.contexts(ctx_i).x.kernel_idx));
-        pooled(fig_i).example_states{row_bottom} = preferred_loaded.(state_key(cfg.contexts(ctx_i).y.prepost, cfg.contexts(ctx_i).y.state, cfg.contexts(ctx_i).y.kernel_idx));
+f = figure('Color', 'w', 'Visible', figure_visible);
+tiledlayout(n_panel_row, n_panel_col, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+
+for row_i = 1:n_panel_row
+    for col_i = 1:n_panel_col
+        ax = nexttile((row_i - 1) * n_panel_col + col_i);
+
+        cfg = panel_configs(row_i, col_i);
+        panel_title = sprintf('%s, sessions=%d', cfg.title, valid_session_count);
+
+        plot_pair_scatter(ax, cfg.data, single_scatter_plot_mode, scatter_marker_size, scatter_alpha, ...
+            colors, show_legend, panel_title, cfg.x.axis_label, cfg.y.axis_label, ...
+            axis_limit_override, show_inset_stat);
+
+        add_panel_label(ax, row_i, col_i, n_panel_col);
     end
-    pooled(fig_i).valid_session_count = valid_session_count;
 end
 
-%% Render and save figures
-for fig_i = 1:n_fig
-    render_comparison_figure(root, figure_configs(fig_i), pooled(fig_i), params);
+sgtitle(figure_title, 'Interpreter', 'none');
+
+%% Export
+
+save_folder = fullfile(root, 'Figures', 'Paper');
+check_path(save_folder);
+
+figWidth = 8.0;
+figHeight = 8.0;
+resolution = 300;
+
+set(f, 'Units', 'inches');
+f.Position(3:4) = [figWidth, figHeight]; 
+set(f, 'PaperUnits', 'inches');
+set(f, 'PaperSize', [figWidth, figHeight]);
+set(f, 'PaperPosition', [0, 0, figWidth, figHeight]);
+set(f, 'Color', 'w');
+
+output_stub = sprintf('Figure_3_single_scatter_%s', sanitize_filename(single_scatter_plot_mode));
+
+preview_filename = fullfile(save_folder, [output_stub, '_preview.jpg']);
+exportgraphics(f, preview_filename, 'ContentType', 'image', 'BackgroundColor', 'white', 'Resolution', resolution);
+
+pdf_filename = fullfile(save_folder, [output_stub, '.pdf']);
+exportgraphics(f, pdf_filename, 'ContentType', 'vector', 'BackgroundColor', 'white', 'Resolution', resolution);
+
+close(f);
+
+%% Single-scatter helper functions
+
+function cond = make_condition_template(prepost, state, kernel_idx, axis_label)
+    cond = struct();
+    cond.prepost = prepost;
+    cond.state = state;
+    cond.kernel_idx = kernel_idx;
+    cond.axis_label = axis_label;
 end
 
+function cond = resolve_condition_template(template, row_variable, row_value, col_variable, col_value)
+    cond = struct();
+    cond.prepost = resolve_template_value(template.prepost, 'prepost', row_variable, row_value, col_variable, col_value);
+    cond.state = resolve_template_value(template.state, 'state', row_variable, row_value, col_variable, col_value);
+    cond.kernel_idx = resolve_template_value(template.kernel_idx, 'kernel_idx', row_variable, row_value, col_variable, col_value);
+    cond.axis_label = template.axis_label;
 
-function figure_configs = build_figure_configs(k1, k2)
-    x1 = make_condition('Pre',  'RestOpen',  k1, 'Open');
-    y1 = make_condition('Pre',  'RestClose', k1, 'Close');
-    x2 = make_condition('Post', 'RestOpen',  k1, 'Open');
-    y2 = make_condition('Post', 'RestClose', k1, 'Close');
-
-    x3 = make_condition('Pre',  'RestOpen',  k2, 'Open');
-    y3 = make_condition('Pre',  'RestClose', k2, 'Close');
-    x4 = make_condition('Post', 'RestOpen',  k2, 'Open');
-    y4 = make_condition('Post', 'RestClose', k2, 'Close');
-
-    x5 = make_condition('Pre',  'RestOpen',  k1, 'Pre');
-    y5 = make_condition('Post', 'RestOpen',  k1, 'Post');
-    x6 = make_condition('Pre',  'RestClose', k1, 'Pre');
-    y6 = make_condition('Post', 'RestClose', k1, 'Post');
-
-    x7 = make_condition('Pre',  'RestOpen',  k2, 'Pre');
-    y7 = make_condition('Post', 'RestOpen',  k2, 'Post');
-    x8 = make_condition('Pre',  'RestClose', k2, 'Pre');
-    y8 = make_condition('Post', 'RestClose', k2, 'Post');
-
-    x9  = make_condition('Pre', 'RestOpen',  k1, sprintf('K%d', k1));
-    y9  = make_condition('Pre', 'RestOpen',  k2, sprintf('K%d', k2));
-    x10 = make_condition('Pre', 'RestClose', k1, sprintf('K%d', k1));
-    y10 = make_condition('Pre', 'RestClose', k2, sprintf('K%d', k2));
-
-    x11 = make_condition('Post', 'RestOpen',  k1, sprintf('K%d', k1));
-    y11 = make_condition('Post', 'RestOpen',  k2, sprintf('K%d', k2));
-    x12 = make_condition('Post', 'RestClose', k1, sprintf('K%d', k1));
-    y12 = make_condition('Post', 'RestClose', k2, sprintf('K%d', k2));
-
-    figure_configs = struct([]);
-
-    figure_configs(1).output_stub = sprintf('Figure3_k%d_open_vs_close', k1);
-    figure_configs(1).figure_title = sprintf('Kernel %d: Open vs Close', k1);
-    figure_configs(1).contexts = [ ...
-        make_context('Pre',  x1,  y1), ...
-        make_context('Post', x2,  y2)  ...
-    ];
-
-    figure_configs(2).output_stub = sprintf('Figure3_k%d_open_vs_close', k2);
-    figure_configs(2).figure_title = sprintf('Kernel %d: Open vs Close', k2);
-    figure_configs(2).contexts = [ ...
-        make_context('Pre',  x3,  y3), ...
-        make_context('Post', x4,  y4)  ...
-    ];
-
-    figure_configs(3).output_stub = sprintf('Figure3_k%d_pre_vs_post', k1);
-    figure_configs(3).figure_title = sprintf('Kernel %d: Pre vs Post', k1);
-    figure_configs(3).contexts = [ ...
-        make_context('RestOpen',  x5,  y5), ...
-        make_context('RestClose', x6,  y6)  ...
-    ];
-
-    figure_configs(4).output_stub = sprintf('Figure3_k%d_pre_vs_post', k2);
-    figure_configs(4).figure_title = sprintf('Kernel %d: Pre vs Post', k2);
-    figure_configs(4).contexts = [ ...
-        make_context('RestOpen',  x7,  y7), ...
-        make_context('RestClose', x8,  y8)  ...
-    ];
-
-    figure_configs(5).output_stub = sprintf('Figure3_pre_k%d_vs_k%d', k1, k2);
-    figure_configs(5).figure_title = sprintf('Pre: Kernel %d vs Kernel %d', k1, k2);
-    figure_configs(5).contexts = [ ...
-        make_context('RestOpen',  x9,  y9), ...
-        make_context('RestClose', x10, y10) ...
-    ];
-
-    figure_configs(6).output_stub = sprintf('Figure3_post_k%d_vs_k%d', k1, k2);
-    figure_configs(6).figure_title = sprintf('Post: Kernel %d vs Kernel %d', k1, k2);
-    figure_configs(6).contexts = [ ...
-        make_context('RestOpen',  x11, y11), ...
-        make_context('RestClose', x12, y12) ...
-    ];
+    if isstring(cond.prepost), cond.prepost = char(cond.prepost); end
+    if isstring(cond.state), cond.state = char(cond.state); end
+    if ischar(cond.kernel_idx) || isstring(cond.kernel_idx)
+        cond.kernel_idx = str2double(string(cond.kernel_idx));
+    end
 end
+
+function value = resolve_template_value(template_value, target_variable, row_variable, row_value, col_variable, col_value)
+    if ischar(template_value) || isstring(template_value)
+        template_value_str = char(string(template_value));
+
+        if strcmpi(template_value_str, 'row')
+            if ~strcmpi(row_variable, target_variable)
+                error('Template uses row for %s, but row_variable is %s.', target_variable, row_variable);
+            end
+            value = row_value;
+            return;
+        elseif strcmpi(template_value_str, 'col')
+            if ~strcmpi(col_variable, target_variable)
+                error('Template uses col for %s, but col_variable is %s.', target_variable, col_variable);
+            end
+            value = col_value;
+            return;
+        end
+    end
+
+    value = template_value;
+end
+
+function [state_struct, state_cache] = get_state_cached(root, meta, cond, state_cache)
+    key = state_key(cond.prepost, cond.state, cond.kernel_idx);
+    if isfield(state_cache, key)
+        state_struct = state_cache.(key);
+    else
+        state_struct = load_state_connectivity(root, meta, cond.prepost, cond.state, cond.kernel_idx);
+        state_cache.(key) = state_struct;
+    end
+end
+
+function axis_limit = get_common_axis_limit_for_panels(panel_configs, plot_mode)
+    x_all = [];
+    y_all = [];
+
+    for panel_i = 1:numel(panel_configs)
+        data = panel_configs(panel_i).data;
+        [x, y, axis_mode] = get_plot_xy_for_mode(data, plot_mode);
+        x_all = [x_all; x(:)]; %#ok<AGROW>
+        y_all = [y_all; y(:)]; %#ok<AGROW>
+    end
+
+    if strcmp(axis_mode, 'positive')
+        axis_limit = [0, max(3.5, get_positive_axis_max(x_all, y_all))];
+    else
+        axis_limit = get_symmetric_axis_limit(x_all, y_all);
+    end
+end
+
+function [x, y, axis_mode] = get_plot_xy_for_mode(data, plot_mode)
+    switch plot_mode
+        case 'all_signed'
+            x = data.x_orig;
+            y = data.y_orig;
+            axis_mode = 'signed';
+        case 'either_sig_signed'
+            x = data.x_either_sig;
+            y = data.y_either_sig;
+            axis_mode = 'signed';
+        case 'both_sig_signed'
+            x = data.x_both_sig;
+            y = data.y_both_sig;
+            axis_mode = 'signed';
+        case 'same_abs'
+            x = data.x_abs;
+            y = data.y_abs;
+            axis_mode = 'positive';
+        case 'switch_abs'
+            x = data.xswitch_abs;
+            y = data.yswitch_abs;
+            axis_mode = 'positive';
+        otherwise
+            error('Unknown plot_mode: %s', plot_mode);
+    end
+end
+
+function safe_name = sanitize_filename(name)
+    safe_name = regexprep(char(string(name)), '[^A-Za-z0-9_-]', '_');
+end
+
 
 function cond = make_condition(prepost, state, kernel_idx, axis_label)
     cond = struct();
@@ -322,33 +378,33 @@ function render_comparison_figure(root, cfg, pooled_one, params)
 
         ax = nexttile(tile_idx(row_top, 1));
         plot_pair_scatter(ax, data, 'all_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s all connections, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit);
+            sprintf('%s all connections, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit, params.show_inset_stat);
         add_panel_label(ax, row_top, 1, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 1));
         plot_pair_density(ax, data.x_orig, data.y_orig, pearson_r_orig, pearson_p_orig, spearman_rho_orig, spearman_p_orig, n_orig, params.density_nbin, params.density_clip_percentile, ...
             params.density_use_log_count, sprintf('%s all-connection density, sessions=%d', ctx.name, pooled_one.valid_session_count), ...
-            'signed', params.colors, ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit);
+            'signed', params.colors, ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit, params.show_inset_stat);
         add_panel_label(ax, row_bottom, 1, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 2));
         plot_pair_scatter(ax, data, 'either_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s either significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+            sprintf('%s either significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, [], params.show_inset_stat);
         add_panel_label(ax, row_top, 2, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 2));
         plot_pair_scatter(ax, data, 'both_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s both significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+            sprintf('%s both significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, [], params.show_inset_stat);
         add_panel_label(ax, row_bottom, 2, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 3));
         plot_pair_scatter(ax, data, 'same_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s same-sign abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+            sprintf('%s same-sign abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, [], params.show_inset_stat);
         add_panel_label(ax, row_top, 3, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 3));
         plot_pair_scatter(ax, data, 'switch_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s sign-switch abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+            sprintf('%s sign-switch abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, [], params.show_inset_stat);
         add_panel_label(ax, row_bottom, 3, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 4));
@@ -787,12 +843,15 @@ function [rho, pval, n_valid] = pearson_stats(x, y)
     [rho, pval, ~, ~, n_valid] = correlation_stats(x, y);
 end
 
-function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, colors, show_legend, title_text, x_label, y_label, axis_limit_override)
+function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, colors, show_legend, title_text, x_label, y_label, axis_limit_override, show_inset_stat)
     cla(ax);
     hold(ax, 'on');
 
     if nargin < 11
         axis_limit_override = [];
+    end
+    if nargin < 12
+        show_inset_stat = true;
     end
 
     switch plot_mode
@@ -911,6 +970,10 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
             error('Unknown plot_mode: %s', plot_mode);
     end
 
+    if ~isempty(axis_limit_override)
+        axis_limit = axis_limit_override;
+    end
+
     [pearson_r, pearson_p, spearman_rho, spearman_p, n_valid] = correlation_stats(x, y);
     cos_sim = cosine_similarity_omitnan(x, y);
 
@@ -927,14 +990,29 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
     axis(ax, 'square');
     xlabel(ax, xlabel_text);
     ylabel(ax, ylabel_text);
-    title(ax, sprintf('%s\nPearson r = %.6f (p = %.3e, n = %d)\nSpearman rho = %.6f (p = %.3e)\ncos sim = %.6f', ...
-        title_text, pearson_r, pearson_p, n_valid, spearman_rho, spearman_p, cos_sim), 'Interpreter', 'none');
+
+    % Panel title with stats
+    if pearson_p > 0.001
+        pearson_p_str = sprintf('%.3f', pearson_p);
+    else
+        pearson_p_str = sprintf('%.3e', pearson_p);
+    end
+    if spearman_p > 0.001
+        spearman_p_str = sprintf('%.3f', spearman_p);
+    else
+        spearman_p_str = sprintf('%.3e', spearman_p);
+    end
+    title(ax, sprintf('%s\nPearson r = %.6f (p = %s, n = %d)\nSpearman rho = %.6f (p = %s)\ncos sim = %.6f', ...
+        title_text, pearson_r, pearson_p_str, n_valid, spearman_rho, spearman_p_str, cos_sim), 'Interpreter', 'none');
+
     if show_legend
         legend(ax, 'Location', 'northeastoutside');
     else
         legend(ax, 'off');
     end
-    add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    if show_inset_stat
+        add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    end
 end
 
 function vmax = get_positive_axis_max(x, y)
@@ -975,7 +1053,7 @@ function cos_sim = cosine_similarity_omitnan(x, y)
     end
 end
 
-function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid, nbin, clip_percentile, use_log_count, title_text, axis_mode, colors, x_label, y_label, axis_limit_override)
+function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid, nbin, clip_percentile, use_log_count, title_text, axis_mode, colors, x_label, y_label, axis_limit_override, show_inset_stat)
     if nargin < 12 || isempty(title_text)
         title_text = '';
     end
@@ -989,6 +1067,9 @@ function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearma
     end
     if nargin < 17
         axis_limit_override = [];
+    end
+    if nargin < 18
+        show_inset_stat = true;
     end
 
     [edges_x, edges_y, n_in_range] = make_density_edges(x, y, nbin, clip_percentile, axis_limit_override);
@@ -1031,7 +1112,9 @@ function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearma
         ylabel(ax, sprintf('%s |J_{ij}|', y_label));
     end
     title(ax, title_text, 'Interpreter', 'none');
-    add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    if show_inset_stat
+        add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    end
 
     fprintf('%s density: total n = %d, in density range = %d, max bin count = %d\n', ...
         title_text, n_valid, n_in_range, max(count_mat(:)));
