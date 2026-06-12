@@ -34,6 +34,9 @@ n_col = 4;
 figure_visible = 'off';
 show_legend = true;
 show_inset_stat = false;
+show_identity_line = true;
+show_fit_line = true;
+fit_line_method = 'tls'; % 'ols' or 'tls'.
 
 preferred_example_session_index = 12; % fallback: first valid session.
 skip_failed_sessions = false;
@@ -53,6 +56,7 @@ colors.switch = [0.45, 0.10, 0.75];
 
 colors.identity_line = [1, 0, 0];
 colors.zero_line = [0, 0, 0];
+colors.fit_line = [0.20, 0.20, 0.20];
 
 params = struct();
 params.err_multi = err_multi;
@@ -67,6 +71,10 @@ params.n_row = n_row;
 params.n_col = n_col;
 params.figure_visible = figure_visible;
 params.show_legend = show_legend;
+params.show_inset_stat = show_inset_stat;
+params.show_identity_line = show_identity_line;
+params.show_fit_line = show_fit_line;
+params.fit_line_method = fit_line_method;
 params.colors = colors;
 
 figure_configs = build_figure_configs(kernel_idx_1, kernel_idx_2);
@@ -321,8 +329,10 @@ function render_comparison_figure(root, cfg, pooled_one, params)
         category_labels_2x2 = {'Negative', 'Positive'};
 
         ax = nexttile(tile_idx(row_top, 1));
-        plot_pair_scatter(ax, data, 'all_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s all connections, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit);
+        plot_pair_scatter(ax, data, 'all_signed', params.scatter_marker_size, params.scatter_alpha, ...
+            params.colors, params.show_legend, sprintf('%s all connections, sessions=%d', ctx.name, pooled_one.valid_session_count), ...
+            ctx.x.axis_label, ctx.y.axis_label, orig_axis_limit, ...
+            params.show_inset_stat, params.show_identity_line, params.show_fit_line, params.fit_line_method);
         add_panel_label(ax, row_top, 1, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 1));
@@ -332,23 +342,31 @@ function render_comparison_figure(root, cfg, pooled_one, params)
         add_panel_label(ax, row_bottom, 1, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 2));
-        plot_pair_scatter(ax, data, 'either_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s either significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+        plot_pair_scatter(ax, data, 'either_sig_signed', params.scatter_marker_size, params.scatter_alpha, ...
+            params.colors, params.show_legend, sprintf('%s either significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ...
+            ctx.x.axis_label, ctx.y.axis_label, [], ...
+            params.show_inset_stat, params.show_identity_line, params.show_fit_line, params.fit_line_method);
         add_panel_label(ax, row_top, 2, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 2));
-        plot_pair_scatter(ax, data, 'both_sig_signed', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s both significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+        plot_pair_scatter(ax, data, 'both_sig_signed', params.scatter_marker_size, params.scatter_alpha, ...
+            params.colors, params.show_legend, sprintf('%s both significant signed, sessions=%d', ctx.name, pooled_one.valid_session_count), ...
+            ctx.x.axis_label, ctx.y.axis_label, [], ...
+            params.show_inset_stat, params.show_identity_line, params.show_fit_line, params.fit_line_method);
         add_panel_label(ax, row_bottom, 2, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 3));
-        plot_pair_scatter(ax, data, 'same_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s same-sign abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+        plot_pair_scatter(ax, data, 'same_abs', params.scatter_marker_size, params.scatter_alpha, ...
+            params.colors, params.show_legend, sprintf('%s same-sign abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ...
+            ctx.x.axis_label, ctx.y.axis_label, [], ...
+            params.show_inset_stat, params.show_identity_line, params.show_fit_line, params.fit_line_method);
         add_panel_label(ax, row_top, 3, params.n_col);
 
         ax = nexttile(tile_idx(row_bottom, 3));
-        plot_pair_scatter(ax, data, 'switch_abs', params.scatter_marker_size, params.scatter_alpha, params.colors, params.show_legend, ...
-            sprintf('%s sign-switch abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ctx.x.axis_label, ctx.y.axis_label, []);
+        plot_pair_scatter(ax, data, 'switch_abs', params.scatter_marker_size, params.scatter_alpha, ...
+            params.colors, params.show_legend, sprintf('%s sign-switch abs, sessions=%d', ctx.name, pooled_one.valid_session_count), ...
+            ctx.x.axis_label, ctx.y.axis_label, [], ...
+            params.show_inset_stat, params.show_identity_line, params.show_fit_line, params.fit_line_method);
         add_panel_label(ax, row_bottom, 3, params.n_col);
 
         ax = nexttile(tile_idx(row_top, 4));
@@ -787,12 +805,25 @@ function [rho, pval, n_valid] = pearson_stats(x, y)
     [rho, pval, ~, ~, n_valid] = correlation_stats(x, y);
 end
 
-function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, colors, show_legend, title_text, x_label, y_label, axis_limit_override)
+
+function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, colors, show_legend, title_text, x_label, y_label, axis_limit_override, show_inset_stat, show_identity_line, show_fit_line, fit_line_method)
     cla(ax);
     hold(ax, 'on');
 
     if nargin < 11
         axis_limit_override = [];
+    end
+    if nargin < 12
+        show_inset_stat = true;
+    end
+    if nargin < 13
+        show_identity_line = true;
+    end
+    if nargin < 14
+        show_fit_line = false;
+    end
+    if nargin < 15
+        fit_line_method = 'ols';
     end
 
     switch plot_mode
@@ -805,64 +836,32 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
             none_sig = ~x_sig & ~y_sig;
             x_only = x_sig & ~y_sig;
             y_only = ~x_sig & y_sig;
-            both_sig = x_sig & y_sig;
+            both = x_sig & y_sig;
 
             scatter(ax, x(none_sig), y(none_sig), marker_size, 'filled', ...
                 'MarkerFaceColor', colors.non_sig, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'both non-sig');
+                'DisplayName', 'none sig');
             scatter(ax, x(x_only), y(x_only), marker_size, 'filled', ...
                 'MarkerFaceColor', colors.x_only, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
                 'DisplayName', sprintf('%s only', x_label));
             scatter(ax, x(y_only), y(y_only), marker_size, 'filled', ...
                 'MarkerFaceColor', colors.y_only, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
                 'DisplayName', sprintf('%s only', y_label));
-            scatter(ax, x(both_sig), y(both_sig), marker_size, 'filled', ...
+            scatter(ax, x(both), y(both), marker_size, 'filled', ...
                 'MarkerFaceColor', colors.both_sig, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
                 'DisplayName', 'both sig');
 
             axis_limit = get_symmetric_axis_limit(x, y);
-            if ~isempty(axis_limit_override)
-                axis_limit = axis_limit_override;
-            end;
             xlabel_text = sprintf('%s J_{ij}', x_label);
             ylabel_text = sprintf('%s J_{ij}', y_label);
             axis_mode = 'signed';
-
-        case 'same_abs'
-            x = data.x_abs;
-            y = data.y_abs;
-            scatter(ax, data.xpos_abs, data.ypos_abs, marker_size, 'filled', ...
-                'MarkerFaceColor', colors.pos, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'pos');
-            scatter(ax, data.xneg_abs, data.yneg_abs, marker_size, 'filled', ...
-                'MarkerFaceColor', colors.neg, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', 'neg');
-
-            axis_limit = [0, max(3.5, get_positive_axis_max(x, y))];
-            xlabel_text = sprintf('%s |J_{ij}|', x_label);
-            ylabel_text = sprintf('%s |J_{ij}|', y_label);
-            axis_mode = 'positive';
-
-        case 'switch_abs'
-            x = data.xswitch_abs;
-            y = data.yswitch_abs;
-            scatter(ax, data.xswitch_xy_abs, data.yswitch_xy_abs, marker_size, 'filled', ...
-                'MarkerFaceColor', colors.switch_xy, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', sprintf('%s pos / %s neg', x_label, y_label));
-            scatter(ax, data.xswitch_yx_abs, data.yswitch_yx_abs, marker_size, 'filled', ...
-                'MarkerFaceColor', colors.switch_yx, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
-                'DisplayName', sprintf('%s neg / %s pos', x_label, y_label));
-
-            axis_limit = [0, max(3.5, get_positive_axis_max(x, y))];
-            xlabel_text = sprintf('%s |J_{ij}|', x_label);
-            ylabel_text = sprintf('%s |J_{ij}|', y_label);
-            axis_mode = 'positive';
 
         case 'either_sig_signed'
             x = data.x_either_sig;
             y = data.y_either_sig;
             x_sig = data.x_cat_either_sig ~= 0;
             y_sig = data.y_cat_either_sig ~= 0;
+
             x_only = x_sig & ~y_sig;
             y_only = ~x_sig & y_sig;
             both = x_sig & y_sig;
@@ -890,7 +889,7 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
 
             pos_mask = x_cat == 1 & y_cat == 1;
             neg_mask = x_cat == -1 & y_cat == -1;
-            switch_mask = (x_cat ~= 0) & (y_cat ~= 0) & (x_cat ~= y_cat);
+            switch_mask = (x_cat == 1 & y_cat == -1) | (x_cat == -1 & y_cat == 1);
 
             scatter(ax, x(pos_mask), y(pos_mask), marker_size, 'filled', ...
                 'MarkerFaceColor', colors.pos, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
@@ -907,14 +906,65 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
             ylabel_text = sprintf('%s J_{ij}', y_label);
             axis_mode = 'signed';
 
+        case 'same_abs'
+            x = data.x_abs;
+            y = data.y_abs;
+            x_cat = data.x_cat_abs;
+            y_cat = data.y_cat_abs;
+
+            pos_mask = x_cat == 1 & y_cat == 1;
+            neg_mask = x_cat == -1 & y_cat == -1;
+
+            scatter(ax, x(pos_mask), y(pos_mask), marker_size, 'filled', ...
+                'MarkerFaceColor', colors.pos, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
+                'DisplayName', 'pos');
+            scatter(ax, x(neg_mask), y(neg_mask), marker_size, 'filled', ...
+                'MarkerFaceColor', colors.neg, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
+                'DisplayName', 'neg');
+
+            axis_limit = [0, get_positive_axis_max(x, y)];
+            xlabel_text = sprintf('|%s J_{ij}|', x_label);
+            ylabel_text = sprintf('|%s J_{ij}|', y_label);
+            axis_mode = 'positive';
+
+        case 'switch_abs'
+            x = data.x_switch_abs;
+            y = data.y_switch_abs;
+            x_cat = data.x_cat_switch_abs;
+            y_cat = data.y_cat_switch_abs;
+
+            switch_xy = x_cat == 1 & y_cat == -1;
+            switch_yx = x_cat == -1 & y_cat == 1;
+
+            scatter(ax, x(switch_xy), y(switch_xy), marker_size, 'filled', ...
+                'MarkerFaceColor', colors.switch_xy, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
+                'DisplayName', sprintf('%s pos, %s neg', x_label, y_label));
+            scatter(ax, x(switch_yx), y(switch_yx), marker_size, 'filled', ...
+                'MarkerFaceColor', colors.switch_yx, 'MarkerFaceAlpha', marker_alpha, 'MarkerEdgeAlpha', marker_alpha, ...
+                'DisplayName', sprintf('%s neg, %s pos', x_label, y_label));
+
+            axis_limit = [0, get_positive_axis_max(x, y)];
+            xlabel_text = sprintf('|%s J_{ij}|', x_label);
+            ylabel_text = sprintf('|%s J_{ij}|', y_label);
+            axis_mode = 'positive';
+
         otherwise
             error('Unknown plot_mode: %s', plot_mode);
+    end
+
+    if ~isempty(axis_limit_override)
+        axis_limit = axis_limit_override;
     end
 
     [pearson_r, pearson_p, spearman_rho, spearman_p, n_valid] = correlation_stats(x, y);
     cos_sim = cosine_similarity_omitnan(x, y);
 
-    plot(ax, axis_limit, axis_limit, '--', 'Color', colors.identity_line, 'LineWidth', 1, 'HandleVisibility', 'off');
+    if show_identity_line
+        plot(ax, axis_limit, axis_limit, '--', 'Color', colors.identity_line, 'LineWidth', 1, 'DisplayName', 'x=y');
+    end
+    if show_fit_line
+        plot_linear_fit_line(ax, x, y, axis_limit, colors.fit_line, fit_line_method);
+    end
     if strcmp(axis_mode, 'signed')
         xline(ax, 0, ':', 'Color', colors.zero_line, 'HandleVisibility', 'off');
         yline(ax, 0, ':', 'Color', colors.zero_line, 'HandleVisibility', 'off');
@@ -927,14 +977,139 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
     axis(ax, 'square');
     xlabel(ax, xlabel_text);
     ylabel(ax, ylabel_text);
-    title(ax, sprintf('%s\nPearson r = %.6f (p = %.3e, n = %d)\nSpearman rho = %.6f (p = %.3e)\ncos sim = %.6f', ...
-        title_text, pearson_r, pearson_p, n_valid, spearman_rho, spearman_p, cos_sim), 'Interpreter', 'none');
+
+    if pearson_p > 0.001
+        pearson_p_str = sprintf('%.3f', pearson_p);
+    else
+        pearson_p_str = sprintf('%.3e', pearson_p);
+    end
+    if spearman_p > 0.001
+        spearman_p_str = sprintf('%.3f', spearman_p);
+    else
+        spearman_p_str = sprintf('%.3e', spearman_p);
+    end
+
+    title(ax, sprintf('%s\nPearson r = %.6f (p = %s, n = %d)\nSpearman rho = %.6f (p = %s)\ncos sim = %.6f', ...
+        title_text, pearson_r, pearson_p_str, n_valid, spearman_rho, spearman_p_str, cos_sim), 'Interpreter', 'none');
+
     if show_legend
         legend(ax, 'Location', 'northeastoutside');
     else
         legend(ax, 'off');
     end
-    add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    if show_inset_stat
+        add_stats_text(ax, pearson_r, pearson_p, spearman_rho, spearman_p, n_valid);
+    end
+end
+
+function plot_linear_fit_line(ax, x, y, axis_limit, line_color, fit_line_method)
+    valid = isfinite(x) & isfinite(y);
+    x = x(valid);
+    y = y(valid);
+
+    if numel(x) < 2
+        return;
+    end
+
+    switch lower(fit_line_method)
+        case {'ols', 'linear'}
+            if all(x == x(1))
+                return;
+            end
+            fit_par = polyfit(x, y, 1);
+            x_fit = linspace(axis_limit(1), axis_limit(2), 100);
+            y_fit = polyval(fit_par, x_fit);
+
+        case {'tls', 'orthogonal', 'pca'}
+            [x_fit, y_fit] = total_least_squares_line(x, y, axis_limit);
+            if isempty(x_fit)
+                return;
+            end
+
+        otherwise
+            error('Unknown fit_line_method: %s. Use ''ols'' or ''tls''.', fit_line_method);
+    end
+
+    plot(ax, x_fit, y_fit, '-', 'Color', line_color, 'LineWidth', 1.5, ...
+        'DisplayName', sprintf('fit (%s)', fit_line_method));
+end
+
+function [x_fit, y_fit] = total_least_squares_line(x, y, axis_limit)
+    x_fit = [];
+    y_fit = [];
+
+    valid = isfinite(x) & isfinite(y);
+    x = x(valid);
+    y = y(valid);
+
+    if numel(x) < 2
+        return;
+    end
+
+    center = [mean(x), mean(y)];
+    XY = [x - center(1), y - center(2)];
+
+    if all(abs(XY(:)) < eps)
+        return;
+    end
+
+    [coeff, ~, ~] = pca(XY);
+    direction = coeff(:, 1);
+
+    if any(~isfinite(direction)) || norm(direction) == 0
+        return;
+    end
+
+    direction = direction / norm(direction);
+    x_min = axis_limit(1);
+    x_max = axis_limit(2);
+    y_min = axis_limit(1);
+    y_max = axis_limit(2);
+
+    candidates = [];
+    if abs(direction(1)) > eps
+        t = (x_min - center(1)) / direction(1);
+        y_hit = center(2) + t * direction(2);
+        if y_hit >= y_min - eps && y_hit <= y_max + eps
+            candidates(end+1, :) = [x_min, y_hit]; %#ok<AGROW>
+        end
+        t = (x_max - center(1)) / direction(1);
+        y_hit = center(2) + t * direction(2);
+        if y_hit >= y_min - eps && y_hit <= y_max + eps
+            candidates(end+1, :) = [x_max, y_hit]; %#ok<AGROW>
+        end
+    end
+
+    if abs(direction(2)) > eps
+        t = (y_min - center(2)) / direction(2);
+        x_hit = center(1) + t * direction(1);
+        if x_hit >= x_min - eps && x_hit <= x_max + eps
+            candidates(end+1, :) = [x_hit, y_min]; %#ok<AGROW>
+        end
+        t = (y_max - center(2)) / direction(2);
+        x_hit = center(1) + t * direction(1);
+        if x_hit >= x_min - eps && x_hit <= x_max + eps
+            candidates(end+1, :) = [x_hit, y_max]; %#ok<AGROW>
+        end
+    end
+
+    if size(candidates, 1) < 2
+        return;
+    end
+
+    [~, unique_idx] = unique(round(candidates, 12), 'rows', 'stable');
+    candidates = candidates(unique_idx, :);
+
+    if size(candidates, 1) < 2
+        return;
+    end
+
+    D = pdist2(candidates, candidates);
+    [~, max_idx] = max(D(:));
+    [i1, i2] = ind2sub(size(D), max_idx);
+
+    x_fit = [candidates(i1, 1), candidates(i2, 1)];
+    y_fit = [candidates(i1, 2), candidates(i2, 2)];
 end
 
 function vmax = get_positive_axis_max(x, y)
