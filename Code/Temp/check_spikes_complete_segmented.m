@@ -27,13 +27,13 @@ load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums');
 states = {'RestOpen', 'RestClose'};
 prepost = {'Pre', 'Post'};
 area_types = {'Full', 'Cortex'};
-aligns = { '', 'AlignLast', 'AlignLongest'};
+aligns = {'None', 'Last', 'Longest'};
 
 % main loop
-for dataset_idx = 1:dataset_num
+for dataset_idx = 1:3
     dataset_name = dataset_names{dataset_idx};
     session_num = session_nums(dataset_idx);
-    parfor session_idx = 1:session_num
+    for session_idx = 1:session_num
         fprintf('=========================\n');
         fprintf('Dataset: %s, Session: %d/%d\n', dataset_name, session_idx, session_num);
         for state_idx = 1:length(states)
@@ -49,31 +49,56 @@ for dataset_idx = 1:dataset_num
                         % because the number of segments depends on the concatenated raster length.
                         figure_folder = fullfile(root, 'Figures', 'Rasters_PDS');
                         check_path(figure_folder);
-                        
+
+                        % construct meta for loading
+                        meta = struct();
+
+                        if contains(dataset_name, 'Slayer')
+                            meta.animal_name = 'Slayer';
+                        elseif contains(dataset_name, 'Zeppelin')
+                            meta.animal_name = 'Zeppelin';
+                        elseif contains(dataset_name, 'Emperor')
+                            meta.animal_name = 'Emperor';
+                        end
+                        if contains(dataset_name, 'Mus')
+                            meta.injection = 'Muscimol';
+                        elseif contains(dataset_name, 'Sal')
+                            meta.injection = 'Saline';
+                        elseif contains(dataset_name, 'Noinj')
+                            meta.injection = 'No injection';
+                        end
+                        meta.prepost     = prepost_str;
+                        meta.state       = state;
+                        meta.area        = area_type;
+                        meta.align       = align;
+                        meta.session_idx = session_idx;
+                        meta.file_name   = generate_filename('raster', meta);
+
                         % load data
                         data_folder = fullfile(root, 'Data', 'Working', 'raster');
-                        data_name = sprintf('raster_%s%s%s%s%s_%d.mat', dataset_name, prepost_str, state, area_type, align, session_idx);
-                        data_path = fullfile(data_folder, data_name);
+                        data_path = fullfile(data_folder, meta.file_name);
                         if ~isfile(data_path)
                             fprintf('Data file not found: %s\n', data_path);
                             continue;
                         end
-                        d = load(data_path, "rasters", "cell_area", "channel", "N");
-                        rasters = d.rasters;
-                        cell_area = d.cell_area;
-                        channel = d.channel;
-                        N = d.N;
+                        d = load(data_path);
+                        rasters = d.data.rasters;
+                        cell_area = d.data.cell_area;
+                        % channel = d.data.channel;
+                        N = d.meta.N;
 
-                        sortidx_folder = fullfile(root, 'Data', 'Working', 'sort_idx');
-                        sortidx_name = sprintf('sortidx_%s%s%s_%d.mat', dataset_name, prepost_str, area_type, session_idx);
-                        sortidx_path = fullfile(sortidx_folder, sortidx_name);
+                        sortidx_folder = fullfile(root, 'Data', 'Working', 'sortidx');
+                        meta.criterion = 'channel';
+                        meta.file_name   = generate_filename('sortidx', meta);
+                        sortidx_path = fullfile(sortidx_folder, meta.file_name);
                         if ~isfile(sortidx_path)
                             fprintf('Sort index file not found: %s\n', sortidx_path);
                             continue;
                         end
-                        sort_idx = load(sortidx_path).sort_idx;
+                        sort_idx = load(sortidx_path).data.sort_idx;
 
                         % apply sorting
+                        cell_area = cell_area(sort_idx);
                         for r_idx = 1:length(rasters)
                             rasters{r_idx} = rasters{r_idx}(sort_idx, :);
                         end

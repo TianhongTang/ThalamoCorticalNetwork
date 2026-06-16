@@ -1,4 +1,4 @@
-%% Figure 2: Full-area Thalamus-ACC / Thalamus-VLPFC population analyses.
+%% Figure 2 thalamus: Full-area Thalamus-ACC / Thalamus-VLPFC population analyses.
 % Similar to the all-trial Figure 2 population script, but using Full-area
 % rasters that include ACC, VLPFC, and Thalamus.
 %
@@ -25,7 +25,7 @@ meta = struct();
 meta.animal_name = 'Slayer';
 meta.injection = 'Muscimol';
 meta.align = 'Longest';
-meta.session_idx = 7;
+meta.session_idx = 6;
 meta.resting_dur_threshold = 15;
 
 %% Conditions shown in the figure
@@ -46,6 +46,7 @@ n_state = numel(states);
 % Column 6 = pair spectral coherence.
 n_column = 6;
 figure_visible = 'off';
+show_legend = false;
 
 %% Parameters
 shuffle_N = 2;
@@ -129,7 +130,7 @@ for i = 1:n_state
     title(tile, sprintf('%s firing rate: %s', pair_label, meta.state));
     xlabel(tile, 'Time (ms)');
     ylabel(tile, 'Firing rate (Hz/neuron)');
-    legend(tile, 'show', 'Location', 'northeast');
+    set_legend_visibility(tile, show_legend, 'northeast');
 
     %% Compute all-trial population correlations and spectra.
     [correlogram, lags] = aggregate_norm_xcorr_trials(left_trials, right_trials, corr_range, lag_weight_correction);
@@ -251,7 +252,7 @@ for i = 1:n_state
     title(tile, sprintf('%s correlogram: %s', pair_label, meta.state));
     xlabel(tile, 'Lag (ms)');
     ylabel(tile, 'Normalized correlation');
-    legend(tile, 'show', 'Location', 'northeast');
+    set_legend_visibility(tile, show_legend, 'northeast');
     xlim(tile, [-corr_range, corr_range]);
 
     %% Column 3: pair population auto-correlograms with shifted self-controls.
@@ -293,7 +294,7 @@ for i = 1:n_state
     title(tile, sprintf('%s auto-correlograms: %s', pair_label, meta.state));
     xlabel(tile, 'Lag (ms)');
     ylabel(tile, 'Normalized correlation');
-    legend(tile, 'show', 'Location', 'southeast');
+    set_legend_visibility(tile, show_legend, 'southeast');
     xlim(tile, [-corr_range, corr_range]);
 
     %% Column 4: pair population cross-PSD with shifted control.
@@ -328,7 +329,7 @@ for i = 1:n_state
     title(tile, sprintf('%s cross-PSD: %s', pair_label, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'Cross-PSD');
-    legend(tile, 'show', 'Location', 'northeast');
+    set_legend_visibility(tile, show_legend, 'northeast');
 
     %% Column 5: pair population PSDs with shuffled controls.
     column = 5;
@@ -360,7 +361,7 @@ for i = 1:n_state
     title(tile, sprintf('%s signal PSD: %s', pair_label, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'PSD');
-    legend(tile, 'show', 'Location', 'northeast');
+    set_legend_visibility(tile, show_legend, 'northeast');
 
     %% Column 6: pair spectral coherence.
     column = 6;
@@ -394,7 +395,7 @@ for i = 1:n_state
     title(tile, sprintf('%s spectral coherence: %s', pair_label, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'Coherence');
-    legend(tile, 'show', 'Location', 'northeast');
+    set_legend_visibility(tile, show_legend, 'northeast');
 end
 
 % Harmonize y-limits within each analysis column across rows.
@@ -732,6 +733,19 @@ end
 
 function safe_name = sanitize_filename(name)
     safe_name = regexprep(char(string(name)), '[^A-Za-z0-9_-]', '_');
+end
+
+
+function set_legend_visibility(ax, show_legend, location)
+    if nargin < 3 || isempty(location)
+        location = 'best';
+    end
+
+    if show_legend
+        legend(ax, 'show', 'Location', location);
+    else
+        legend(ax, 'off');
+    end
 end
 
 function filter_area = get_area_filter(cell_area, area_name)

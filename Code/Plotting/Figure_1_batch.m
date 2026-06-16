@@ -1,7 +1,8 @@
-%% Figure 1: An example neuron pair showing state-dependent changes in firing and correlation.
-% Positive lag in correlogram: signal1(ACC) is later than signal2(VLPFC). 
+%% Figure 1 batch: pair activity, correlograms, and spectra
+% Define groups of manually selected neuron pairs. Each pair is rendered as one figure.
 
 clear;
+
 %% Get root folder
 code_depth = 3;
 script_path = mfilename('fullpath');
@@ -9,68 +10,131 @@ root = script_path;
 for i = 1:code_depth
     root = fileparts(root);
 end
-% include code folder and utils
 addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
-% addpath(fullfile(root, 'Code', 'Utils', 'HELPER_GENERAL'));
 
-%% Main
+%% Batch definitions
 
-% Example session: Slayer Mus 6.
-meta = struct();
-meta.animal_name = 'Slayer';
-meta.injection = 'Muscimol';
-meta.align = 'Last';
-meta.session_idx = 8;
-meta.resting_dur_threshold = 15;
+groups = struct([]);
 
-% areas    = {'Full',     'Full',      'Cortex',   'Cortex'};
+% groups(1).name = 'group';
+% groups(1).pairs(1) = make_pair_config('AnimalName', 'Muscimol', 1, [cell_i, cell_j]);
+groups(1).name = 'Both';
+groups(1).pairs = struct([]);
+groups(1).pairs = make_pair_config('Slayer', 'Muscimol', 8, [61, 18]);
+groups(1).pairs(2) = make_pair_config('Slayer', 'Muscimol', 8, [18, 36]);
+groups(1).pairs(3) = make_pair_config('Slayer', 'Muscimol', 6, [18, 92]);
+
+groups(2).name = 'K1only';
+groups(2).pairs = struct([]);
+groups(2).pairs = make_pair_config('Slayer', 'Muscimol', 6, [21, 93]);
+groups(2).pairs(2) = make_pair_config('Slayer', 'Muscimol', 8, [53, 25]);
+groups(2).pairs(3) = make_pair_config('Slayer', 'Muscimol', 7, [46, 17]);
+
+groups(3).name = 'K2only';
+groups(3).pairs = struct([]);
+groups(3).pairs = make_pair_config('Slayer', 'Muscimol', 7, [22, 23]);
+groups(3).pairs(2) = make_pair_config('Slayer', 'Muscimol', 6, [36, 57]);
+groups(3).pairs(3) = make_pair_config('Slayer', 'Muscimol', 7, [33, 17]);
+
+
+default_align = 'Last';
+default_resting_dur_threshold = 15;
+
+%% Conditions shown in each figure
+
 areas    = {'Cortex',   'Cortex',    'Cortex',   'Cortex'};
 preposts = {'Pre',      'Pre',       'Post',     'Post'};
 states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
-% areas    = {'Cortex',   'Cortex',  };
-% preposts = {'Pre',      'Pre',     };
-% states   = {'RestOpen', 'RestClose'};
-n_state = numel(areas);
 
-% figure
-n_column = 6;
-f = figure('Color', 'w', 'Visible', 'off');
-tiles = tiledlayout(n_state, n_column, "TileSpacing", "Compact", "Padding", "Compact");
+%% Parameters
 
-%% parameters
-shuffle_N = 2;
-std_multiplier = 2; % threshold for shuffled controls, in multiples of shuffled SD.
-sig_min_run_corr = 50; % only mark significance if it lasts for at least this many consecutive bins, for correlograms.
-sig_min_run_spec = 15; % for spectral plots.
-err_multi = 2; % threshold for significant J, in multiples of the error estimate from GLM.
-t_range = 1:10000;
-corr_range = 100; % ms.
-smooth_window = 1; % ms.
-sample_rate = 1000; % Hz.
-freqs = linspace(0, 150, 301); % Hz.
-spec_smooth_window = 15; % frequency-bin smoothing for spectral visualization only.
-psd_window_sec = 10; % Welch PSD window length for row 5 signal spectra.
-psd_overlap_frac = 0.5; % Welch PSD fractional overlap.
-mygauss = @(size, sigma) exp(-(-floor(size/2):floor(size/2)).^2/(2*sigma^2));
-% smooth_kernel = mygauss(10*smooth_window+1, smooth_window); % gaussian kernel
-% smooth_kernel = ones(1, smooth_window); % moving average kernel
-smooth_kernel = 1 - abs(-smooth_window:smooth_window) / smooth_window;
-smooth_kernel = smooth_kernel / sum(smooth_kernel); % normalize kernel
+params = struct();
+
+params.n_column = 6;
+params.figure_visible = 'off';
+
+params.shuffle_N = 2;
+params.std_multiplier = 2;
+params.sig_min_run_corr = 50;
+params.sig_min_run_spec = 15;
+params.err_multi = 2;
+
+params.analysis_trial_mode = 'all'; % 'all' or 'single'.
+params.analysis_trial_idx = 1; % used only when analysis_trial_mode = 'single'.
+params.analysis_t_range = []; % [] means full length of each selected trial.
+params.lag_weight_correction = true; % true: pooled Pearson per lag; false: duration-weighted trial-wise correlogram.
+
+params.display_trial_idx = 1;
+params.display_t_range = []; % [] means full length of display_trial_idx.
+
+params.corr_range = 100; % ms.
+params.smooth_window = 1; % ms.
+params.sample_rate = 1000; % Hz.
+params.freqs = linspace(0, 150, 301); % Hz.
+params.spec_smooth_window = 15;
+params.psd_window_sec = 10;
+params.psd_overlap_frac = 0.5;
+
+params.smooth_kernel = 1 - abs(-params.smooth_window:params.smooth_window) / params.smooth_window;
+params.smooth_kernel = params.smooth_kernel / sum(params.smooth_kernel);
+
+%% Render batch
+
+for group_i = 1:numel(groups)
+    group_name = groups(group_i).name;
+
+    for pair_i = 1:numel(groups(group_i).pairs)
+        pair_cfg = groups(group_i).pairs(pair_i);
+        pair_cfg = fill_pair_defaults(pair_cfg, default_align, default_resting_dur_threshold);
+
+        render_pair_figure(root, group_name, pair_i, numel(groups(group_i).pairs), ...
+            pair_cfg, areas, preposts, states, params);
+    end
+end
+
+%% Local rendering function
+
+function render_pair_figure(root, group_name, pair_i, n_pair, pair_cfg, areas, preposts, states, params)
+    meta = struct();
+    meta.animal_name = pair_cfg.animal_name;
+    meta.injection = pair_cfg.injection;
+    meta.align = pair_cfg.align;
+    meta.session_idx = pair_cfg.session_idx;
+    meta.resting_dur_threshold = pair_cfg.resting_dur_threshold;
+
+    selected_neurons = pair_cfg.selected_neurons;
+
+    n_state = numel(areas);
+    n_column = params.n_column;
+
+    f = figure('Color', 'w', 'Visible', params.figure_visible);
+    tiledlayout(n_state, n_column, "TileSpacing", "Compact", "Padding", "Compact");
+    col_axes = gobjects(n_state, n_column);
+
+    shuffle_N = params.shuffle_N;
+    std_multiplier = params.std_multiplier;
+    sig_min_run_corr = params.sig_min_run_corr;
+    sig_min_run_spec = params.sig_min_run_spec;
+    err_multi = params.err_multi; %#ok<NASGU>
+
+    analysis_trial_mode = params.analysis_trial_mode;
+    analysis_trial_idx = params.analysis_trial_idx;
+    analysis_t_range = params.analysis_t_range;
+    lag_weight_correction = params.lag_weight_correction;
+
+    display_trial_idx = params.display_trial_idx;
+    display_t_range = params.display_t_range;
+
+    corr_range = params.corr_range;
+    sample_rate = params.sample_rate;
+    freqs = params.freqs;
+    spec_smooth_window = params.spec_smooth_window;
+    psd_window_sec = params.psd_window_sec;
+    psd_overlap_frac = params.psd_overlap_frac;
+    smooth_kernel = params.smooth_kernel;
 
 %% Column 1: Raster of selected neurons
-
-% Example session: Slayer Mus 6. Selected t_range. Justification: Best sleep period for Pre-eyeclose.
-% Remove this range in population analysis, or add proper filters to select sleep periods.
-
-% selected_neurons = 1:95;
-% selected_neurons = [16:21, 39, 44, 61:67, 83:93];
-% selected_neurons = [14:19, 33:40, 42, 44, 46, 49, 58:73, 83:95];
-% selected_neurons = [16, 61];
-% selected_neurons = [2, 42]; % [Latest version]
-selected_neurons = [23, 58];
-display_t_range = 00001:10000;
-
 for i = 1:length(areas)
 % for i = 2:2
     % Load data
@@ -91,10 +155,12 @@ for i = 1:length(areas)
     % tile = nexttile(i*2-1);
     column = 1;
     tile = nexttile(column+(i-1)*n_column);
-    raster = raster_data.data.rasters{1}(:, display_t_range);
+    col_axes(i, column) = tile;
+    display_raster = get_raster_segment(raster_data.data.rasters, display_trial_idx, display_t_range);
+    raster = display_raster(selected_neurons, :);
 
+    neuron_labels = make_selected_neuron_labels(cell_area, selected_neurons);
     cell_area = cell_area(selected_neurons);
-    raster = raster(selected_neurons, :);
 
     N = numel(selected_neurons);
     colors = zeros(N, 3);
@@ -112,15 +178,14 @@ for i = 1:length(areas)
     end
     cla(tile);
     raster_visualization_plot(tile, raster, colors)
-    title(sprintf('Example pair, %s, %s', meta.prepost, meta.state));
+    title(sprintf('Raster: %s, %s', meta.prepost, meta.state));
     xlabel('Time (ms)');
     % ylabel('Neuron No.');
     ylabel('');
-    yticks([1, 2]);
-    yticklabels({'ACC #2', 'VLPFC #1'});
+    yticks(1:N);
+    yticklabels(neuron_labels);
     ytickangle(0);
-    ylim([-1.5, 4.5]);
-    ylim([-1.5, 4.5]);
+    ylim(tile, [0.5, N + 0.5]);
 end
 
 %% Column 2: Pairwise correlogram between selected neurons. Column 3: Auto-corrogram for the same neurons.
@@ -144,48 +209,33 @@ for i = 1:length(areas)
     fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
     fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
 
-    raster = raster_data.data.rasters{1};
+    [r1_trials, r2_trials] = get_pair_trial_segments( ...
+        raster_data.data.rasters, selected_neurons, ...
+        analysis_trial_mode, analysis_trial_idx, analysis_t_range, corr_range);
 
-    r1 = raster(selected_neurons(1), t_range);
-    r2 = raster(selected_neurons(2), t_range);
-    % smooth_r1 = movmean(r1, smooth_window);
-    % smooth_r2 = movmean(r2, smooth_window);
-
-    % Print firing rates for sanity check
+    % Print firing rates for sanity check. All trials are pooled by total time.
     fprintf('Firing rates for %s %s %s:\n', meta.prepost, meta.state, meta.area);
-    fprintf('Neuron 1: %.3f Hz\n', mean(r1)*1000);
-    fprintf('Neuron 2: %.3f Hz\n', mean(r2)*1000);
+    fprintf('Neuron 1: %.3f Hz\n', weighted_firing_rate(r1_trials, sample_rate));
+    fprintf('Neuron 2: %.3f Hz\n', weighted_firing_rate(r2_trials, sample_rate));
 
-    % Compute correlogram
-    [correlogram, lags] = norm_xcorr(r1, r2, corr_range);
-    [auto1, ~] = norm_xcorr(r1, r1, corr_range);
-    [auto2, ~] = norm_xcorr(r2, r2, corr_range);
-    % [correlogram, lags] = norm_xcorr(smooth_r1, smooth_r2, corr_range);
-    % [auto1, ~] = norm_xcorr(smooth_r1, smooth_r1, corr_range);
-    % [auto2, ~] = norm_xcorr(smooth_r2, smooth_r2, corr_range);
+    % Trial-wise correlograms are averaged with lag-specific overlap weights.
+    [correlogram, lags] = aggregate_norm_xcorr_trials(r1_trials, r2_trials, corr_range, lag_weight_correction);
+    [auto1, ~] = aggregate_norm_xcorr_trials(r1_trials, r1_trials, corr_range, lag_weight_correction);
+    [auto2, ~] = aggregate_norm_xcorr_trials(r2_trials, r2_trials, corr_range, lag_weight_correction);
 
-    % smooth_correlogram = movmean(correlogram, smooth_window);
-    % smooth_auto1 = movmean(auto1, smooth_window);
-    % smooth_auto2 = movmean(auto2, smooth_window);
     smooth_correlogram = same_conv(correlogram, smooth_kernel);
     smooth_auto1 = same_conv(auto1, smooth_kernel);
     smooth_auto2 = same_conv(auto2, smooth_kernel);
 
-    % Column 4/5 spectra are computed from the original signals with the same
-    % Welch/cross-spectral framework. This avoids comparing FFT(normalized
-    % correlogram) with PSD(original signal), which have different scales.
-    [psd_r1, psd_r2, cpsd, coherence, spec_freqs] = compute_pair_spectra( ...
-        r1, r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
+    % Trial-wise spectra are averaged with duration weights.
+    [psd_r1, psd_r2, cpsd, coherence, spec_freqs] = aggregate_pair_spectra_trials( ...
+        r1_trials, r2_trials, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
 
     coherence_plot = smooth_spectrum_for_plot(coherence, spec_smooth_window);
     cpsd_plot = smooth_spectrum_for_plot(cpsd, spec_smooth_window);
     psd_r1_plot = smooth_spectrum_for_plot(psd_r1, spec_smooth_window);
     psd_r2_plot = smooth_spectrum_for_plot(psd_r2, spec_smooth_window);
 
-    % Compute both shuffled and shifted controls.
-    % - Shuffled controls use random time permutation and are used for PSD.
-    % - Shifted controls use independent circular shifts, preserving each signal's
-    %   temporal structure, and are used for Xcorr, autocorr, cross-PSD, and coherence.
     shuffled_correlograms = zeros(shuffle_N, length(correlogram));
     shuffled_auto1_controls = zeros(shuffle_N, length(auto1));
     shuffled_auto2_controls = zeros(shuffle_N, length(auto2));
@@ -199,46 +249,31 @@ for i = 1:length(areas)
     shifted_auto2_controls = zeros(shuffle_N, length(auto2));
     shifted_cpsds = zeros(shuffle_N, numel(spec_freqs));
     shifted_cohs = zeros(shuffle_N, numel(spec_freqs));
+
     for j = 1:shuffle_N
         fprintf('%d/%d controls started\n', j, shuffle_N);
 
-        % Shuffled controls: destroy temporal structure.
-        shuffled_r1 = r1(randperm(length(r1)));
-        shuffled_r2 = r2(randperm(length(r2)));
-
-        [shuffled_corr, ~] = norm_xcorr(shuffled_r1, shuffled_r2, corr_range);
-        [shuffled_auto1, ~] = norm_xcorr(r1, shuffled_r1, corr_range);
-        [shuffled_auto2, ~] = norm_xcorr(r2, shuffled_r2, corr_range);
+        [shuffled_corr, shuffled_auto1, shuffled_auto2, ...
+            shuffled_psd_r1, shuffled_psd_r2, shuffled_cpsd, shuffled_coh] = ...
+            aggregate_control_metrics_trials(r1_trials, r2_trials, corr_range, lag_weight_correction, ...
+                sample_rate, freqs, psd_window_sec, psd_overlap_frac, 'shuffled');
 
         shuffled_correlograms(j, :) = same_conv(shuffled_corr, smooth_kernel);
         shuffled_auto1_controls(j, :) = same_conv(shuffled_auto1, smooth_kernel);
         shuffled_auto2_controls(j, :) = same_conv(shuffled_auto2, smooth_kernel);
-
-        [shuffled_psd_r1, shuffled_psd_r2, shuffled_cpsd, shuffled_coh, ~] = compute_pair_spectra( ...
-            shuffled_r1, shuffled_r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
-
         shuffled_cpsds(j, :) = smooth_spectrum_for_plot(shuffled_cpsd, spec_smooth_window);
         shuffled_psd_r1s(j, :) = smooth_spectrum_for_plot(shuffled_psd_r1, spec_smooth_window);
         shuffled_psd_r2s(j, :) = smooth_spectrum_for_plot(shuffled_psd_r2, spec_smooth_window);
         shuffled_cohs(j, :) = smooth_spectrum_for_plot(shuffled_coh, spec_smooth_window);
 
-        % Shifted controls: preserve each signal's temporal structure while
-        % disrupting the original alignment between signals and between each
-        % signal and its unshifted copy.
-        [shift_r1, shift_r2] = random_distinct_circular_shifts(length(r1), corr_range);
-        shifted_r1 = circshift(r1, shift_r1);
-        shifted_r2 = circshift(r2, shift_r2);
-
-        [shifted_corr, ~] = norm_xcorr(shifted_r1, shifted_r2, corr_range);
-        [shifted_auto1, ~] = norm_xcorr(r1, shifted_r1, corr_range);
-        [shifted_auto2, ~] = norm_xcorr(r2, shifted_r2, corr_range);
+        [shifted_corr, shifted_auto1, shifted_auto2, ...
+            ~, ~, shifted_cpsd_j, shifted_coh_j] = ...
+            aggregate_control_metrics_trials(r1_trials, r2_trials, corr_range, lag_weight_correction, ...
+                sample_rate, freqs, psd_window_sec, psd_overlap_frac, 'shifted');
 
         shifted_correlograms(j, :) = same_conv(shifted_corr, smooth_kernel);
         shifted_auto1_controls(j, :) = same_conv(shifted_auto1, smooth_kernel);
         shifted_auto2_controls(j, :) = same_conv(shifted_auto2, smooth_kernel);
-
-        [~, ~, shifted_cpsd_j, shifted_coh_j, ~] = compute_pair_spectra( ...
-            shifted_r1, shifted_r2, sample_rate, freqs, psd_window_sec, psd_overlap_frac);
         shifted_cpsds(j, :) = smooth_spectrum_for_plot(shifted_cpsd_j, spec_smooth_window);
         shifted_cohs(j, :) = smooth_spectrum_for_plot(shifted_coh_j, spec_smooth_window);
 
@@ -286,6 +321,7 @@ for i = 1:length(areas)
     %% Column 2: Cross-correlogram with shifted control and significant segments.
     column = 2;
     tile = nexttile(column+n_column*(i-1));
+    col_axes(i, column) = tile;
     shifted_ccg_upper = shifted_ccg_mean + std_multiplier * shifted_ccg_std;
     shifted_ccg_lower = shifted_ccg_mean - std_multiplier * shifted_ccg_std;
 
@@ -308,11 +344,12 @@ for i = 1:length(areas)
     ylabel(tile, 'Normalized correlation');
     legend(tile, 'show', 'Location', 'southeast');
     xlim(tile, [-corr_range, corr_range]);
-    ylim(tile, [-0.03, 0.05]);
+    % y-limits are harmonized across rows after plotting.
 
     %% Column 3: Auto-correlograms with shifted self-controls.
     column = 3;
     tile = nexttile(column+n_column*(i-1));
+    col_axes(i, column) = tile;
 
     % fill_control_band(tile, lags, shifted_auto1_mean, shifted_auto1_std, ...
     %     std_multiplier, [1.0, 0.85, 0.85], 'Auto 1 shifted ± 2SD');
@@ -359,7 +396,7 @@ for i = 1:length(areas)
     ylabel(tile, 'Normalized correlation');
     legend(tile, 'show', 'Location', 'southeast');
     xlim(tile, [-corr_range, corr_range]);
-    ylim(tile, [-0.05, 0.05]);
+    % y-limits are harmonized across rows after plotting.
 
     %% Column 4: Cross-PSD for the original signals, with shifted control.
     column = 4;
@@ -378,6 +415,7 @@ for i = 1:length(areas)
     end
 
     tile = nexttile(column+n_column*(i-1));
+    col_axes(i, column) = tile;
     fill_control_band(tile, spec_freqs, cpsd_control_mean, cpsd_control_std, ...
         std_multiplier, [0.8, 0.8, 0.8], sprintf('%s mean ± 2SD', control_label));
     hold(tile, 'on');
@@ -393,12 +431,13 @@ for i = 1:length(areas)
     title(tile, sprintf('Cross-PSD: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'Cross-PSD');
-    ylim(tile, [0, 1e-5]);
+    % y-limits are harmonized across rows after plotting.
     legend(tile, 'show', 'Location', 'northeast');
 
     %% Column 5: PSD of the original pair signals, with shuffled controls.
     column = 5;
     tile = nexttile(column+n_column*(i-1));
+    col_axes(i, column) = tile;
 
     % fill_control_band(tile, spec_freqs, shuffled_psd_r1_mean, shuffled_psd_r1_std, ...
     %     std_multiplier, [1.0, 0.85, 0.85], 'Signal 1 shuffled ± 2SD');
@@ -443,7 +482,7 @@ for i = 1:length(areas)
     % if ~isempty(y_candidates) && max(y_candidates) > 0
     %     ylim(tile, [0, 1.1 * max(y_candidates)]);
     % end
-    ylim([0, 6e-5]);
+    % y-limits are harmonized across rows after plotting.
     legend(tile, 'show', 'Location', 'northeast');
 
 
@@ -453,6 +492,7 @@ for i = 1:length(areas)
     % reliably change coherence magnitude, so use shuffled control here.
     column = 6;
     tile = nexttile(column+n_column*(i-1));
+    col_axes(i, column) = tile;
     selected_control = 'shifted'; % 'shuffled' or 'shifted'
     if strcmp(selected_control, 'shuffled')
         coh_control_mean = shuffled_coh_mean;
@@ -481,100 +521,364 @@ for i = 1:length(areas)
     title(tile, sprintf('Spectral coherence: %s, %s', meta.prepost, meta.state));
     xlabel(tile, 'Frequency (Hz)');
     ylabel(tile, 'Coherence');
-    ylim(tile, [0, 0.3]);
+    % y-limits are harmonized across rows after plotting.
     legend(tile, 'show', 'Location', 'northeast');
 end
 
-%% Export to pdf and preview image
-fig = gcf;
-
-save_folder = fullfile(root, 'Figures', 'Paper');
-check_path(save_folder);
-
-figWidth  = 4*n_column;   % inches.
-figHeight = 4*n_state;   % inches.
-resolution = 300;   % dpi; mainly affects rasterized components.
-
-set(fig, 'Units', 'inches');
-fig.Position(3:4) = [figWidth, figHeight];
-
-set(fig, 'PaperUnits', 'inches');
-set(fig, 'PaperSize', [figWidth, figHeight]);
-set(fig, 'PaperPosition', [0, 0, figWidth, figHeight]);
-set(fig, 'Color', 'w');
-
-preview_filename = fullfile(save_folder, 'Figure1_preview.jpg');
-exportgraphics(fig, preview_filename, ...
-    'ContentType', 'image', ...
-    'BackgroundColor', 'white', ...
-    'Resolution', resolution);
-
-pdf_filename = fullfile(save_folder, 'Figure1.pdf');
-exportgraphics(fig, pdf_filename, ...
-    'ContentType', 'vector', ...
-    'BackgroundColor', 'white', ...
-    'Resolution', resolution);
-
-close(fig);
+set_common_ylim_by_column(col_axes, 2:n_column);
 
 
-% %% Fig 2: J counting bar plot
-% % counting
-% pos_counts = zeros(1, length(areas));
-% neg_counts = zeros(1, length(areas));
-% max_counts = zeros(1, length(areas));
-% for i = 1:length(areas)
-%     % Load data
-%     meta.area = areas{i};
-%     meta.prepost = preposts{i};
-%     meta.state = states{i};
-%     meta.shuffle_idx = 0;
-%     meta.kernel_name = 'DeltaPure';
-%     meta.reg_name = 'L2=0_2';
-%     meta.epoch = 3000;
-%     meta.fold_idx = 0;
+    sgtitle(sprintf('%s | pair %d/%d | %s %s session %s | neurons [%d, %d]', ...
+        group_name, pair_i, n_pair, meta.animal_name, meta.injection, ...
+        char(string(meta.session_idx)), selected_neurons(1), selected_neurons(2)), ...
+        'Interpreter', 'none');
 
-%     % Load raster data for neuron area info
-%     meta.filename = generate_filename('raster', meta);
-%     raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
-%     fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
-%     fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
-%     fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
+    save_folder = fullfile(root, 'Figures', 'Paper');
+    check_path(save_folder);
 
-%     % split neurons by area
-%     cell_area = raster_data.data.cell_area;
-%     filter1 = ismember(cell_area, {'ACC'}); % filter for ACC neurons
-%     filter2 = ismember(cell_area, {'VLPFC'}); % filter for VLPFC neurons
+    figWidth  = 4*n_column;
+    figHeight = 4*n_state;
+    resolution = 300;
 
-%     % Load GLM data for connectivity info
-%     meta.filename = generate_filename('GLM', meta);
-%     GLM_data = load(fullfile(root, 'Data', 'Working', 'GLM', meta.filename));
-%     fprintf('Loaded GLM data for %s %s %s\n', meta.prepost, meta.state, meta.area);
-%     N = GLM_data.meta.N;
-%     J = GLM_data.data.model_par(:, (2:N+1)); % kernel 1 weights
-%     err = GLM_data.data.model_err.total(:, (2:N+1));
+    set(f, 'Units', 'inches');
+    f.Position(3:4) = [figWidth, figHeight];
 
-%     % Count significant J
-%     pos_count = sum(J(filter1, filter2) > err_multi*err(filter1, filter2), 'all') + ...
-%     sum(J(filter2, filter1) > err_multi*err(filter2, filter1), 'all');
-%     neg_count = sum(J(filter1, filter2) < -err_multi*err(filter1, filter2), 'all') + ...
-%     sum(J(filter2, filter1) < -err_multi*err(filter2, filter1), 'all');
-%     max_count = numel(J(filter1, filter2)) + numel(J(filter2, filter1));
-%     pos_counts(i) = pos_count;
-%     neg_counts(i) = neg_count;
-%     max_counts(i) = max_count;
-% end
+    set(f, 'PaperUnits', 'inches');
+    set(f, 'PaperSize', [figWidth, figHeight]);
+    set(f, 'PaperPosition', [0, 0, figWidth, figHeight]);
+    set(f, 'Color', 'w');
 
-% % Plot
-% f = figure();
-% % x axis: states. Groups: positive vs negative connections.
-% pos_ratios = pos_counts ./ max_counts;
-% neg_ratios = neg_counts ./ max_counts;
+    output_stub = sprintf('Figure1_%s_pair%02d_%s_session%s_cells%d_%d', ...
+        sanitize_filename(group_name), pair_i, sanitize_filename(meta.animal_name), ...
+        sanitize_filename(char(string(meta.session_idx))), selected_neurons(1), selected_neurons(2));
 
+    preview_filename = fullfile(save_folder, [output_stub, '_preview.jpg']);
+    exportgraphics(f, preview_filename, ...
+        'ContentType', 'image', ...
+        'BackgroundColor', 'white', ...
+        'Resolution', resolution);
 
+    pdf_filename = fullfile(save_folder, [output_stub, '.pdf']);
+    exportgraphics(f, pdf_filename, ...
+        'ContentType', 'vector', ...
+        'BackgroundColor', 'white', ...
+        'Resolution', resolution);
 
+    close(f);
+end
 
 %% functions
+
+function pair_cfg = make_pair_config(animal_name, injection, session_idx, selected_neurons)
+    pair_cfg = struct();
+    pair_cfg.animal_name = animal_name;
+    pair_cfg.injection = injection;
+    pair_cfg.session_idx = session_idx;
+    pair_cfg.selected_neurons = selected_neurons;
+end
+
+function pair_cfg = fill_pair_defaults(pair_cfg, default_align, default_resting_dur_threshold)
+    if ~isfield(pair_cfg, 'align') || isempty(pair_cfg.align)
+        pair_cfg.align = default_align;
+    end
+    if ~isfield(pair_cfg, 'resting_dur_threshold') || isempty(pair_cfg.resting_dur_threshold)
+        pair_cfg.resting_dur_threshold = default_resting_dur_threshold;
+    end
+    if ~isfield(pair_cfg, 'selected_neurons') || numel(pair_cfg.selected_neurons) ~= 2
+        error('Each pair must contain exactly two selected_neurons.');
+    end
+end
+
+function safe_name = sanitize_filename(name)
+    safe_name = regexprep(char(string(name)), '[^A-Za-z0-9_-]', '_');
+end
+
+
+function segment = get_raster_segment(rasters, trial_idx, t_range)
+    if trial_idx < 1 || trial_idx > numel(rasters)
+        error('display_trial_idx is out of range.');
+    end
+    raster = rasters{trial_idx};
+    idx = resolve_t_range(size(raster, 2), t_range);
+    segment = raster(:, idx);
+end
+
+function idx = resolve_t_range(T, t_range)
+    if isempty(t_range)
+        idx = 1:T;
+    else
+        idx = t_range(t_range >= 1 & t_range <= T);
+    end
+    if isempty(idx)
+        error('Selected time range is empty after clipping to trial length.');
+    end
+end
+
+function labels = make_selected_neuron_labels(cell_area, selected_neurons)
+    labels = cell(1, numel(selected_neurons));
+    for k = 1:numel(selected_neurons)
+        global_idx = selected_neurons(k);
+        area_name = cell_area{global_idx};
+        area_idx = sum(strcmp(cell_area(1:global_idx), area_name));
+        labels{k} = sprintf('%s #%d', area_name, area_idx);
+    end
+end
+
+function [r1_trials, r2_trials] = get_pair_trial_segments(rasters, selected_neurons, trial_mode, trial_idx, t_range, corr_range)
+    if strcmpi(trial_mode, 'single')
+        trial_indices = trial_idx;
+    elseif strcmpi(trial_mode, 'all')
+        trial_indices = 1:numel(rasters);
+    else
+        error('analysis_trial_mode must be ''single'' or ''all''.');
+    end
+
+    r1_trials = {};
+    r2_trials = {};
+    for k = 1:numel(trial_indices)
+        this_trial = trial_indices(k);
+        if this_trial < 1 || this_trial > numel(rasters)
+            error('analysis_trial_idx contains an out-of-range trial.');
+        end
+
+        raster = rasters{this_trial};
+        idx = resolve_t_range(size(raster, 2), t_range);
+        if numel(idx) <= corr_range
+            warning('Skipping trial %d because selected length (%d) <= corr_range (%d).', ...
+                this_trial, numel(idx), corr_range);
+            continue;
+        end
+
+        r1_trials{end+1} = raster(selected_neurons(1), idx); %#ok<AGROW>
+        r2_trials{end+1} = raster(selected_neurons(2), idx); %#ok<AGROW>
+    end
+
+    if isempty(r1_trials)
+        error('No valid analysis trials after applying t_range and corr_range.');
+    end
+end
+
+function fr = weighted_firing_rate(signal_trials, sample_rate)
+    total_spikes = 0;
+    total_samples = 0;
+    for k = 1:numel(signal_trials)
+        x = signal_trials{k};
+        total_spikes = total_spikes + sum(x);
+        total_samples = total_samples + numel(x);
+    end
+    fr = total_spikes / total_samples * sample_rate;
+end
+
+function [corr_avg, lags] = aggregate_norm_xcorr_trials(r1_trials, r2_trials, max_lag, lag_weight_correction)
+    if nargin < 4
+        lag_weight_correction = true;
+    end
+
+    lags = -max_lag:max_lag;
+
+    if lag_weight_correction
+        corr_avg = pooled_norm_xcorr_trials(r1_trials, r2_trials, max_lag);
+    else
+        corr_avg = duration_weighted_norm_xcorr_trials(r1_trials, r2_trials, max_lag);
+    end
+end
+
+function corr_avg = pooled_norm_xcorr_trials(r1_trials, r2_trials, max_lag)
+    lags = -max_lag:max_lag;
+    corr_avg = nan(size(lags));
+
+    for lag_i = 1:numel(lags)
+        lag = lags(lag_i);
+        x_all = [];
+        y_all = [];
+
+        for trial_i = 1:numel(r1_trials)
+            r1 = r1_trials{trial_i}(:);
+            r2 = r2_trials{trial_i}(:);
+            N = min(numel(r1), numel(r2));
+            r1 = r1(1:N);
+            r2 = r2(1:N);
+
+            if max_lag >= N
+                continue;
+            end
+
+            if lag >= 0
+                x = r1((1+lag):N);
+                y = r2(1:(N-lag));
+            else
+                x = r1(1:(N+lag));
+                y = r2((1-lag):N);
+            end
+
+            x_all = [x_all; x(:)]; %#ok<AGROW>
+            y_all = [y_all; y(:)]; %#ok<AGROW>
+        end
+
+        valid = isfinite(x_all) & isfinite(y_all);
+        x_all = x_all(valid);
+        y_all = y_all(valid);
+
+        if numel(x_all) < 2
+            continue;
+        end
+
+        x_all = x_all - mean(x_all);
+        y_all = y_all - mean(y_all);
+        denom = sqrt(sum(x_all.^2) * sum(y_all.^2));
+
+        if denom > 0
+            corr_avg(lag_i) = sum(x_all .* y_all) / denom;
+        end
+    end
+end
+
+function corr_avg = duration_weighted_norm_xcorr_trials(r1_trials, r2_trials, max_lag)
+    n_trial = numel(r1_trials);
+    lags = -max_lag:max_lag;
+    corr_mat = nan(n_trial, numel(lags));
+    weights = zeros(n_trial, 1);
+
+    for trial_i = 1:n_trial
+        r1 = r1_trials{trial_i};
+        r2 = r2_trials{trial_i};
+        N = min(numel(r1), numel(r2));
+        if N <= max_lag
+            continue;
+        end
+
+        [corr_k, ~] = norm_xcorr(r1, r2, max_lag);
+        corr_mat(trial_i, :) = corr_k;
+        weights(trial_i) = N;
+    end
+
+    corr_avg = weighted_average_rows(corr_mat, weights);
+end
+
+function [pxx, pyy, pxy_abs, coh, f] = aggregate_pair_spectra_trials(x_trials, y_trials, sample_rate, freqs, window_sec, overlap_frac)
+    n_trial = numel(x_trials);
+    pxx_mat = nan(n_trial, numel(freqs));
+    pyy_mat = nan(n_trial, numel(freqs));
+    sxy_mat = nan(n_trial, numel(freqs));
+    weights = zeros(n_trial, 1);
+
+    f = freqs(:).';
+    for trial_i = 1:n_trial
+        x = x_trials{trial_i};
+        y = y_trials{trial_i};
+        N = min(numel(x), numel(y));
+        if N < 4
+            continue;
+        end
+
+        [pxx_k, pyy_k, ~, ~, f, sxy_k] = compute_pair_spectra(x, y, sample_rate, freqs, window_sec, overlap_frac);
+        pxx_mat(trial_i, :) = pxx_k;
+        pyy_mat(trial_i, :) = pyy_k;
+        sxy_mat(trial_i, :) = sxy_k;
+        weights(trial_i) = N;
+    end
+
+    pxx = weighted_average_rows(pxx_mat, weights);
+    pyy = weighted_average_rows(pyy_mat, weights);
+    sxy = weighted_average_rows(sxy_mat, weights);
+
+    pxy_abs = abs(sxy);
+    denom = pxx .* pyy;
+    coh = abs(sxy).^2 ./ denom;
+    coh(~isfinite(coh) | denom <= 0) = NaN;
+    coh = min(max(real(coh), 0), 1);
+end
+
+function [corr_avg, auto1_avg, auto2_avg, psd1_avg, psd2_avg, cpsd_avg, coh_avg] = aggregate_control_metrics_trials( ...
+    r1_trials, r2_trials, corr_range, lag_weight_correction, sample_rate, freqs, window_sec, overlap_frac, control_type)
+
+    n_trial = numel(r1_trials);
+    c1_trials = cell(1, n_trial);
+    c2_trials = cell(1, n_trial);
+    a1_ref_trials = cell(1, n_trial);
+    a2_ref_trials = cell(1, n_trial);
+
+    for k = 1:n_trial
+        r1 = r1_trials{k};
+        r2 = r2_trials{k};
+
+        if strcmpi(control_type, 'shuffled')
+            c1 = r1(randperm(numel(r1)));
+            c2 = r2(randperm(numel(r2)));
+        elseif strcmpi(control_type, 'shifted')
+            [shift1, shift2] = random_distinct_circular_shifts(min(numel(r1), numel(r2)), corr_range);
+            c1 = circshift(r1, shift1);
+            c2 = circshift(r2, shift2);
+        else
+            error('Unknown control_type: %s', control_type);
+        end
+
+        c1_trials{k} = c1;
+        c2_trials{k} = c2;
+        a1_ref_trials{k} = r1;
+        a2_ref_trials{k} = r2;
+    end
+
+    [corr_avg, ~] = aggregate_norm_xcorr_trials(c1_trials, c2_trials, corr_range, lag_weight_correction);
+    [auto1_avg, ~] = aggregate_norm_xcorr_trials(a1_ref_trials, c1_trials, corr_range, lag_weight_correction);
+    [auto2_avg, ~] = aggregate_norm_xcorr_trials(a2_ref_trials, c2_trials, corr_range, lag_weight_correction);
+    [psd1_avg, psd2_avg, cpsd_avg, coh_avg, ~] = aggregate_pair_spectra_trials(c1_trials, c2_trials, sample_rate, freqs, window_sec, overlap_frac);
+end
+
+function avg = weighted_average_rows(values, weights)
+    if isvector(weights)
+        weights = weights(:);
+        weights = repmat(weights, 1, size(values, 2));
+    end
+
+    valid = isfinite(values) & isfinite(weights) & weights > 0;
+    weighted_values = values;
+    weighted_values(~valid) = 0;
+    weight_values = weights;
+    weight_values(~valid) = 0;
+
+    denom = sum(weight_values, 1);
+    avg = sum(weighted_values .* weight_values, 1) ./ denom;
+    avg(denom <= 0) = NaN;
+end
+
+function set_common_ylim_by_column(ax_mat, columns)
+    for c = columns
+        axes_this_col = ax_mat(:, c);
+        y_min = inf;
+        y_max = -inf;
+
+        for r = 1:numel(axes_this_col)
+            ax = axes_this_col(r);
+            if ~isgraphics(ax)
+                continue;
+            end
+            lim = ylim(ax);
+            if all(isfinite(lim))
+                y_min = min(y_min, lim(1));
+                y_max = max(y_max, lim(2));
+            end
+        end
+
+        if isfinite(y_min) && isfinite(y_max) && y_max > y_min
+            pad = 0.05 * (y_max - y_min);
+            if y_min >= 0
+                y_min_new = 0;
+            else
+                y_min_new = y_min - pad;
+            end
+            y_max_new = y_max + pad;
+
+            for r = 1:numel(axes_this_col)
+                ax = axes_this_col(r);
+                if isgraphics(ax)
+                    ylim(ax, [y_min_new, y_max_new]);
+                end
+            end
+        end
+    end
+end
+
 function [correlogram, lags] = norm_xcorr(r1, r2, max_lag)
 %NORM_XCORR Normalized cross-correlation between two signals.
 %
@@ -727,7 +1031,7 @@ function spec_plot = smooth_spectrum_for_plot(spec, smooth_window)
     end
 end
 
-function [pxx, pyy, pxy_abs, coh, f] = compute_pair_spectra(x, y, sample_rate, freqs, window_sec, overlap_frac)
+function [pxx, pyy, pxy_abs, coh, f, sxy] = compute_pair_spectra(x, y, sample_rate, freqs, window_sec, overlap_frac)
     % Estimate Sxx, Syy, Sxy, and coherence using one consistent Welch
     % cross-spectral framework. This requires Signal Processing Toolbox for cpsd.
     % pxx: power spectral density of x (Sxx)
@@ -749,6 +1053,7 @@ function [pxx, pyy, pxy_abs, coh, f] = compute_pair_spectra(x, y, sample_rate, f
         pyy = nan(size(f));
         pxy_abs = nan(size(f));
         coh = nan(size(f));
+        sxy = nan(size(f));
         return;
     end
 
@@ -778,6 +1083,7 @@ function [pxx, pyy, pxy_abs, coh, f] = compute_pair_spectra(x, y, sample_rate, f
         pyy = amp_y(:).'.^2;
         pxy_abs = nan(size(pxx));
         coh = nan(size(pxx));
+        sxy = nan(size(pxx));
         f = freqs(:).';
     end
 end
