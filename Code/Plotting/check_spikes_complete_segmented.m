@@ -27,7 +27,12 @@ load(metadata_path, 'dataset_num', 'dataset_names', 'session_nums');
 states = {'RestOpen', 'RestClose'};
 prepost = {'Pre', 'Post'};
 area_types = {'Full', 'Cortex'};
-aligns = {'None', 'Last', 'Longest'};
+% aligns = {'None', 'Last', 'Longest'};
+% Debug
+% states = {'RestOpen'};
+% prepost = {'Pre'};
+% area_types = {'Full'};
+aligns = {'None'};
 
 % main loop
 for dataset_idx = 1:3
@@ -160,7 +165,7 @@ for dataset_idx = 1:3
                             figure_path = fullfile(figure_folder, figure_name);
 
                             if isfile(figure_path) && ~REPLOT
-                                fprintf('Figure already exists: %s', figure_path);
+                                fprintf('Figure already exists: %s\n', figure_path);
                                 continue;
                             end
 
@@ -175,7 +180,6 @@ for dataset_idx = 1:3
                             saveas(f, figure_path);
                             close(f);
                         end
-
                     end
                 end
             end
