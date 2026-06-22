@@ -25,7 +25,7 @@ for i = 1:N
     plot(data(i,:) + i - 0.5, 'Color', colors(i, :));
 end
 if exist('trial_borders', 'var')
-    for b = 1:length(trial_borders)-1
+    for b = 1:length(trial_borders)
         xline(trial_borders(b), 'k--', 'LineWidth', 1);
     end
 end

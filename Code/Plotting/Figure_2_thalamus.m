@@ -24,8 +24,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 meta = struct();
 meta.animal_name = 'Slayer';
 meta.injection = 'Muscimol';
-meta.align = 'Longest';
-meta.session_idx = 6;
+meta.align = 'Last';
+meta.session_idx = 5;
 meta.resting_dur_threshold = 15;
 
 %% Conditions shown in the figure
@@ -520,6 +520,7 @@ function fr = weighted_signal_mean(signal_trials, sample_rate)
 end
 
 function [corr_avg, lags] = aggregate_norm_xcorr_trials(r1_trials, r2_trials, max_lag, lag_weight_correction)
+    % lag > 0: r2 leads r1
     if nargin < 4
         lag_weight_correction = true;
     end
