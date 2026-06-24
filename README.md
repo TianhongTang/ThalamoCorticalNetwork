@@ -16,7 +16,7 @@
 
 Each data file, except `metadata.mat`, is stored in a `[datatype]_##.mat` file containing two structs named `meta` and `data`. The file name consists of the type of the data followed by the identification index constructed from its meta data.
 
-Bold field names in `meta` are necessary identifiers to construct unique file name. 
+**Bold** field names in `meta` are necessary identifiers to construct unique file name. 
 
 | Field | Description |
 |------|------|
@@ -33,6 +33,72 @@ Each field is a struct array for a data type. The field name is the type of the 
 |------|------|
 | raster | |
 |  |  |
+<!--------------------------------->
+### `session_##.mat` - Session metadata
+
+#### meta
+
+| Field | Type | Description |
+|------|------|-------------|
+| **animal_name** | string | Animal name. |
+| **injection** | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| **session_idx** | int | Session index. |
+| file_name | string | File name. |
+| date | string | Recording date. Format: `MMDDYYYY`. |
+| N | int | Neuron number. |
+| dt | double | Time bin size in seconds. |
+| trial_num | int | Total trial number. |
+| trial_len | int | Sorted `data.trial_len`. |
+| max_len | int | Maximum trial length. |
+| min_len | int | Minimum trial length. |
+| total_len | int | Total trial length. |
+| resting_dur_threshold | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
+| align_kernel (optional) | string | Kernel used to align data. |
+| align_kernel_len (optional) | string | Kernel length. |
+
+#### data
+
+| Field | Type | Shape | Description |
+|------|------|------|-------------|
+| states |  |  |  |
+| datasets |  |  |  |
+
+
+<!--------------------------------->
+### `dataset_##.mat` - Preprocessed dataset metadata
+
+#### meta
+
+| Field | Type | Description |
+|------|------|-------------|
+| **animal_name** | string | Animal name. |
+| **injection** | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| **prepost** | string | Pre-injection `Pre` or Post-injection `Post`. |
+| **state** | string | State identifier. |
+| **area** | string | Dataset brain area identifier. Single area `ACC/VLPFC/Thalamus` or merged area type `Full/Cortex` |
+| **align** | string | Alignment type. For unaligned data, this field is `'None'`. |
+| **session_idx** | int | Session index. |
+| file_name | string | File name. |
+| date | string | Recording date. Format: `MMDDYYYY`. |
+| N | int | Neuron number. |
+| dt | double | Time bin size in seconds. |
+| trial_num | int | Total trial number. |
+| trial_len | int | Sorted `data.trial_len`. |
+| max_len | int | Maximum trial length. |
+| min_len | int | Minimum trial length. |
+| total_len | int | Total trial length. |
+| resting_dur_threshold | double | For aligned data with dur threshold only. Minimum duration threshold for resting state trials. |
+| align_kernel (optional) | string | Kernel used to align data. |
+| align_kernel_len (optional) | string | Kernel length. |
+
+#### data
+
+| Field | Type | Shape | Description |
+|------|------|------|-------------|
+| session_path |  |  | Path to session meta file. |
+| raster_path |  |  | Path to corresponding raster file. |
+| models |  |  |  |
+
 
 <!--------------------------------->
 ### `raster_##.mat` - Rasterized spikes
@@ -41,19 +107,19 @@ Each field is a struct array for a data type. The field name is the type of the 
 
 | Field | Type | Description |
 |------|------|-------------|
-| animal_name | string | Animal name. |
-| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
-| prepost | string | Pre-injection `Pre` or Post-injection `Post`. |
-| state | string | State identifier. |
-| area | string | Dataset brain area identifier. Single area `ACC/VLPFC/Thalamus` or merged area type `Full/Cortex` |
-| align | string | Alignment type. For unaligned data, this field is `'None'`. |
-| session_idx | int | Session index. |
+| **animal_name** | string | Animal name. |
+| **injection** | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| **prepost** | string | Pre-injection `Pre` or Post-injection `Post`. |
+| **state** | string | State identifier. |
+| **area** | string | Dataset brain area identifier. Single area `ACC/VLPFC/Thalamus` or merged area type `Full/Cortex` |
+| **align** | string | Alignment type. For unaligned data, this field is `'None'`. |
+| **session_idx** | int | Session index. |
+| file_name | string | File name. |
 | date | string | Recording date. Format: `MMDDYYYY`. |
 | N | int | Neuron number. |
 | dt | double | Time bin size in seconds. |
 | trial_num | int | Total trial number. |
 | trial_len | int | Sorted `data.trial_len`. |
-| file_name | string | File name. |
 | max_len | int | Maximum trial length. |
 | min_len | int | Minimum trial length. |
 | total_len | int | Total trial length. |
@@ -81,12 +147,12 @@ Each field is a struct array for a data type. The field name is the type of the 
 #### meta
 | Field | Type | Description |
 |------|------|-------------|
-| animal_name | string | Animal name. |
-| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
-| prepost | string | Pre-injection `pre` or Post-injection `post`. |
-| area | string | Dataset brain area identifier. Merged area type `Full/Cortex` |
-| align | string | Alignment type. For aligned data only. |
-| session_idx | int | Session index. |
+| **animal_name** | string | Animal name. |
+| **injection** | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| **prepost** | string | Pre-injection `pre` or Post-injection `post`. |
+| **area** | string | Dataset brain area identifier. Merged area type `Full/Cortex` |
+| **align** | string | Alignment type. For aligned data only. |
+| **session_idx** | int | Session index. |
 | N | int | Number of neurons. |
 | area_num | int | Number of brain areas. |
 | file_name | string | File name. |
@@ -129,14 +195,14 @@ Extracted spike data from the array dataset.
 
 | Field | Type | Description |
 |------|------|-------------|
-| animal_name | string | Animal name. |
-| injection | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
-| prepost | string | Pre-injection `pre` or Post-injection `post`. |
-| state | string | State identifier. |
-| area | string | Dataset brain area identifier. Merged area type `Full/Cortex` |
-| align | string | Alignment type. For aligned data only. |
-| session_idx | int | Session index. |
-| criterion | string | Sorting criterion. |
+| **animal_name** | string | Animal name. |
+| **injection** | string | Injection type. `Saline`, `Muscimol` or `No injection`. |
+| **prepost** | string | Pre-injection `pre` or Post-injection `post`. |
+| **state** | string | State identifier. |
+| **area** | string | Dataset brain area identifier. Merged area type `Full/Cortex` |
+| **align** | string | Alignment type. For aligned data only. |
+| **session_idx** | int | Session index. |
+| **criterion** | string | Sorting criterion. |
 | file_name | string | File name. |
 | N | int | Number of neurons. |
 | kernel (optional) | string | GLM model kernel name. |
