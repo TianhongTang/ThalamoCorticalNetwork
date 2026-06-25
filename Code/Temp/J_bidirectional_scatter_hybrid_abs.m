@@ -44,9 +44,16 @@ kernel_indices = 1:3;
 %     make_condition('Post', 'RestOpen',  'Post, Eyes Open'), ...
 %     make_condition('Post', 'RestClose', 'Post, Eyes Closed') ...
 % ];
+% State groups are analysis labels, not metadata states.
+% Here, 'All States' pools RestOpen and RestClose into one condition.
+state_groups = [ ...
+    make_state_group('All States', {'RestOpen', 'RestClose'}) ...
+];
+
 conditions = [ ...
     make_condition('Pre',  'RestOpen',  'Pre, Eyes Open'), ...
     make_condition('Pre',  'RestClose', 'Pre, Eyes Closed'), ...
+    make_condition('Pre',  'All States', 'Pre, All States'), ...
 ];
 
 filter_opts = struct();
@@ -116,12 +123,12 @@ end
 
 %% Render figures
 if by_session
-    render_by_session_figures(root, meta_array, area_pairs, conditions, kernel_indices, ...
+    render_by_session_figures(root, meta_array, area_pairs, conditions, kernel_indices, state_groups, ...
         matrix_direction, err_multi, colors, scatter_marker_size, scatter_alpha, figure_visible, ...
         show_legend, show_identity_line, show_fit_line, fit_line_method, show_histogram, ...
         combine_kernels, J_lim, lim_ratio, export_pdf, panel_label_pos, scatter_panel_modes);
 else
-    render_pooled_figures(root, meta_array, area_pairs, conditions, kernel_indices, ...
+    render_pooled_figures(root, meta_array, area_pairs, conditions, kernel_indices, state_groups, ...
         matrix_direction, err_multi, colors, scatter_marker_size, scatter_alpha, figure_visible, ...
         show_legend, show_identity_line, show_fit_line, fit_line_method, show_histogram, ...
         combine_kernels, export_pdf, panel_label_pos, scatter_panel_modes);
@@ -135,7 +142,13 @@ function cond = make_condition(prepost, state, title_text)
     cond.title = title_text;
 end
 
-function render_pooled_figures(root, meta_array, area_pairs, conditions, kernel_indices, ...
+function group = make_state_group(name, states)
+    group = struct();
+    group.name = char(string(name));
+    group.states = cellstr(string(states));
+end
+
+function render_pooled_figures(root, meta_array, area_pairs, conditions, kernel_indices, state_groups, ...
     matrix_direction, err_multi, colors, scatter_marker_size, scatter_alpha, figure_visible, ...
     show_legend, show_identity_line, show_fit_line, fit_line_method, show_histogram, combine_kernels, export_pdf, panel_label_pos, scatter_panel_modes)
 
@@ -157,7 +170,7 @@ function render_pooled_figures(root, meta_array, area_pairs, conditions, kernel_
                 for kernel_i = 1:numel(kernel_indices)
                     kernel_idx = kernel_indices(kernel_i);
                     try
-                        data = load_reciprocal_direction_data(root, anchor_meta, cond, kernel_idx, area_pair, matrix_direction, err_multi);
+                        data = load_condition_reciprocal_data(root, anchor_meta, cond, kernel_idx, area_pair, matrix_direction, err_multi, state_groups);
                         data.J_full = []; % Pooled figures intentionally leave the J-matrix panel blank.
                         data.J_sig_full = [];
                         data.J_borders = [];
@@ -200,7 +213,7 @@ function render_pooled_figures(root, meta_array, area_pairs, conditions, kernel_
     end
 end
 
-function render_by_session_figures(root, meta_array, area_pairs, conditions, kernel_indices, ...
+function render_by_session_figures(root, meta_array, area_pairs, conditions, kernel_indices, state_groups, ...
     matrix_direction, err_multi, colors, scatter_marker_size, scatter_alpha, figure_visible, ...
     show_legend, show_identity_line, show_fit_line, fit_line_method, show_histogram, combine_kernels, J_lim, lim_ratio, export_pdf, panel_label_pos, scatter_panel_modes)
 
@@ -222,7 +235,7 @@ function render_by_session_figures(root, meta_array, area_pairs, conditions, ker
                 for kernel_i = 1:numel(kernel_indices)
                     kernel_idx = kernel_indices(kernel_i);
                     try
-                        data = load_reciprocal_direction_data(root, anchor_meta, cond, kernel_idx, area_pair, matrix_direction, err_multi);
+                        data = load_condition_reciprocal_data(root, anchor_meta, cond, kernel_idx, area_pair, matrix_direction, err_multi, state_groups);
                         pooled{condition_idx, kernel_i} = append_reciprocal_data(pooled{condition_idx, kernel_i}, data);
                         valid_session_counts(condition_idx, kernel_i) = valid_session_counts(condition_idx, kernel_i) + 1;
                     catch ME
@@ -377,6 +390,73 @@ end
 function label = make_session_label(meta)
     label = sprintf('%s %s session %s', char(string(meta.animal_name)), ...
         char(string(meta.injection)), char(string(meta.session_idx)));
+end
+
+function data = load_condition_reciprocal_data(root, anchor_meta, cond, kernel_idx, area_pair, matrix_direction, err_multi, state_groups)
+    state_list = resolve_condition_states(cond, state_groups);
+    data = empty_reciprocal_data();
+    loaded_count = 0;
+    error_messages = {};
+
+    for state_i = 1:numel(state_list)
+        this_cond = cond;
+        this_cond.state = state_list{state_i};
+        try
+            incoming = load_reciprocal_direction_data(root, anchor_meta, this_cond, kernel_idx, area_pair, matrix_direction, err_multi);
+            data = append_reciprocal_data(data, incoming);
+            loaded_count = loaded_count + 1;
+        catch ME
+            error_messages{end + 1} = sprintf('%s: %s', state_list{state_i}, ME.message); %#ok<AGROW>
+        end
+    end
+
+    if loaded_count == 0
+        if isempty(error_messages)
+            error_detail = 'no states requested';
+        else
+            error_detail = strjoin(error_messages, ' | ');
+        end
+        error('No data loaded for condition "%s" from states {%s}: %s', ...
+            cond.title, strjoin(state_list, ', '), error_detail);
+    elseif ~isempty(error_messages)
+        warning('Partially loaded condition "%s" from states {%s}. Missing/failed: %s', ...
+            cond.title, strjoin(state_list, ', '), strjoin(error_messages, ' | '));
+    end
+
+    % A grouped state pools multiple J matrices into one analysis condition.
+    % There is no single representative full N x N matrix, so leave matrix panels blank.
+    if numel(state_list) > 1
+        data.J_full = [];
+        data.J_sig_full = [];
+        data.J_borders = [];
+    end
+end
+
+function state_list = resolve_condition_states(cond, state_groups)
+    if iscell(cond.state)
+        state_list = cellstr(string(cond.state));
+        return;
+    end
+
+    state_value = string(cond.state);
+    if numel(state_value) > 1
+        state_list = cellstr(state_value);
+        return;
+    end
+
+    requested_state = char(state_value);
+    state_list = {requested_state};
+    requested_key = normalize_state_group_key(requested_state);
+    for group_i = 1:numel(state_groups)
+        if strcmp(requested_key, normalize_state_group_key(state_groups(group_i).name))
+            state_list = cellstr(string(state_groups(group_i).states));
+            return;
+        end
+    end
+end
+
+function key = normalize_state_group_key(name)
+    key = lower(regexprep(char(string(name)), '[^a-zA-Z0-9]+', ''));
 end
 
 function data = load_reciprocal_direction_data(root, anchor_meta, cond, kernel_idx, area_pair, matrix_direction, err_multi)
