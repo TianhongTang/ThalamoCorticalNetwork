@@ -25,8 +25,8 @@ addpath(fullfile(root, 'Code', 'Utils'));
 meta = struct();
 meta.animal_name = 'Slayer';
 meta.injection = 'Muscimol';
-meta.align = 'Last';
-meta.session_idx = 7;
+meta.align = 'Longest';
+meta.session_idx = 8;
 meta.resting_dur_threshold = 15;
 
 %% Conditions shown in the figure
@@ -399,7 +399,7 @@ set_common_ylim_by_column(col_axes, 2:n_column);
 %% Export to pdf and preview image
 fig = gcf;
 
-save_folder = fullfile(root, 'Figures', 'Paper');
+save_folder = fullfile(root, 'Figures', 'Paper', 'fig2', 'Longest');
 check_path(save_folder);
 
 figWidth  = 4*n_column;

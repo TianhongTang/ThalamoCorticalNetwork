@@ -384,7 +384,7 @@ function render_comparison_figure(root, cfg, pooled_one, params)
 
     sgtitle(cfg.figure_title, 'Interpreter', 'none');
 
-    save_folder = fullfile(root, 'Figures', 'Paper');
+    save_folder = fullfile(root, 'Figures', 'Paper', 'fig3');
     check_path(save_folder);
 
     figWidth = 16.0;  % inches.
@@ -947,7 +947,7 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
     end
 
     [pearson_r, pearson_p, spearman_rho, spearman_p, n_valid] = correlation_stats(x, y);
-    cos_sim = cosine_similarity_omitnan(x, y);
+    cos_sim = normalized_cosine_similarity_omitnan(x, y);
 
     if show_identity_line
         plot(ax, axis_limit, axis_limit, '--', 'Color', colors.identity_line, 'LineWidth', 1, 'DisplayName', 'x=y');
@@ -1135,6 +1135,19 @@ function cos_sim = cosine_similarity_omitnan(x, y)
     valid = isfinite(x) & isfinite(y);
     x = x(valid);
     y = y(valid);
+    if isempty(x) || norm(x) == 0 || norm(y) == 0
+        cos_sim = NaN;
+    else
+        cos_sim = dot(x, y) / (norm(x) * norm(y));
+    end
+end
+
+function cos_sim = normalized_cosine_similarity_omitnan(x, y)
+    valid = isfinite(x) & isfinite(y);
+    x = x(valid);
+    y = y(valid);
+    x = x - mean(x);
+    y = y - mean(y);
     if isempty(x) || norm(x) == 0 || norm(y) == 0
         cos_sim = NaN;
     else
