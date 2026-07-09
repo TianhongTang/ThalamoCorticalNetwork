@@ -77,19 +77,19 @@ fprintf('\nLoaded sessions: %d. Failed sessions: %d.\n', valid_session_count, fa
 
 x_prepost = 'Pre';
 x_state = 'RestOpen';
-x_kernel_idx = 1;
+x_kernel_idx = 2;
 x_axis_label = sprintf('%s %s K%d', x_prepost, x_state, x_kernel_idx);
 
 y_prepost = 'Pre';
 y_state = 'RestClose';
-y_kernel_idx = 1;
+y_kernel_idx = 2;
 y_axis_label = sprintf('%s %s K%d', y_prepost, y_state, y_kernel_idx);
 
 % Options: 'all_connection', 'either_significant', 'both_significant', 'same_sign_abs', 'switch_sign_abs'
-plot_type = 'same_sign_abs';
+plot_type = 'all_connection';
 
-x_range = [1, 3];
-y_range = [1, 3];
+x_range = [-5, 5];
+y_range = [-5, 5];
 
 text_out = true;
 save_text_out = false;
