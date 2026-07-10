@@ -1,12 +1,17 @@
-%% Supplement Figure 3: Combined pooled comparison script (6 figure versions)
-% This script generates 6 separate 4x6 figures and saves each as PDF + JPG.
-% Figure versions:
-%   1. Kernel 1, Open vs Close, split by Pre/Post.
-%   2. Kernel 2, Open vs Close, split by Pre/Post.
-%   3. Kernel 1, Pre vs Post, split by Open/Close.
-%   4. Kernel 2, Pre vs Post, split by Open/Close.
-%   5. Pre, Kernel 1 vs Kernel 2, split by Open/Close.
-%   6. Post, Kernel 1 vs Kernel 2, split by Open/Close.
+%% Supplement Figure 3: Combined pooled comparison script (auto hyperparameter version)
+% This script generates pooled categorical comparison figures for each
+% hyperparameter configuration and saves each figure as PDF + JPG.
+%
+% Figure versions for each hyperparameter configuration:
+%   For each kernel index:
+%     1. Kernel k, Open vs Close, split by Pre/Post.
+%     2. Kernel k, Pre vs Post, split by Open/Close.
+%   For each kernel-index pair:
+%     3. Pre, Kernel ki vs Kernel kj, split by Open/Close.
+%     4. Post, Kernel ki vs Kernel kj, split by Open/Close.
+%
+% Output organization:
+%   Figures/Paper/Fig3_Supp/<hyperparameter-folder>/
 %
 % Layout for every saved figure:
 %   Row 1 = context A, 3x3 tables.
@@ -27,10 +32,14 @@ end
 addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
 
-%% Parameters
-kernel_idx_1 = 1;
-kernel_idx_2 = 2;
+%% Hyperparameter configurations
+% Automatically generate all requested kernel_name x injection x align combinations.
+% Fixed filters for this batch:
+%   reg_name = "L2=0_2"
+%   resting_dur_threshold = 15
+hyperparam_configs = build_auto_hyperparam_configs();
 
+%% Plot and analysis parameters
 err_multi = 1; % threshold for significant J, in multiples of the GLM error estimate.
 network_err_multi = 2;
 density_nbin = 60;
@@ -45,7 +54,6 @@ n_col = 6;
 figure_visible = 'off';
 show_legend = true; % true or false, applied to all scatter-plot legends.
 
-preferred_example_session_index = 12; % fallback to first valid session if this one is unavailable.
 skip_failed_sessions = false;
 max_sessions_to_include = inf; % set smaller while debugging.
 
@@ -64,213 +72,241 @@ colors.switch = [0.45, 0.10, 0.75];
 colors.identity_line = [1, 0, 0];
 colors.zero_line = [0, 0, 0];
 
-params = struct();
-params.err_multi = err_multi;
-params.network_err_multi = network_err_multi;
-params.density_nbin = density_nbin;
-params.scatter_marker_size = scatter_marker_size;
-params.scatter_alpha = scatter_alpha;
-params.density_clip_percentile = density_clip_percentile;
-params.density_use_log_count = density_use_log_count;
-params.category_labels = category_labels;
-params.n_row = n_row;
-params.n_col = n_col;
-params.figure_visible = figure_visible;
-params.show_legend = show_legend;
-params.colors = colors;
+base_params = struct();
+base_params.err_multi = err_multi;
+base_params.network_err_multi = network_err_multi;
+base_params.density_nbin = density_nbin;
+base_params.scatter_marker_size = scatter_marker_size;
+base_params.scatter_alpha = scatter_alpha;
+base_params.density_clip_percentile = density_clip_percentile;
+base_params.density_use_log_count = density_use_log_count;
+base_params.category_labels = category_labels;
+base_params.n_row = n_row;
+base_params.n_col = n_col;
+base_params.figure_visible = figure_visible;
+base_params.show_legend = show_legend;
+base_params.colors = colors;
+base_params.skip_failed_sessions = skip_failed_sessions;
+base_params.max_sessions_to_include = max_sessions_to_include;
 
-figure_configs = build_figure_configs(kernel_idx_1, kernel_idx_2);
-
-%% Load and filter metadata
+%% Load metadata
 mt = load_meta(root, 'table');
 mt = mt.GLM;
 
-% -------------------------------------------------------------------------
-% EDIT THIS FILTER FOR THE FINAL SESSION SET.
-% -------------------------------------------------------------------------
-selected_rows = default_metadata_filter(mt);
+fig3_root_folder = fullfile(root, 'Figures', 'Paper', 'Fig3_Supp');
+check_path(fig3_root_folder);
+run_issue_log = empty_run_issue_log();
+run_issue_log_filename = fullfile(fig3_root_folder, 'run_issue_log_category_pairwise.txt');
 
-selected_mt = mt(selected_rows, :);
-meta_array = table2struct(selected_mt);
-if isfinite(max_sessions_to_include)
-    meta_array = meta_array(1:min(numel(meta_array), max_sessions_to_include));
-end
+total_rendered_figure_count = 0;
 
-if isempty(meta_array)
-    error('No metadata rows selected.');
-end
-
-%% Initialize pooled storage
-n_fig = numel(figure_configs);
-pooled = struct([]);
-for fig_i = 1:n_fig
-    pooled(fig_i).contexts = struct([]);
-    for ctx_i = 1:numel(figure_configs(fig_i).contexts)
-        pooled(fig_i).contexts(ctx_i).data = empty_connection_data();
-        pooled(fig_i).contexts(ctx_i).cat_counts = zeros(numel(category_labels), numel(category_labels));
-    end
-    pooled(fig_i).example_states = cell(4, 1);
-    pooled(fig_i).example_label = '';
-end
-
-valid_session_count = 0;
-failed_session_count = 0;
-first_valid_loaded = [];
-first_valid_label = '';
-preferred_loaded = [];
-preferred_label = '';
-
-%% Pool data across all selected sessions
-for session_i = 1:numel(meta_array)
-    meta = meta_array(session_i);
-    session_label = make_session_label(meta);
-    fprintf('\n===== Loading %s (%d/%d) =====\n', session_label, session_i, numel(meta_array));
+%% Run each hyperparameter configuration
+for hp_i = 1:numel(hyperparam_configs)
+    hp_title_for_log = sprintf('hyperparameter set %d/%d', hp_i, numel(hyperparam_configs));
 
     try
-        loaded_states = load_all_required_states(root, meta, [kernel_idx_1, kernel_idx_2]);
+        hp = fill_default_hyperparams(hyperparam_configs(hp_i));
+        hp_title_for_log = make_hyperparam_title(hp);
+        kernel_indices = 1:hp.kernel_num;
 
-        if isempty(first_valid_loaded)
-            first_valid_loaded = loaded_states;
-            first_valid_label = session_label;
-        end
-        if session_i == preferred_example_session_index
-            preferred_loaded = loaded_states;
-            preferred_label = session_label;
+        params = base_params;
+        params.hyperparams = hp;
+        params.hyperparam_title = hp_title_for_log;
+        params.output_folder = fullfile(fig3_root_folder, make_hyperparam_folder_name(hp));
+
+        fprintf('\n===== Hyperparameter set %d/%d: %s =====\n', hp_i, numel(hyperparam_configs), params.hyperparam_title);
+        fprintf('Output folder: %s\n', params.output_folder);
+
+        figure_configs = build_figure_configs(kernel_indices);
+
+        %% Load and filter metadata for this hyperparameter set
+        selected_rows = metadata_filter(mt, hp);
+
+        selected_mt = mt(selected_rows, :);
+        meta_array = table2struct(selected_mt);
+        if isfinite(params.max_sessions_to_include)
+            meta_array = meta_array(1:min(numel(meta_array), params.max_sessions_to_include));
         end
 
+        if isempty(meta_array)
+            message = 'No metadata rows selected. Skipping this hyperparameter set.';
+            warning('%s Hyperparameter set %d: %s', message, hp_i, params.hyperparam_title);
+            run_issue_log = append_run_issue(run_issue_log, hp_i, params.hyperparam_title, 'NoMetadata', message);
+            write_run_issue_log(run_issue_log_filename, run_issue_log);
+            continue;
+        end
+
+        %% Initialize pooled storage
+        n_fig = numel(figure_configs);
+        pooled = struct([]);
         for fig_i = 1:n_fig
-            cfg = figure_configs(fig_i);
-            for ctx_i = 1:numel(cfg.contexts)
-                cond_x = cfg.contexts(ctx_i).x;
-                cond_y = cfg.contexts(ctx_i).y;
+            pooled(fig_i).contexts = struct([]);
+            for ctx_i = 1:numel(figure_configs(fig_i).contexts)
+                pooled(fig_i).contexts(ctx_i).data = empty_connection_data();
+                pooled(fig_i).contexts(ctx_i).cat_counts = zeros(numel(category_labels), numel(category_labels));
+            end
+            pooled(fig_i).valid_session_count = 0;
+        end
 
-                state_x = loaded_states.(state_key(cond_x.prepost, cond_x.state, cond_x.kernel_idx));
-                state_y = loaded_states.(state_key(cond_y.prepost, cond_y.state, cond_y.kernel_idx));
+        valid_session_count = 0;
+        failed_session_count = 0;
 
-                [pair_data, ~] = make_pair_vectors(state_x, state_y, err_multi);
-                pooled(fig_i).contexts(ctx_i).data = append_connection_data(pooled(fig_i).contexts(ctx_i).data, pair_data);
+        %% Pool data across all selected sessions for this hyperparameter set
+        for session_i = 1:numel(meta_array)
+            meta = meta_array(session_i);
+            session_label = make_session_label(meta);
+            fprintf('\n===== Loading %s (%d/%d) =====\n', session_label, session_i, numel(meta_array));
 
-                [pair_counts, ~, ~, ~] = make_pair_category_counts(state_x, state_y, err_multi);
-                pooled(fig_i).contexts(ctx_i).cat_counts = pooled(fig_i).contexts(ctx_i).cat_counts + pair_counts;
+            try
+                loaded_states = load_all_required_states(root, meta, kernel_indices);
+
+                for fig_i = 1:n_fig
+                    cfg = figure_configs(fig_i);
+                    for ctx_i = 1:numel(cfg.contexts)
+                        cond_x = cfg.contexts(ctx_i).x;
+                        cond_y = cfg.contexts(ctx_i).y;
+
+                        state_x = loaded_states.(state_key(cond_x.prepost, cond_x.state, cond_x.kernel_idx));
+                        state_y = loaded_states.(state_key(cond_y.prepost, cond_y.state, cond_y.kernel_idx));
+
+                        [pair_data, ~] = make_pair_vectors(state_x, state_y, params.err_multi);
+                        pooled(fig_i).contexts(ctx_i).data = append_connection_data(pooled(fig_i).contexts(ctx_i).data, pair_data);
+
+                        [pair_counts, ~, ~, ~] = make_pair_category_counts(state_x, state_y, params.err_multi);
+                        pooled(fig_i).contexts(ctx_i).cat_counts = pooled(fig_i).contexts(ctx_i).cat_counts + pair_counts;
+                    end
+                end
+
+                valid_session_count = valid_session_count + 1;
+            catch ME_session
+                failed_session_count = failed_session_count + 1;
+                if params.skip_failed_sessions
+                    warning('Skipping %s because loading/processing failed: %s', session_label, ME_session.message);
+                    continue;
+                else
+                    rethrow(ME_session);
+                end
             end
         end
 
-        valid_session_count = valid_session_count + 1;
-    catch ME
-        failed_session_count = failed_session_count + 1;
-        if skip_failed_sessions
-            warning('Skipping %s because loading/processing failed: %s', session_label, ME.message);
+        if valid_session_count == 0
+            message = sprintf('No valid sessions were loaded. Failed sessions: %d. Skipping rendering for this hyperparameter set.', failed_session_count);
+            warning('%s Hyperparameter set %d: %s', message, hp_i, params.hyperparam_title);
+            run_issue_log = append_run_issue(run_issue_log, hp_i, params.hyperparam_title, 'NoValidSessions', message);
+            write_run_issue_log(run_issue_log_filename, run_issue_log);
             continue;
-        else
-            rethrow(ME);
+        end
+
+        fprintf('\nValid sessions: %d. Failed sessions: %d.\n', valid_session_count, failed_session_count);
+
+        for fig_i = 1:n_fig
+            pooled(fig_i).valid_session_count = valid_session_count;
+        end
+
+        %% Render and save figures for this hyperparameter set
+        for fig_i = 1:n_fig
+            render_comparison_figure(root, figure_configs(fig_i), pooled(fig_i), params);
+            total_rendered_figure_count = total_rendered_figure_count + 1;
+        end
+
+    catch ME_hp
+        message = sprintf('%s: %s', ME_hp.identifier, ME_hp.message);
+        warning('Skipping hyperparameter set %d/%d after error: %s\n%s', ...
+            hp_i, numel(hyperparam_configs), hp_title_for_log, message);
+        run_issue_log = append_run_issue(run_issue_log, hp_i, hp_title_for_log, 'Error', message);
+        write_run_issue_log(run_issue_log_filename, run_issue_log);
+        continue;
+    end
+end
+
+if total_rendered_figure_count == 0
+    warning('No figures were rendered. Check hyperparameter values, metadata coverage, and run_issue_log_category_pairwise.txt.');
+else
+    fprintf('\nRendered %d figures across all hyperparameter sets.\n', total_rendered_figure_count);
+end
+
+if ~isempty(run_issue_log)
+    write_run_issue_log(run_issue_log_filename, run_issue_log);
+    fprintf('Run issue log written to: %s\n', run_issue_log_filename);
+end
+
+function figure_configs = build_figure_configs(kernel_indices)
+    figure_configs = struct([]);
+    fig_i = 0;
+
+    % Per-kernel Open vs Close comparison, split by Pre/Post.
+    for k_i = 1:numel(kernel_indices)
+        k = kernel_indices(k_i);
+
+        x_pre_open   = make_condition('Pre',  'RestOpen',  k, 'Open');
+        y_pre_close  = make_condition('Pre',  'RestClose', k, 'Close');
+        x_post_open  = make_condition('Post', 'RestOpen',  k, 'Open');
+        y_post_close = make_condition('Post', 'RestClose', k, 'Close');
+
+        fig_i = fig_i + 1;
+        figure_configs(fig_i).output_stub = sprintf('Figure3_k%d_open_vs_close', k);
+        figure_configs(fig_i).figure_title = sprintf('Kernel %d: Open vs Close', k);
+        figure_configs(fig_i).contexts = [ ...
+            make_context('Pre',  x_pre_open,  y_pre_close), ...
+            make_context('Post', x_post_open, y_post_close) ...
+        ];
+    end
+
+    % Per-kernel Pre vs Post comparison, split by Open/Close.
+    for k_i = 1:numel(kernel_indices)
+        k = kernel_indices(k_i);
+
+        x_open_pre   = make_condition('Pre',  'RestOpen',  k, 'Pre');
+        y_open_post  = make_condition('Post', 'RestOpen',  k, 'Post');
+        x_close_pre  = make_condition('Pre',  'RestClose', k, 'Pre');
+        y_close_post = make_condition('Post', 'RestClose', k, 'Post');
+
+        fig_i = fig_i + 1;
+        figure_configs(fig_i).output_stub = sprintf('Figure3_k%d_pre_vs_post', k);
+        figure_configs(fig_i).figure_title = sprintf('Kernel %d: Pre vs Post', k);
+        figure_configs(fig_i).contexts = [ ...
+            make_context('RestOpen',  x_open_pre,  y_open_post), ...
+            make_context('RestClose', x_close_pre, y_close_post) ...
+        ];
+    end
+
+    % Cross-kernel comparisons. For kernel_num = 2, this reproduces the
+    % original K1 vs K2 Pre and Post figures. For kernel_num > 2, it uses all
+    % unique kernel-index pairs.
+    for i = 1:numel(kernel_indices)
+        for j = (i + 1):numel(kernel_indices)
+            kx = kernel_indices(i);
+            ky = kernel_indices(j);
+
+            x_pre_open  = make_condition('Pre',  'RestOpen',  kx, sprintf('K%d', kx));
+            y_pre_open  = make_condition('Pre',  'RestOpen',  ky, sprintf('K%d', ky));
+            x_pre_close = make_condition('Pre',  'RestClose', kx, sprintf('K%d', kx));
+            y_pre_close = make_condition('Pre',  'RestClose', ky, sprintf('K%d', ky));
+
+            fig_i = fig_i + 1;
+            figure_configs(fig_i).output_stub = sprintf('Figure3_pre_k%d_vs_k%d', kx, ky);
+            figure_configs(fig_i).figure_title = sprintf('Pre: Kernel %d vs Kernel %d', kx, ky);
+            figure_configs(fig_i).contexts = [ ...
+                make_context('RestOpen',  x_pre_open,  y_pre_open), ...
+                make_context('RestClose', x_pre_close, y_pre_close) ...
+            ];
+
+            x_post_open  = make_condition('Post', 'RestOpen',  kx, sprintf('K%d', kx));
+            y_post_open  = make_condition('Post', 'RestOpen',  ky, sprintf('K%d', ky));
+            x_post_close = make_condition('Post', 'RestClose', kx, sprintf('K%d', kx));
+            y_post_close = make_condition('Post', 'RestClose', ky, sprintf('K%d', ky));
+
+            fig_i = fig_i + 1;
+            figure_configs(fig_i).output_stub = sprintf('Figure3_post_k%d_vs_k%d', kx, ky);
+            figure_configs(fig_i).figure_title = sprintf('Post: Kernel %d vs Kernel %d', kx, ky);
+            figure_configs(fig_i).contexts = [ ...
+                make_context('RestOpen',  x_post_open,  y_post_open), ...
+                make_context('RestClose', x_post_close, y_post_close) ...
+            ];
         end
     end
 end
 
-if valid_session_count == 0
-    error('No valid sessions were loaded.');
-end
-
-fprintf('\nValid sessions: %d. Failed sessions: %d.\n', valid_session_count, failed_session_count);
-
-if isempty(preferred_loaded)
-    preferred_loaded = first_valid_loaded;
-    preferred_label = first_valid_label;
-end
-
-for fig_i = 1:n_fig
-    cfg = figure_configs(fig_i);
-    pooled(fig_i).example_label = preferred_label;
-    for ctx_i = 1:numel(cfg.contexts)
-        row_top = (ctx_i - 1) * 2 + 1;
-        row_bottom = row_top + 1;
-        pooled(fig_i).example_states{row_top} = preferred_loaded.(state_key(cfg.contexts(ctx_i).x.prepost, cfg.contexts(ctx_i).x.state, cfg.contexts(ctx_i).x.kernel_idx));
-        pooled(fig_i).example_states{row_bottom} = preferred_loaded.(state_key(cfg.contexts(ctx_i).y.prepost, cfg.contexts(ctx_i).y.state, cfg.contexts(ctx_i).y.kernel_idx));
-    end
-    pooled(fig_i).valid_session_count = valid_session_count;
-end
-
-%% Render and save all 6 figures
-for fig_i = 1:n_fig
-    render_comparison_figure(root, figure_configs(fig_i), pooled(fig_i), params);
-end
-
-
-function figure_configs = build_figure_configs(k1, k2)
-    x1 = make_condition('Pre',  'RestOpen',  k1, 'Open');
-    y1 = make_condition('Pre',  'RestClose', k1, 'Close');
-    x2 = make_condition('Post', 'RestOpen',  k1, 'Open');
-    y2 = make_condition('Post', 'RestClose', k1, 'Close');
-
-    x3 = make_condition('Pre',  'RestOpen',  k2, 'Open');
-    y3 = make_condition('Pre',  'RestClose', k2, 'Close');
-    x4 = make_condition('Post', 'RestOpen',  k2, 'Open');
-    y4 = make_condition('Post', 'RestClose', k2, 'Close');
-
-    x5 = make_condition('Pre',  'RestOpen',  k1, 'Pre');
-    y5 = make_condition('Post', 'RestOpen',  k1, 'Post');
-    x6 = make_condition('Pre',  'RestClose', k1, 'Pre');
-    y6 = make_condition('Post', 'RestClose', k1, 'Post');
-
-    x7 = make_condition('Pre',  'RestOpen',  k2, 'Pre');
-    y7 = make_condition('Post', 'RestOpen',  k2, 'Post');
-    x8 = make_condition('Pre',  'RestClose', k2, 'Pre');
-    y8 = make_condition('Post', 'RestClose', k2, 'Post');
-
-    x9  = make_condition('Pre', 'RestOpen',  k1, sprintf('K%d', k1));
-    y9  = make_condition('Pre', 'RestOpen',  k2, sprintf('K%d', k2));
-    x10 = make_condition('Pre', 'RestClose', k1, sprintf('K%d', k1));
-    y10 = make_condition('Pre', 'RestClose', k2, sprintf('K%d', k2));
-
-    x11 = make_condition('Post', 'RestOpen',  k1, sprintf('K%d', k1));
-    y11 = make_condition('Post', 'RestOpen',  k2, sprintf('K%d', k2));
-    x12 = make_condition('Post', 'RestClose', k1, sprintf('K%d', k1));
-    y12 = make_condition('Post', 'RestClose', k2, sprintf('K%d', k2));
-
-    figure_configs = struct([]);
-
-    figure_configs(1).output_stub = sprintf('Figure3_k%d_open_vs_close', k1);
-    figure_configs(1).figure_title = sprintf('Kernel %d: Open vs Close', k1);
-    figure_configs(1).contexts = [ ...
-        make_context('Pre',  x1,  y1), ...
-        make_context('Post', x2,  y2)  ...
-    ];
-
-    figure_configs(2).output_stub = sprintf('Figure3_k%d_open_vs_close', k2);
-    figure_configs(2).figure_title = sprintf('Kernel %d: Open vs Close', k2);
-    figure_configs(2).contexts = [ ...
-        make_context('Pre',  x3,  y3), ...
-        make_context('Post', x4,  y4)  ...
-    ];
-
-    figure_configs(3).output_stub = sprintf('Figure3_k%d_pre_vs_post', k1);
-    figure_configs(3).figure_title = sprintf('Kernel %d: Pre vs Post', k1);
-    figure_configs(3).contexts = [ ...
-        make_context('RestOpen',  x5,  y5), ...
-        make_context('RestClose', x6,  y6)  ...
-    ];
-
-    figure_configs(4).output_stub = sprintf('Figure3_k%d_pre_vs_post', k2);
-    figure_configs(4).figure_title = sprintf('Kernel %d: Pre vs Post', k2);
-    figure_configs(4).contexts = [ ...
-        make_context('RestOpen',  x7,  y7), ...
-        make_context('RestClose', x8,  y8)  ...
-    ];
-
-    figure_configs(5).output_stub = sprintf('Figure3_pre_k%d_vs_k%d', k1, k2);
-    figure_configs(5).figure_title = sprintf('Pre: Kernel %d vs Kernel %d', k1, k2);
-    figure_configs(5).contexts = [ ...
-        make_context('RestOpen',  x9,  y9), ...
-        make_context('RestClose', x10, y10) ...
-    ];
-
-    figure_configs(6).output_stub = sprintf('Figure3_post_k%d_vs_k%d', k1, k2);
-    figure_configs(6).figure_title = sprintf('Post: Kernel %d vs Kernel %d', k1, k2);
-    figure_configs(6).contexts = [ ...
-        make_context('RestOpen',  x11, y11), ...
-        make_context('RestClose', x12, y12) ...
-    ];
-end
 
 function cond = make_condition(prepost, state, kernel_idx, axis_label)
     cond = struct();
@@ -420,9 +456,14 @@ function render_comparison_figure(root, cfg, pooled_one, params)
         add_panel_label(ax, row_bottom, 6, params.n_col);
     end
 
-    sgtitle(sprintf('Supplement Fig 3: %s', cfg.figure_title), 'Interpreter', 'none');
+    sgtitle(sprintf('Supplement Fig 3: %s\n%s; valid sessions = %d', ...
+        cfg.figure_title, params.hyperparam_title, pooled_one.valid_session_count), 'Interpreter', 'none');
 
-    save_folder = fullfile(root, 'Figures', 'Paper');
+    if isfield(params, 'output_folder') && ~isempty(params.output_folder)
+        save_folder = params.output_folder;
+    else
+        save_folder = fullfile(root, 'Figures', 'Paper');
+    end
     check_path(save_folder);
 
     figWidth = 24.0;  % inches. Wider layout for 6 columns.
@@ -522,19 +563,135 @@ function out = append_connection_data(out, incoming)
     end
 end
 
-function selected_rows = default_metadata_filter(mt)
-    base_filter = strcmp(mt.kernel_name, "DeltaPure") & ...
-                  strcmp(mt.align, 'Last') & ...
-                  strcmp(mt.area, "Cortex") & ...
-                  strcmp(mt.injection, 'Muscimol') & ...
-                  (mt.epoch == 3000) & ...
-                  (mt.fold_idx == 0) & ...
-                  (mt.shuffle_idx == 0) & ...
-                  cellfun(@(x) ~isempty(x) && x == 15, mt.resting_dur_threshold);
+function hyperparam_configs = build_auto_hyperparam_configs()
+    reg_name = "L2=0_2";
+    resting_dur_threshold = 15;
+    injections = {"Muscimol", "Saline"};
+    aligns = {"Last", "Longest"};
+
+    kernel_specs = struct('kernel_name', {}, 'kernel_num', {});
+
+    first_kernel_names = {"Exp5", "Exp40", "Exp100", "Exp40Mix", "Exp100Mix"};
+    first_kernel_nums = [1, 1, 1, 2, 3];
+    for i = 1:numel(first_kernel_names)
+        kernel_specs(end + 1).kernel_name = first_kernel_names{i}; %#ok<AGROW>
+        kernel_specs(end).kernel_num = first_kernel_nums(i);
+    end
+
+    suffixes = {'5', '10', '20', '40', '80', '160', '320', '640', '1000'};
+    prefixes = {'LongExp', 'LongGaussC', 'LongGDeriv'};
+    for p = 1:numel(prefixes)
+        for s = 1:numel(suffixes)
+            kernel_specs(end + 1).kernel_name = string(sprintf('%s%s', prefixes{p}, suffixes{s})); %#ok<AGROW>
+            kernel_specs(end).kernel_num = 1;
+        end
+    end
+
+    step_suffixes = {'0_5', '5_10', '10_20', '20_40', '40_80', ...
+                     '80_160', '160_320', '320_640', '640_1000', '1000_3000'};
+    for s = 1:numel(step_suffixes)
+        kernel_specs(end + 1).kernel_name = string(sprintf('LongStepB%s', step_suffixes{s})); %#ok<AGROW>
+        kernel_specs(end).kernel_num = 1;
+    end
+
+    hyperparam_configs = struct([]);
+    cfg_i = 0;
+    for k = 1:numel(kernel_specs)
+        for inj_i = 1:numel(injections)
+            for align_i = 1:numel(aligns)
+                cfg_i = cfg_i + 1;
+                hyperparam_configs(cfg_i).kernel_name = kernel_specs(k).kernel_name; %#ok<AGROW>
+                hyperparam_configs(cfg_i).kernel_num = kernel_specs(k).kernel_num;
+                hyperparam_configs(cfg_i).reg_name = reg_name;
+                hyperparam_configs(cfg_i).resting_dur_threshold = resting_dur_threshold;
+                hyperparam_configs(cfg_i).injection = injections{inj_i};
+                hyperparam_configs(cfg_i).align = aligns{align_i};
+            end
+        end
+    end
+
+    fprintf('Generated %d hyperparameter configurations from %d kernel specifications.\n', ...
+        numel(hyperparam_configs), numel(kernel_specs));
+end
+
+function issue_log = empty_run_issue_log()
+    issue_log = struct('hp_index', {}, 'hyperparam_title', {}, 'issue_type', {}, 'message', {});
+end
+
+function issue_log = append_run_issue(issue_log, hp_index, hyperparam_title, issue_type, message)
+    entry_i = numel(issue_log) + 1;
+    issue_log(entry_i).hp_index = hp_index;
+    issue_log(entry_i).hyperparam_title = char(string(hyperparam_title));
+    issue_log(entry_i).issue_type = char(string(issue_type));
+    issue_log(entry_i).message = char(string(message));
+end
+
+function write_run_issue_log(filename, issue_log)
+    fid = fopen(filename, 'w');
+    if fid < 0
+        warning('Could not open run issue log for writing: %s', filename);
+        return;
+    end
+    cleanup_obj = onCleanup(@() fclose(fid));
+
+    fprintf(fid, 'hp_index\tissue_type\thyperparam_title\tmessage\n');
+    for i = 1:numel(issue_log)
+        fprintf(fid, '%d\t%s\t%s\t%s\n', ...
+            issue_log(i).hp_index, ...
+            escape_log_field(issue_log(i).issue_type), ...
+            escape_log_field(issue_log(i).hyperparam_title), ...
+            escape_log_field(issue_log(i).message));
+    end
+end
+
+function out = escape_log_field(value)
+    out = char(string(value));
+    out = strrep(out, sprintf('\t'), ' ');
+    out = strrep(out, sprintf('\n'), ' ');
+    out = strrep(out, sprintf('\r'), ' ');
+end
+
+function hp = fill_default_hyperparams(hp)
+    default_hp = struct();
+    default_hp.kernel_name = "DeltaPure";
+    default_hp.kernel_num = 3;
+    default_hp.reg_name = [];
+    default_hp.resting_dur_threshold = 15;
+    default_hp.injection = "Muscimol";
+    default_hp.align = "Last";
+
+    fields = fieldnames(default_hp);
+    for f = 1:numel(fields)
+        field = fields{f};
+        if ~isfield(hp, field)
+            hp.(field) = default_hp.(field);
+        end
+    end
+
+    if isempty(hp.kernel_num) || hp.kernel_num < 1 || hp.kernel_num ~= floor(hp.kernel_num)
+        error('kernel_num must be a positive integer.');
+    end
+end
+
+function selected_rows = metadata_filter(mt, hp)
+    base_filter = true(height(mt), 1);
+
+    base_filter = base_filter & metadata_matches(mt, 'kernel_name', hp.kernel_name);
+    base_filter = base_filter & metadata_matches(mt, 'align', hp.align);
+    base_filter = base_filter & metadata_matches(mt, 'area', "Cortex");
+    base_filter = base_filter & metadata_matches(mt, 'injection', hp.injection);
+    base_filter = base_filter & metadata_matches(mt, 'epoch', 3000);
+    base_filter = base_filter & metadata_matches(mt, 'fold_idx', 0);
+    base_filter = base_filter & metadata_matches(mt, 'shuffle_idx', 0);
+    base_filter = base_filter & metadata_matches(mt, 'resting_dur_threshold', hp.resting_dur_threshold);
+
+    if ~is_empty_filter_value(hp.reg_name)
+        base_filter = base_filter & metadata_matches(mt, 'reg_name', hp.reg_name);
+    end
 
     anchor_filter = base_filter & ...
-                    strcmp(mt.prepost, 'Pre') & ...
-                    strcmp(mt.state, 'RestOpen');
+                    metadata_matches(mt, 'prepost', 'Pre') & ...
+                    metadata_matches(mt, 'state', 'RestOpen');
 
     selected_rows = false(height(mt), 1);
     anchor_idx = find(anchor_filter);
@@ -557,25 +714,19 @@ function selected_rows = default_metadata_filter(mt)
                 continue;
             end
 
-            anchor_value = mt.(field)(idx);
-
-            if iscell(mt.(field))
-                anchor_value = anchor_value{1};
-                same_session = same_session & cellfun(@(x) isequal(x, anchor_value), mt.(field));
-            else
-                same_session = same_session & arrayfun(@(x) isequal(x, anchor_value), mt.(field));
-            end
+            anchor_value = get_table_scalar(mt, field, idx);
+            same_session = same_session & metadata_matches(mt, field, anchor_value);
         end
 
         has_all_required = true;
         for q = 1:numel(required_preposts)
             has_this = any(same_session & ...
-                           strcmp(mt.prepost, required_preposts{q}) & ...
-                           strcmp(mt.state, required_states{q}));
+                           metadata_matches(mt, 'prepost', required_preposts{q}) & ...
+                           metadata_matches(mt, 'state', required_states{q}));
 
             if ~has_this
                 has_all_required = false;
-                anchor_name = mt.file_name{idx};
+                anchor_name = get_optional_table_string(mt, 'file_name', idx, sprintf('row_%d', idx));
                 warning('Session %s is missing required Pre/Post x Open/Close combination: %s %s. Skipping this session.', ...
                     anchor_name, required_preposts{q}, required_states{q});
                 break;
@@ -587,19 +738,212 @@ function selected_rows = default_metadata_filter(mt)
         end
     end
 
-    fprintf('Default metadata filter selected %d/%d rows:\n', sum(selected_rows), sum(base_filter));
+    fprintf('Metadata filter selected %d/%d anchor rows for %s:\n', ...
+        sum(selected_rows), sum(base_filter), make_hyperparam_title(hp));
     for k = 1:height(mt)
         if selected_rows(k)
-            fprintf('  %s\n', mt.file_name{k});
+            fprintf('  %s\n', get_optional_table_string(mt, 'file_name', k, sprintf('row_%d', k)));
         end
     end
 
     if ~any(selected_rows)
-        warning('Default metadata filter selected no complete Pre/Post x Open/Close sets. Falling back to Pre RestOpen anchors.');
-        selected_rows = anchor_filter;
+        warning('Metadata filter selected no complete Pre/Post x Open/Close sets for %s.', make_hyperparam_title(hp));
     end
 end
 
+function mask = metadata_matches(mt, field, target)
+    if is_empty_filter_value(target)
+        mask = true(height(mt), 1);
+        return;
+    end
+
+    if ~ismember(field, mt.Properties.VariableNames)
+        error('Metadata table is missing required field: %s', field);
+    end
+
+    mask = false(height(mt), 1);
+    for idx = 1:height(mt)
+        value = get_table_scalar(mt, field, idx);
+        mask(idx) = metadata_scalar_matches(value, target);
+    end
+end
+
+function value = get_table_scalar(mt, field, idx)
+    col = mt.(field);
+    if iscell(col)
+        value = col{idx};
+    else
+        value = col(idx);
+    end
+end
+
+function out = get_optional_table_string(mt, field, idx, fallback)
+    if ~ismember(field, mt.Properties.VariableNames)
+        out = fallback;
+        return;
+    end
+    out = value_to_display_string(get_table_scalar(mt, field, idx), fallback);
+end
+
+function tf = metadata_scalar_matches(value, target)
+    if is_empty_filter_value(target)
+        tf = true;
+        return;
+    end
+
+    if iscell(target)
+        tf = false;
+        for i = 1:numel(target)
+            if metadata_scalar_matches(value, target{i})
+                tf = true;
+                return;
+            end
+        end
+        return;
+    end
+
+    if isstring(target) && numel(target) > 1
+        tf = false;
+        for i = 1:numel(target)
+            if metadata_scalar_matches(value, target(i))
+                tf = true;
+                return;
+            end
+        end
+        return;
+    end
+
+    if isnumeric(target) && numel(target) > 1
+        tf = false;
+        for i = 1:numel(target)
+            if metadata_scalar_matches(value, target(i))
+                tf = true;
+                return;
+            end
+        end
+        return;
+    end
+
+    value = unwrap_cell_scalar(value);
+    target = unwrap_cell_scalar(target);
+
+    if ischar(value) || isstring(value) || ischar(target) || isstring(target) || iscategorical_safe(value) || iscategorical_safe(target)
+        tf = strcmp(string(value), string(target));
+    elseif isnumeric(value) && isnumeric(target)
+        tf = isequal(value, target);
+    elseif islogical(value) && islogical(target)
+        tf = isequal(value, target);
+    else
+        tf = isequal(value, target);
+    end
+
+    if numel(tf) > 1
+        tf = any(tf(:));
+    end
+end
+
+function value = unwrap_cell_scalar(value)
+    while iscell(value) && isscalar(value)
+        value = value{1};
+    end
+end
+
+function tf = iscategorical_safe(value)
+    tf = false;
+    try
+        tf = iscategorical(value);
+    catch
+        tf = false;
+    end
+end
+
+function tf = is_empty_filter_value(value)
+    if isempty(value)
+        tf = true;
+        return;
+    end
+    if isstring(value) && all(strlength(value) == 0)
+        tf = true;
+        return;
+    end
+    if iscell(value) && isempty(value)
+        tf = true;
+        return;
+    end
+    tf = false;
+end
+
+function title_str = make_hyperparam_title(hp)
+    title_str = sprintf('kernel_name=%s, kernel_num=%d, reg_name=%s, resting_dur_threshold=%s, injection=%s, align=%s', ...
+        value_to_display_string(hp.kernel_name, 'all'), ...
+        hp.kernel_num, ...
+        value_to_display_string(hp.reg_name, 'all'), ...
+        value_to_display_string(hp.resting_dur_threshold, 'all'), ...
+        value_to_display_string(hp.injection, 'all'), ...
+        value_to_display_string(hp.align, 'all'));
+end
+
+function folder_name = make_hyperparam_folder_name(hp)
+    parts = { ...
+        ['kernel_', sanitize_for_path(value_to_display_string(hp.kernel_name, 'all'))], ...
+        ['kernelNum_', sanitize_for_path(value_to_display_string(hp.kernel_num, 'all'))], ...
+        ['reg_', sanitize_for_path(value_to_display_string(hp.reg_name, 'all'))], ...
+        ['restDur_', sanitize_for_path(value_to_display_string(hp.resting_dur_threshold, 'all'))], ...
+        ['inj_', sanitize_for_path(value_to_display_string(hp.injection, 'all'))], ...
+        ['align_', sanitize_for_path(value_to_display_string(hp.align, 'all'))] ...
+    };
+    folder_name = strjoin(parts, '__');
+end
+
+function out = value_to_display_string(value, empty_label)
+    if nargin < 2
+        empty_label = 'all';
+    end
+
+    if is_empty_filter_value(value)
+        out = empty_label;
+        return;
+    end
+
+    value = unwrap_cell_scalar(value);
+
+    if iscell(value)
+        parts = cell(size(value));
+        for i = 1:numel(value)
+            parts{i} = value_to_display_string(value{i}, empty_label);
+        end
+        out = strjoin(parts(:).', '+');
+    elseif isstring(value)
+        parts = cell(1, numel(value));
+        for i = 1:numel(value)
+            parts{i} = char(value(i));
+        end
+        out = strjoin(parts, '+');
+    elseif ischar(value)
+        out = value;
+    elseif isnumeric(value) || islogical(value)
+        if isscalar(value)
+            out = num2str(value);
+        else
+            parts = cell(1, numel(value));
+            for i = 1:numel(value)
+                parts{i} = num2str(value(i));
+            end
+            out = strjoin(parts, '+');
+        end
+    else
+        out = char(string(value));
+    end
+end
+
+function out = sanitize_for_path(str_in)
+    out = char(str_in);
+    out = regexprep(out, '[^A-Za-z0-9._=-]+', '_');
+    out = regexprep(out, '^_+|_+$', '');
+    if isempty(out)
+        out = 'empty';
+    end
+end
 function label = make_session_label(meta)
     if ischar(meta.animal_name) || isstring(meta.animal_name)
         animal_str = char(meta.animal_name);
