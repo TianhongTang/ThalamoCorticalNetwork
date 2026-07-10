@@ -34,8 +34,8 @@ n_col = 4;
 figure_visible = 'off';
 show_legend = true;
 show_inset_stat = false;
-show_identity_line = false;
-show_fit_line = true;
+show_identity_line = true;
+show_fit_line = false;
 fit_line_method = 'tls'; % 'ols' or 'tls'.
 
 preferred_example_session_index = 12; % fallback: first valid session.
@@ -962,6 +962,7 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
 
     xlim(ax, axis_limit);
     ylim(ax, axis_limit);
+    apply_xy_axis_ticks(ax, axis_limit, axis_limit);
     hold(ax, 'off');
 
     axis(ax, 'square');
@@ -1115,6 +1116,7 @@ function vmax = get_positive_axis_max(x, y)
             vmax = 1;
         end
     end
+    vmax = ceil(max(3.5, vmax));
 end
 
 function axis_limit = get_symmetric_axis_limit(x, y)
@@ -1128,7 +1130,53 @@ function axis_limit = get_symmetric_axis_limit(x, y)
             vmax = 1;
         end
     end
-    axis_limit = [-max(3.5, vmax), max(3.5, vmax)];
+    vmax = ceil(max(3.5, vmax));
+    axis_limit = [-vmax, vmax];
+end
+
+function apply_xy_axis_ticks(ax, x_limit, y_limit)
+    xticks(ax, make_axis_ticks_from_limit(x_limit));
+    yticks(ax, make_axis_ticks_from_limit(y_limit));
+    xticklabels(ax, make_axis_tick_labels(make_axis_ticks_from_limit(x_limit)));
+    yticklabels(ax, make_axis_tick_labels(make_axis_ticks_from_limit(y_limit)));
+end
+
+function ticks = make_axis_ticks_from_limit(axis_limit)
+    axis_limit = axis_limit(:).';
+    if numel(axis_limit) ~= 2 || any(~isfinite(axis_limit))
+        ticks = [];
+        return;
+    end
+
+    lo = axis_limit(1);
+    hi = axis_limit(2);
+
+    if lo < 0 && hi > 0 && abs(abs(lo) - abs(hi)) < 100 * eps(max(abs(axis_limit)))
+        lim = ceil(max(abs(axis_limit)));
+        ticks = [-lim, -lim / 2, 0, lim / 2, lim];
+    elseif lo >= 0
+        lim = ceil(hi);
+        ticks = [0, lim / 2, lim];
+    else
+        % Fallback for asymmetric signed axes. Keep zero and the rounded endpoints.
+        lo_tick = floor(lo);
+        hi_tick = ceil(hi);
+        ticks = [lo_tick, 0, hi_tick];
+    end
+
+    ticks = unique(ticks, 'stable');
+end
+
+function labels = make_axis_tick_labels(ticks)
+    labels = arrayfun(@format_axis_tick, ticks, 'UniformOutput', false);
+end
+
+function label = format_axis_tick(value)
+    if abs(value - round(value)) < 100 * eps(max(1, abs(value)))
+        label = sprintf('%d', round(value));
+    else
+        label = sprintf('%.1f', value);
+    end
 end
 
 function cos_sim = cosine_similarity_omitnan(x, y)
@@ -1201,8 +1249,11 @@ function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearma
     end
 
     axis(ax, 'square');
-    xlim(ax, [edges_x(1), edges_x(end)]);
-    ylim(ax, [edges_y(1), edges_y(end)]);
+    density_x_limit = [edges_x(1), edges_x(end)];
+    density_y_limit = [edges_y(1), edges_y(end)];
+    xlim(ax, density_x_limit);
+    ylim(ax, density_y_limit);
+    apply_xy_axis_ticks(ax, density_x_limit, density_y_limit);
     if strcmp(axis_mode, 'signed')
         xlabel(ax, sprintf('%s J_{ij}', x_label));
         ylabel(ax, sprintf('%s J_{ij}', y_label));

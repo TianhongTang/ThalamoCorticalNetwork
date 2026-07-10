@@ -38,6 +38,12 @@ show_identity_line = false;
 show_fit_line = true;
 fit_line_method = 'tls'; % 'ols' or 'tls'.
 
+% Platform-specific rendering settings.
+% Options: 'PC' keeps the previous 16 x 16 inch layout; 'laptop' uses a larger
+% canvas and smaller fonts to avoid tiledlayout squeezing axes on high-DPI displays.
+plot_platform = 'laptop'; % 'PC' or 'laptop'.
+layout_params = make_layout_params(plot_platform);
+
 preferred_example_session_index = 12; % fallback: first valid session.
 skip_failed_sessions = false;
 max_sessions_to_include = inf; % set smaller for debugging.
@@ -76,6 +82,7 @@ params.show_identity_line = show_identity_line;
 params.show_fit_line = show_fit_line;
 params.fit_line_method = fit_line_method;
 params.colors = colors;
+params.layout = layout_params;
 
 figure_configs = build_figure_configs(kernel_idx_1, kernel_idx_2);
 
@@ -305,8 +312,27 @@ function key = state_key(prepost, state, kernel_idx)
 end
 
 function render_comparison_figure(root, cfg, pooled_one, params)
-    f = figure('Color', 'w', 'Visible', params.figure_visible);
-    tiledlayout(params.n_row, params.n_col, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+    layout = params.layout;
+
+    % Set the physical figure size before creating tiledlayout. This makes the
+    % layout less dependent on display DPI and MATLAB's initial default figure size.
+    f = figure('Color', 'w', ...
+        'Visible', params.figure_visible, ...
+        'Units', 'inches', ...
+        'Position', [1, 1, layout.figWidth, layout.figHeight], ...
+        'PaperUnits', 'inches', ...
+        'PaperSize', [layout.figWidth, layout.figHeight], ...
+        'PaperPosition', [0, 0, layout.figWidth, layout.figHeight], ...
+        'PaperPositionMode', 'manual', ...
+        'InvertHardcopy', 'off');
+
+    if ~isempty(layout.renderer)
+        set(f, 'Renderer', layout.renderer);
+    end
+
+    tiledlayout(f, params.n_row, params.n_col, ...
+        'TileSpacing', layout.tile_spacing, ...
+        'Padding', layout.padding);
     tile_idx = @(row, col) rowcol_to_panel_index(row, col, params.n_col);
 
     for ctx_i = 1:numel(cfg.contexts)
@@ -382,29 +408,143 @@ function render_comparison_figure(root, cfg, pooled_one, params)
         add_panel_label(ax, row_bottom, 4, params.n_col);
     end
 
-    sgtitle(cfg.figure_title, 'Interpreter', 'none');
+    sg = sgtitle(cfg.figure_title, 'Interpreter', 'none');
+    apply_figure_layout_style(f, sg, layout);
+    drawnow;
 
     save_folder = fullfile(root, 'Figures', 'Paper', 'fig3');
     check_path(save_folder);
 
-    figWidth = 16.0;  % inches.
-    figHeight = 16.0; % inches.
-    resolution = 300;
-
     set(f, 'Units', 'inches');
-    f.Position(3:4) = [figWidth, figHeight];
+    f.Position(3:4) = [layout.figWidth, layout.figHeight];
     set(f, 'PaperUnits', 'inches');
-    set(f, 'PaperSize', [figWidth, figHeight]);
-    set(f, 'PaperPosition', [0, 0, figWidth, figHeight]);
+    set(f, 'PaperSize', [layout.figWidth, layout.figHeight]);
+    set(f, 'PaperPosition', [0, 0, layout.figWidth, layout.figHeight]);
     set(f, 'Color', 'w');
 
     preview_filename = fullfile(save_folder, [cfg.output_stub, '_preview.jpg']);
-    exportgraphics(f, preview_filename, 'ContentType', 'image', 'BackgroundColor', 'white', 'Resolution', resolution);
+    exportgraphics(f, preview_filename, 'ContentType', 'image', 'BackgroundColor', 'white', 'Resolution', layout.resolution);
 
     pdf_filename = fullfile(save_folder, [cfg.output_stub, '.pdf']);
-    exportgraphics(f, pdf_filename, 'ContentType', 'vector', 'BackgroundColor', 'white', 'Resolution', resolution);
+    exportgraphics(f, pdf_filename, 'ContentType', 'vector', 'BackgroundColor', 'white', 'Resolution', layout.resolution);
 
     close(f);
+end
+
+
+function layout = make_layout_params(plot_platform)
+    platform = lower(strtrim(char(string(plot_platform))));
+
+    layout = struct();
+    layout.platform = platform;
+    layout.tile_spacing = 'Compact';
+    layout.padding = 'Compact';
+    layout.renderer = ''; % Keep MATLAB default renderer unless explicitly changed.
+    layout.font_name = '';
+
+    switch platform
+        case {'pc', 'desktop'}
+            % Original PC mode: same physical canvas and default MATLAB font sizes.
+            layout.figWidth = 16.0;
+            layout.figHeight = 16.0;
+            layout.resolution = 300;
+            layout.font_name = '';
+            layout.apply_font_sizes = false;
+            layout.axes_font_size = [];
+            layout.label_font_size = [];
+            layout.title_font_size = [];
+            layout.legend_font_size = [];
+            layout.colorbar_font_size = [];
+            layout.sgtitle_font_size = [];
+
+        case {'laptop', 'notebook'}
+            % Laptop mode: larger canvas plus smaller fonts. This keeps the same
+            % content but gives tiledlayout more physical room for titles/legends.
+            layout.figWidth = 24.0;
+            layout.figHeight = 20.0;
+            layout.resolution = 300;
+            layout.font_name = 'Arial';
+            layout.apply_font_sizes = true;
+            layout.axes_font_size = 7;
+            layout.label_font_size = 8;
+            layout.title_font_size = 8;
+            layout.legend_font_size = 7;
+            layout.colorbar_font_size = 7;
+            layout.sgtitle_font_size = 11;
+
+        otherwise
+            error('Unknown plot_platform: %s. Use ''PC'' or ''laptop''.', plot_platform);
+    end
+end
+
+function apply_figure_layout_style(fig, sgtitle_handle, layout)
+    if ~isempty(layout.sgtitle_font_size) && isvalid(sgtitle_handle)
+        sgtitle_handle.FontSize = layout.sgtitle_font_size;
+    end
+    if ~isempty(layout.font_name) && isvalid(sgtitle_handle)
+        sgtitle_handle.FontName = layout.font_name;
+    end
+
+    if ~layout.apply_font_sizes
+        return;
+    end
+
+    ax_all = findall(fig, 'Type', 'Axes');
+    for ax_i = 1:numel(ax_all)
+        ax = ax_all(ax_i);
+        if ~isempty(layout.font_name)
+            ax.FontName = layout.font_name;
+        end
+        if ~isempty(layout.axes_font_size)
+            ax.FontSize = layout.axes_font_size;
+        end
+        if isprop(ax, 'Title') && ~isempty(ax.Title)
+            if ~isempty(layout.font_name)
+                ax.Title.FontName = layout.font_name;
+            end
+            if ~isempty(layout.title_font_size)
+                ax.Title.FontSize = layout.title_font_size;
+            end
+        end
+        if isprop(ax, 'XLabel') && ~isempty(ax.XLabel)
+            if ~isempty(layout.font_name)
+                ax.XLabel.FontName = layout.font_name;
+            end
+            if ~isempty(layout.label_font_size)
+                ax.XLabel.FontSize = layout.label_font_size;
+            end
+        end
+        if isprop(ax, 'YLabel') && ~isempty(ax.YLabel)
+            if ~isempty(layout.font_name)
+                ax.YLabel.FontName = layout.font_name;
+            end
+            if ~isempty(layout.label_font_size)
+                ax.YLabel.FontSize = layout.label_font_size;
+            end
+        end
+    end
+
+    legend_all = findall(fig, 'Type', 'Legend');
+    for legend_i = 1:numel(legend_all)
+        lgd = legend_all(legend_i);
+        if ~isempty(layout.font_name)
+            lgd.FontName = layout.font_name;
+        end
+        if ~isempty(layout.legend_font_size)
+            lgd.FontSize = layout.legend_font_size;
+        end
+    end
+
+    colorbar_all = findall(fig, 'Type', 'ColorBar');
+    for cb_i = 1:numel(colorbar_all)
+        cb = colorbar_all(cb_i);
+        if ~isempty(layout.font_name)
+            cb.FontName = layout.font_name;
+        end
+        if ~isempty(layout.colorbar_font_size)
+            cb.FontSize = layout.colorbar_font_size;
+        end
+    end
 end
 
 
@@ -962,6 +1102,7 @@ function plot_pair_scatter(ax, data, plot_mode, marker_size, marker_alpha, color
 
     xlim(ax, axis_limit);
     ylim(ax, axis_limit);
+    apply_xy_axis_ticks(ax, axis_limit, axis_limit);
     hold(ax, 'off');
 
     axis(ax, 'square');
@@ -1115,6 +1256,7 @@ function vmax = get_positive_axis_max(x, y)
             vmax = 1;
         end
     end
+    vmax = ceil(max(3.5, vmax));
 end
 
 function axis_limit = get_symmetric_axis_limit(x, y)
@@ -1128,7 +1270,53 @@ function axis_limit = get_symmetric_axis_limit(x, y)
             vmax = 1;
         end
     end
-    axis_limit = [-max(3.5, vmax), max(3.5, vmax)];
+    vmax = ceil(max(3.5, vmax));
+    axis_limit = [-vmax, vmax];
+end
+
+function apply_xy_axis_ticks(ax, x_limit, y_limit)
+    xticks(ax, make_axis_ticks_from_limit(x_limit));
+    yticks(ax, make_axis_ticks_from_limit(y_limit));
+    xticklabels(ax, make_axis_tick_labels(make_axis_ticks_from_limit(x_limit)));
+    yticklabels(ax, make_axis_tick_labels(make_axis_ticks_from_limit(y_limit)));
+end
+
+function ticks = make_axis_ticks_from_limit(axis_limit)
+    axis_limit = axis_limit(:).';
+    if numel(axis_limit) ~= 2 || any(~isfinite(axis_limit))
+        ticks = [];
+        return;
+    end
+
+    lo = axis_limit(1);
+    hi = axis_limit(2);
+
+    if lo < 0 && hi > 0 && abs(abs(lo) - abs(hi)) < 100 * eps(max(abs(axis_limit)))
+        lim = ceil(max(abs(axis_limit)));
+        ticks = [-lim, -lim / 2, 0, lim / 2, lim];
+    elseif lo >= 0
+        lim = ceil(hi);
+        ticks = [0, lim / 2, lim];
+    else
+        % Fallback for asymmetric signed axes. Keep zero and the rounded endpoints.
+        lo_tick = floor(lo);
+        hi_tick = ceil(hi);
+        ticks = [lo_tick, 0, hi_tick];
+    end
+
+    ticks = unique(ticks, 'stable');
+end
+
+function labels = make_axis_tick_labels(ticks)
+    labels = arrayfun(@format_axis_tick, ticks, 'UniformOutput', false);
+end
+
+function label = format_axis_tick(value)
+    if abs(value - round(value)) < 100 * eps(max(1, abs(value)))
+        label = sprintf('%d', round(value));
+    else
+        label = sprintf('%.1f', value);
+    end
 end
 
 function cos_sim = cosine_similarity_omitnan(x, y)
@@ -1201,8 +1389,11 @@ function plot_pair_density(ax, x, y, pearson_r, pearson_p, spearman_rho, spearma
     end
 
     axis(ax, 'square');
-    xlim(ax, [edges_x(1), edges_x(end)]);
-    ylim(ax, [edges_y(1), edges_y(end)]);
+    density_x_limit = [edges_x(1), edges_x(end)];
+    density_y_limit = [edges_y(1), edges_y(end)];
+    xlim(ax, density_x_limit);
+    ylim(ax, density_y_limit);
+    apply_xy_axis_ticks(ax, density_x_limit, density_y_limit);
     if strcmp(axis_mode, 'signed')
         xlabel(ax, sprintf('%s J_{ij}', x_label));
         ylabel(ax, sprintf('%s J_{ij}', y_label));
