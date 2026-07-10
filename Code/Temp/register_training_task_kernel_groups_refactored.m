@@ -51,7 +51,7 @@ task_groups = build_kernel_task_groups(all_dataset_indices, kernel_families);
 
 % Task dimensions.
 task_params = struct();
-task_params.merge_types = {'Full', 'Cortex'};
+task_params.merge_types = {'Cortex'};
 task_params.prepost_types = {'Pre', 'Post'};
 task_params.states = {'RestOpen', 'RestClose'};
 task_params.align_types = {'Longest', 'Last'};

@@ -110,5 +110,5 @@ bad_num = numel(bad_files);
 fprintf('Bad file: %d\n', bad_num);
 for i = 1:bad_num
     item = bad_files{i};
-    fprintf('%d: %s\n%s', i, item{1}, item{2});
+    fprintf('%d: %s\n%s\n', i, item{1}, item{2});
 end
