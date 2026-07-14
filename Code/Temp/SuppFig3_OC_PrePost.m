@@ -1,6 +1,16 @@
 %% Supplement Figure: Open/Close and Pre/Post compound-pattern transition matrices
 % This script generates 2 * kernel_num separate 2x7 figures for each
-% hyperparameter configuration and saves each as PDF + JPG.
+% hyperparameter configuration.
+%
+% Export behavior is controlled independently by export_jpg and export_pdf.
+% Default: export JPG only.
+%
+% Metadata behavior:
+%   1. On the first run, load the full GLM metadata, retain epoch = 3000 and
+%      fixed analysis filters, verify complete Pre/Post x Open/Close sessions,
+%      and save a compact session index.
+%   2. On later runs, load only the compact index and do not load the full
+%      metadata file.
 %
 % Figure versions for each kernel index:
 %   1. Pre -> Post transition of Open/Close compound patterns.
@@ -27,6 +37,8 @@
 %   For Pre/Post patterns:   first symbol = Pre,      second symbol = Post.
 
 clear;
+run_tic = tic;
+progress_log('SCRIPT', 'Started.');
 
 %% Get root folder
 code_depth = 3;
@@ -37,13 +49,16 @@ for i = 1:code_depth
 end
 addpath(fileparts(script_path));
 addpath(fullfile(root, 'Code', 'Utils'));
+progress_log('SCRIPT', 'Project root: %s', root);
 
 %% Hyperparameter configurations
 % Automatically generate all requested kernel_name x injection x align combinations.
 % Fixed filters for this batch:
 %   reg_name = "L2=0_2"
 %   resting_dur_threshold = 15
+progress_log('CONFIG', 'Generating hyperparameter configurations.');
 hyperparam_configs = build_auto_hyperparam_configs();
+progress_log('CONFIG', 'Generated %d hyperparameter configurations.', numel(hyperparam_configs));
 
 %% Plot and analysis parameters
 err_multi = 1; % threshold for significant J, in multiples of the GLM error estimate.
@@ -57,6 +72,17 @@ figure_visible = 'off';
 skip_failed_sessions = false;
 max_sessions_to_include = inf; % set smaller while debugging.
 
+% Independent export switches.
+export_jpg = true;
+export_pdf = false;
+export_resolution = 300; % dpi.
+
+% Metadata index controls.
+metadata_index_version = 2;
+force_rebuild_metadata_index = false;
+metadata_index_filename = fullfile(root, 'Data', 'Working', 'metadata_index', ...
+    'GLM_epoch3000_complete_session_index.mat');
+
 base_params = struct();
 base_params.err_multi = err_multi;
 base_params.category_labels_9 = category_labels_9;
@@ -66,10 +92,19 @@ base_params.n_col = n_col;
 base_params.figure_visible = figure_visible;
 base_params.skip_failed_sessions = skip_failed_sessions;
 base_params.max_sessions_to_include = max_sessions_to_include;
+base_params.export_jpg = export_jpg;
+base_params.export_pdf = export_pdf;
+base_params.export_resolution = export_resolution;
 
-%% Load metadata
-mt = load_meta(root, 'table');
-mt = mt.GLM;
+progress_log('CONFIG', 'Export settings: JPG=%d, PDF=%d, resolution=%d dpi.', ...
+    export_jpg, export_pdf, export_resolution);
+
+%% Load or build compact metadata index
+progress_log('INDEX', 'Index file: %s', metadata_index_filename);
+[session_index, metadata_index_info] = load_or_build_metadata_session_index( ...
+    root, metadata_index_filename, metadata_index_version, force_rebuild_metadata_index);
+progress_log('INDEX', 'Index ready: %d complete sessions; created %s.', ...
+    numel(session_index), metadata_index_info.created_at);
 
 fig3_root_folder = fullfile(root, 'Figures', 'Paper', 'Fig3_Supp');
 check_path(fig3_root_folder);
@@ -77,9 +112,12 @@ run_issue_log = empty_run_issue_log();
 run_issue_log_filename = fullfile(fig3_root_folder, 'run_issue_log.txt');
 
 total_rendered_figure_count = 0;
+total_valid_session_count = 0;
+total_failed_session_count = 0;
 
 %% Run each hyperparameter configuration
 for hp_i = 1:numel(hyperparam_configs)
+    hp_tic = tic;
     hp_title_for_log = sprintf('hyperparameter set %d/%d', hp_i, numel(hyperparam_configs));
 
     try
@@ -92,29 +130,32 @@ for hp_i = 1:numel(hyperparam_configs)
         params.hyperparam_title = hp_title_for_log;
         params.output_folder = fullfile(fig3_root_folder, make_hyperparam_folder_name(hp));
 
-        fprintf('\n===== Hyperparameter set %d/%d: %s =====\n', hp_i, numel(hyperparam_configs), params.hyperparam_title);
-        fprintf('Output folder: %s\n', params.output_folder);
+        progress_log('HP', '[%d/%d] START: %s', hp_i, numel(hyperparam_configs), params.hyperparam_title);
+        progress_log('HP', '[%d/%d][1/4] Selecting sessions from compact index.', hp_i, numel(hyperparam_configs));
 
         figure_configs = build_pattern_figure_configs(kernel_indices);
 
-        %% Load and filter metadata for this hyperparameter set
-        selected_rows = metadata_filter(mt, hp);
-
-        selected_mt = mt(selected_rows, :);
-        meta_array = table2struct(selected_mt);
+        %% Select indexed sessions for this hyperparameter set
+        meta_array = select_sessions_from_index(session_index, hp);
         if isfinite(params.max_sessions_to_include)
             meta_array = meta_array(1:min(numel(meta_array), params.max_sessions_to_include));
         end
 
+        progress_log('HP', '[%d/%d][1/4] Matched %d complete sessions. Output: %s', ...
+            hp_i, numel(hyperparam_configs), numel(meta_array), params.output_folder);
+
         if isempty(meta_array)
-            message = sprintf('No metadata rows selected. Skipping this hyperparameter set.');
+            message = 'No indexed sessions selected. Skipping this hyperparameter set.';
             warning('%s Hyperparameter set %d: %s', message, hp_i, params.hyperparam_title);
             run_issue_log = append_run_issue(run_issue_log, hp_i, params.hyperparam_title, 'NoMetadata', message);
             write_run_issue_log(run_issue_log_filename, run_issue_log);
+            progress_log('HP', '[%d/%d] SKIPPED: no indexed sessions.', hp_i, numel(hyperparam_configs));
             continue;
         end
 
         %% Initialize pooled storage
+        progress_log('HP', '[%d/%d][2/4] Initializing pooled count matrices for %d figures.', ...
+            hp_i, numel(hyperparam_configs), numel(figure_configs));
         n_fig = numel(figure_configs);
         pooled = struct([]);
         for fig_i = 1:n_fig
@@ -127,17 +168,31 @@ for hp_i = 1:numel(hyperparam_configs)
         failed_session_count = 0;
 
         %% Pool data across all selected sessions for this hyperparameter set
+        progress_log('HP', '[%d/%d][3/4] Pooling %d sessions.', ...
+            hp_i, numel(hyperparam_configs), numel(meta_array));
+
         for session_i = 1:numel(meta_array)
+            session_tic = tic;
             meta = meta_array(session_i);
             session_label = make_session_label(meta);
-            fprintf('\n===== Loading %s (%d/%d) =====\n', session_label, session_i, numel(meta_array));
+            progress_log('SESSION', '[HP %d/%d][%d/%d] START: %s', ...
+                hp_i, numel(hyperparam_configs), session_i, numel(meta_array), session_label);
 
             try
                 loaded_states = load_all_required_states(root, meta, kernel_indices);
 
+                % Accumulate into temporary session storage first. This prevents
+                % partial session results from entering pooled counts if a later
+                % figure fails and skip_failed_sessions is enabled.
+                session_counts9 = cell(n_fig, 1);
+                session_counts4 = cell(n_fig, 1);
+
                 for fig_i = 1:n_fig
                     cfg = figure_configs(fig_i);
                     k = cfg.kernel_idx;
+                    progress_log('ANALYSIS', '[HP %d/%d][Session %d/%d][Figure %d/%d] %s, kernel %d.', ...
+                        hp_i, numel(hyperparam_configs), session_i, numel(meta_array), ...
+                        fig_i, n_fig, cfg.analysis_type, k);
 
                     pre_open_state   = loaded_states.(state_key('Pre',  'RestOpen',  k));
                     pre_close_state  = loaded_states.(state_key('Pre',  'RestClose', k));
@@ -157,13 +212,24 @@ for hp_i = 1:numel(hyperparam_configs)
                             error('Unknown analysis_type: %s', cfg.analysis_type);
                     end
 
-                    pooled(fig_i).counts9 = pooled(fig_i).counts9 + counts9;
-                    pooled(fig_i).counts4 = pooled(fig_i).counts4 + counts4;
+                    session_counts9{fig_i} = counts9;
+                    session_counts4{fig_i} = counts4;
+                end
+
+                for fig_i = 1:n_fig
+                    pooled(fig_i).counts9 = pooled(fig_i).counts9 + session_counts9{fig_i};
+                    pooled(fig_i).counts4 = pooled(fig_i).counts4 + session_counts4{fig_i};
                 end
 
                 valid_session_count = valid_session_count + 1;
+                progress_log('SESSION', '[HP %d/%d][%d/%d] DONE in %.1f s: %s', ...
+                    hp_i, numel(hyperparam_configs), session_i, numel(meta_array), ...
+                    toc(session_tic), session_label);
             catch ME_session
                 failed_session_count = failed_session_count + 1;
+                progress_log('SESSION', '[HP %d/%d][%d/%d] FAILED after %.1f s: %s | %s', ...
+                    hp_i, numel(hyperparam_configs), session_i, numel(meta_array), ...
+                    toc(session_tic), session_label, ME_session.message);
                 if params.skip_failed_sessions
                     warning('Skipping %s because loading/processing failed: %s', session_label, ME_session.message);
                     continue;
@@ -173,25 +239,39 @@ for hp_i = 1:numel(hyperparam_configs)
             end
         end
 
+        total_valid_session_count = total_valid_session_count + valid_session_count;
+        total_failed_session_count = total_failed_session_count + failed_session_count;
+
         if valid_session_count == 0
             message = sprintf('No valid sessions were loaded. Failed sessions: %d. Skipping rendering for this hyperparameter set.', failed_session_count);
             warning('%s Hyperparameter set %d: %s', message, hp_i, params.hyperparam_title);
             run_issue_log = append_run_issue(run_issue_log, hp_i, params.hyperparam_title, 'NoValidSessions', message);
             write_run_issue_log(run_issue_log_filename, run_issue_log);
+            progress_log('HP', '[%d/%d] SKIPPED: no valid sessions.', hp_i, numel(hyperparam_configs));
             continue;
         end
 
-        fprintf('\nValid sessions: %d. Failed sessions: %d.\n', valid_session_count, failed_session_count);
+        progress_log('HP', '[%d/%d][3/4] Pooling complete. Valid=%d, failed=%d.', ...
+            hp_i, numel(hyperparam_configs), valid_session_count, failed_session_count);
 
         for fig_i = 1:n_fig
             pooled(fig_i).valid_session_count = valid_session_count;
         end
 
         %% Render and save figures for this hyperparameter set
+        progress_log('HP', '[%d/%d][4/4] Rendering %d figures.', ...
+            hp_i, numel(hyperparam_configs), n_fig);
         for fig_i = 1:n_fig
+            progress_log('RENDER', '[HP %d/%d][Figure %d/%d] START: %s', ...
+                hp_i, numel(hyperparam_configs), fig_i, n_fig, figure_configs(fig_i).output_stub);
             render_pattern_transition_figure(root, figure_configs(fig_i), pooled(fig_i), params);
             total_rendered_figure_count = total_rendered_figure_count + 1;
+            progress_log('RENDER', '[HP %d/%d][Figure %d/%d] DONE.', ...
+                hp_i, numel(hyperparam_configs), fig_i, n_fig);
         end
+
+        progress_log('HP', '[%d/%d] DONE in %.1f s. Valid sessions=%d, failed=%d, figures=%d.', ...
+            hp_i, numel(hyperparam_configs), toc(hp_tic), valid_session_count, failed_session_count, n_fig);
 
     catch ME_hp
         message = sprintf('%s: %s', ME_hp.identifier, ME_hp.message);
@@ -199,6 +279,8 @@ for hp_i = 1:numel(hyperparam_configs)
             hp_i, numel(hyperparam_configs), hp_title_for_log, message);
         run_issue_log = append_run_issue(run_issue_log, hp_i, hp_title_for_log, 'Error', message);
         write_run_issue_log(run_issue_log_filename, run_issue_log);
+        progress_log('HP', '[%d/%d] FAILED after %.1f s: %s', ...
+            hp_i, numel(hyperparam_configs), toc(hp_tic), message);
         continue;
     end
 end
@@ -206,13 +288,16 @@ end
 if total_rendered_figure_count == 0
     warning('No figures were rendered. Check hyperparameter values, metadata coverage, and run_issue_log.txt.');
 else
-    fprintf('\nRendered %d figures across all hyperparameter sets.\n', total_rendered_figure_count);
+    progress_log('SUMMARY', 'Rendered %d figures across all hyperparameter sets.', total_rendered_figure_count);
 end
 
 if ~isempty(run_issue_log)
     write_run_issue_log(run_issue_log_filename, run_issue_log);
-    fprintf('Run issue log written to: %s\n', run_issue_log_filename);
+    progress_log('SUMMARY', 'Run issue log written to: %s', run_issue_log_filename);
 end
+
+progress_log('SUMMARY', 'Finished in %.1f s. Total valid-session runs=%d, failed-session runs=%d.', ...
+    toc(run_tic), total_valid_session_count, total_failed_session_count);
 
 
 function hyperparam_configs = build_auto_hyperparam_configs()
@@ -262,9 +347,399 @@ function hyperparam_configs = build_auto_hyperparam_configs()
         end
     end
 
-    fprintf('Generated %d hyperparameter configurations from %d kernel specifications.\n', ...
+    progress_log('CONFIG', 'Generated %d hyperparameter configurations from %d kernel specifications.', ...
         numel(hyperparam_configs), numel(kernel_specs));
 end
+
+function [session_index, index_info] = load_or_build_metadata_session_index( ...
+    root, index_filename, expected_version, force_rebuild)
+
+    index_folder = fileparts(index_filename);
+    check_path(index_folder);
+
+    if isfile(index_filename) && ~force_rebuild
+        load_tic = tic;
+        progress_log('INDEX', 'Existing index detected. Loading compact index only.');
+        loaded = load(index_filename, 'session_index', 'index_info');
+
+        if ~isfield(loaded, 'session_index') || ~isfield(loaded, 'index_info')
+            error(['Metadata index is missing session_index or index_info. ' ...
+                   'Delete the index file or set force_rebuild_metadata_index=true.']);
+        end
+
+        needs_resave = false;
+        if istable(loaded.session_index)
+            progress_log('INDEX', 'Migrating legacy compact table index to struct format.');
+            session_index = table2struct(loaded.session_index);
+            needs_resave = true;
+        elseif isstruct(loaded.session_index)
+            session_index = loaded.session_index;
+        else
+            error('Metadata index session_index must be a struct array or a legacy table.');
+        end
+
+        index_info = loaded.index_info;
+        if ~isfield(index_info, 'version') || index_info.version ~= expected_version
+            if isfield(index_info, 'version') && index_info.version > expected_version
+                error('Metadata index version %d is newer than supported version %d.', ...
+                    index_info.version, expected_version);
+            end
+            progress_log('INDEX', 'Updating compact index version metadata to %d.', expected_version);
+            index_info.version = expected_version;
+            index_info.format = 'struct';
+            index_info.migrated_at = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+            needs_resave = true;
+        end
+        if ~isfield(index_info, 'created_at')
+            index_info.created_at = 'unknown';
+        end
+
+        if needs_resave
+            progress_log('INDEX', 'Saving migrated struct index: %s', index_filename);
+            save(index_filename, 'session_index', 'index_info');
+        end
+
+        progress_log('INDEX', 'Loaded %d indexed sessions in %.1f s without loading full metadata.', ...
+            numel(session_index), toc(load_tic));
+        return;
+    end
+
+    if force_rebuild && isfile(index_filename)
+        progress_log('INDEX', 'Forced rebuild requested. Existing index will be replaced.');
+    else
+        progress_log('INDEX', 'No index found. Full metadata will be loaded once to build it.');
+    end
+
+    build_tic = tic;
+    [session_index, index_info] = build_metadata_session_index(root, expected_version);
+
+    progress_log('INDEX', 'Saving compact struct index: %s', index_filename);
+    save(index_filename, 'session_index', 'index_info');
+    progress_log('INDEX', 'Index saved; total build time %.1f s.', toc(build_tic));
+end
+
+function [session_index, index_info] = build_metadata_session_index(root, index_version)
+    target_epoch = 3000;
+    extraction_chunk_size = 100000;
+
+    progress_log('INDEX-BUILD', '[1/7] Loading full metadata as struct. This occurs only when building the index.');
+    load_tic = tic;
+    loaded_meta = load_meta(root, 'struct');
+    if ~isfield(loaded_meta, 'GLM') || ~isstruct(loaded_meta.GLM)
+        error('load_meta(root, ''struct'') did not return a GLM struct array.');
+    end
+    mt = loaded_meta.GLM;
+    clear loaded_meta;
+    source_row_count = numel(mt);
+    progress_log('INDEX-BUILD', '[1/7] Full metadata loaded: %d struct records in %.1f s.', ...
+        source_row_count, toc(load_tic));
+
+    required_fields = {'epoch', 'area', 'fold_idx', 'shuffle_idx', ...
+        'prepost', 'state', 'animal_name', 'injection', 'align', ...
+        'session_idx', 'resting_dur_threshold', 'kernel_name', 'reg_name'};
+    missing_fields = required_fields(~isfield(mt, required_fields));
+    if ~isempty(missing_fields)
+        error('Metadata is missing required fields: %s', strjoin(missing_fields, ', '));
+    end
+
+    progress_log('INDEX-BUILD', '[2/7] Extracting epoch in chunks of %d records.', extraction_chunk_size);
+    epoch_tic = tic;
+    epoch_values = struct_field_numeric(mt, 1:source_row_count, 'epoch', extraction_chunk_size);
+    candidate_idx = find(epoch_values == target_epoch);
+    epoch_candidate_count = numel(candidate_idx);
+    clear epoch_values;
+    progress_log('INDEX-BUILD', '[2/7] epoch=%d candidates: %d/%d records in %.1f s.', ...
+        target_epoch, epoch_candidate_count, source_row_count, toc(epoch_tic));
+
+    if isempty(candidate_idx)
+        error('No metadata records found for epoch %d.', target_epoch);
+    end
+
+    progress_log('INDEX-BUILD', '[3/7] Extracting fixed-filter and grouping fields for epoch candidates.');
+    field_tic = tic;
+    area = struct_field_string(mt, candidate_idx, 'area', extraction_chunk_size);
+    fold_idx = struct_field_numeric(mt, candidate_idx, 'fold_idx', extraction_chunk_size);
+    shuffle_idx = struct_field_numeric(mt, candidate_idx, 'shuffle_idx', extraction_chunk_size);
+    prepost = struct_field_string(mt, candidate_idx, 'prepost', extraction_chunk_size);
+    state = struct_field_string(mt, candidate_idx, 'state', extraction_chunk_size);
+
+    animal_name = struct_field_string(mt, candidate_idx, 'animal_name', extraction_chunk_size);
+    injection = struct_field_string(mt, candidate_idx, 'injection', extraction_chunk_size);
+    align_name = struct_field_string(mt, candidate_idx, 'align', extraction_chunk_size);
+    session_idx = struct_field_string(mt, candidate_idx, 'session_idx', extraction_chunk_size);
+    resting_dur = struct_field_numeric(mt, candidate_idx, 'resting_dur_threshold', extraction_chunk_size);
+    kernel_name = struct_field_string(mt, candidate_idx, 'kernel_name', extraction_chunk_size);
+    reg_name = struct_field_string(mt, candidate_idx, 'reg_name', extraction_chunk_size);
+    progress_log('INDEX-BUILD', '[3/7] Candidate fields extracted in %.1f s.', toc(field_tic));
+
+    progress_log('INDEX-BUILD', '[4/7] Applying fixed filters without copying the full struct array.');
+    keep = area == "Cortex" & ...
+           fold_idx == 0 & ...
+           shuffle_idx == 0 & ...
+           ismember(prepost, ["Pre", "Post"]) & ...
+           ismember(state, ["RestOpen", "RestClose"]);
+
+    filtered_row_count = sum(keep);
+    progress_log('INDEX-BUILD', ...
+        '[4/7] Fixed filters retained %d/%d epoch candidates.', ...
+        filtered_row_count, numel(candidate_idx));
+    if filtered_row_count == 0
+        error('No metadata records remain after fixed index filters.');
+    end
+
+    candidate_idx = candidate_idx(keep);
+    prepost = prepost(keep);
+    state = state(keep);
+    animal_name = animal_name(keep);
+    injection = injection(keep);
+    align_name = align_name(keep);
+    session_idx = session_idx(keep);
+    resting_dur = resting_dur(keep);
+    kernel_name = kernel_name(keep);
+    reg_name = reg_name(keep);
+    clear area fold_idx shuffle_idx keep;
+
+    progress_log('INDEX-BUILD', '[5/7] Encoding conditions and removing missing grouping values.');
+    condition_code = zeros(filtered_row_count, 1, 'uint8');
+    condition_code(prepost == "Pre"  & state == "RestOpen")  = 1;
+    condition_code(prepost == "Pre"  & state == "RestClose") = 2;
+    condition_code(prepost == "Post" & state == "RestOpen")  = 3;
+    condition_code(prepost == "Post" & state == "RestClose") = 4;
+
+    valid_group_values = condition_code > 0 & ...
+        ~ismissing(animal_name) & ~ismissing(injection) & ...
+        ~ismissing(align_name) & ~ismissing(session_idx) & ...
+        isfinite(resting_dur) & ~ismissing(kernel_name) & ~ismissing(reg_name);
+
+    if ~all(valid_group_values)
+        progress_log('INDEX-BUILD', 'Discarding %d records with invalid conditions or missing grouping values.', ...
+            sum(~valid_group_values));
+        candidate_idx = candidate_idx(valid_group_values);
+        condition_code = condition_code(valid_group_values);
+        animal_name = animal_name(valid_group_values);
+        injection = injection(valid_group_values);
+        align_name = align_name(valid_group_values);
+        session_idx = session_idx(valid_group_values);
+        resting_dur = resting_dur(valid_group_values);
+        kernel_name = kernel_name(valid_group_values);
+        reg_name = reg_name(valid_group_values);
+    end
+
+    if isempty(candidate_idx)
+        error('No valid metadata records remain after grouping-value checks.');
+    end
+
+    progress_log('INDEX-BUILD', '[6/7] Grouping records by hyperparameters and session identity.');
+    group_tic = tic;
+    group_id = findgroups(animal_name, injection, align_name, session_idx, ...
+        resting_dur, kernel_name, reg_name);
+    if any(~isfinite(group_id))
+        error('findgroups returned invalid group IDs after missing-value filtering.');
+    end
+    n_groups = max(group_id);
+    progress_log('INDEX-BUILD', '[6/7] Created %d candidate session groups in %.1f s.', ...
+        n_groups, toc(group_tic));
+
+    condition_counts = accumarray( ...
+        [double(group_id), double(condition_code)], 1, [n_groups, 4], @sum, 0);
+    complete_group = all(condition_counts == 1, 2);
+    missing_group = any(condition_counts == 0, 2);
+    duplicate_group = any(condition_counts > 1, 2);
+
+    progress_log('INDEX-BUILD', ...
+        '[6/7] Complete=%d; missing-condition=%d; duplicate-condition=%d groups.', ...
+        sum(complete_group), sum(missing_group), sum(duplicate_group));
+    if ~any(complete_group)
+        error('No complete Pre/Post x RestOpen/RestClose session groups were found.');
+    end
+
+    anchor_mask = condition_code == 1 & complete_group(group_id);
+    anchor_source_idx = candidate_idx(anchor_mask);
+    if numel(anchor_source_idx) ~= sum(complete_group)
+        error('Internal index construction error: anchor count does not match complete group count.');
+    end
+
+    progress_log('INDEX-BUILD', '[7/7] Copying only %d complete anchor records into the compact struct index.', ...
+        numel(anchor_source_idx));
+    session_index = mt(anchor_source_idx);
+    session_index = sort_session_index_struct(session_index);
+    clear mt;
+
+    progress_log('INDEX-BUILD', '[7/7] Compact struct index constructed with %d session records.', ...
+        numel(session_index));
+
+    index_info = struct();
+    index_info.version = index_version;
+    index_info.format = 'struct';
+    index_info.created_at = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+    index_info.target_epoch = target_epoch;
+    index_info.fixed_area = 'Cortex';
+    index_info.fixed_fold_idx = 0;
+    index_info.fixed_shuffle_idx = 0;
+    index_info.source_row_count = source_row_count;
+    index_info.epoch_candidate_count = epoch_candidate_count;
+    index_info.filtered_row_count = filtered_row_count;
+    index_info.candidate_group_count = n_groups;
+    index_info.complete_session_count = numel(session_index);
+    index_info.missing_group_count = sum(missing_group);
+    index_info.duplicate_group_count = sum(duplicate_group);
+end
+
+function selected = select_sessions_from_index(session_index, hp)
+    n_sessions = numel(session_index);
+    if n_sessions == 0
+        selected = session_index;
+        return;
+    end
+
+    all_idx = 1:n_sessions;
+    kernel_name = struct_field_string(session_index, all_idx, 'kernel_name', n_sessions);
+    align_name = struct_field_string(session_index, all_idx, 'align', n_sessions);
+    injection = struct_field_string(session_index, all_idx, 'injection', n_sessions);
+    resting_dur = struct_field_numeric(session_index, all_idx, ...
+        'resting_dur_threshold', n_sessions);
+
+    mask = kernel_name == string(hp.kernel_name) & ...
+           align_name == string(hp.align) & ...
+           injection == string(hp.injection) & ...
+           resting_dur == double(hp.resting_dur_threshold);
+
+    if ~is_empty_filter_value(hp.reg_name)
+        reg_name = struct_field_string(session_index, all_idx, 'reg_name', n_sessions);
+        mask = mask & reg_name == string(hp.reg_name);
+    end
+
+    selected = session_index(mask);
+end
+
+function values = struct_field_numeric(records, indices, field, chunk_size)
+    if nargin < 4 || isempty(chunk_size)
+        chunk_size = 100000;
+    end
+    if ~isstruct(records) || ~isfield(records, field)
+        error('Metadata struct is missing required field: %s', field);
+    end
+
+    indices = indices(:);
+    n = numel(indices);
+    values = nan(n, 1);
+
+    for first_i = 1:chunk_size:n
+        last_i = min(first_i + chunk_size - 1, n);
+        source_idx = indices(first_i:last_i);
+        target_idx = first_i:last_i;
+
+        used_fast_path = false;
+        try
+            raw = [records(source_idx).(field)];
+            if numel(raw) == numel(source_idx) && (isnumeric(raw) || islogical(raw))
+                values(target_idx) = double(raw(:));
+                used_fast_path = true;
+            end
+        catch
+            used_fast_path = false;
+        end
+
+        if ~used_fast_path
+            for j = 1:numel(source_idx)
+                value = unwrap_cell_scalar(records(source_idx(j)).(field));
+                if isempty(value)
+                    continue;
+                elseif (isnumeric(value) || islogical(value)) && isscalar(value)
+                    values(target_idx(j)) = double(value);
+                elseif (ischar(value) || isstring(value)) && isscalar(string(value))
+                    parsed = str2double(string(value));
+                    if ~isnan(parsed)
+                        values(target_idx(j)) = parsed;
+                    else
+                        error('Field %s contains a nonnumeric value at struct record %d.', ...
+                            field, source_idx(j));
+                    end
+                else
+                    error('Field %s is not scalar numeric at struct record %d.', ...
+                        field, source_idx(j));
+                end
+            end
+        end
+    end
+end
+
+function values = struct_field_string(records, indices, field, chunk_size)
+    if nargin < 4 || isempty(chunk_size)
+        chunk_size = 100000;
+    end
+    if ~isstruct(records) || ~isfield(records, field)
+        error('Metadata struct is missing required field: %s', field);
+    end
+
+    indices = indices(:);
+    n = numel(indices);
+    values = strings(n, 1);
+
+    for first_i = 1:chunk_size:n
+        last_i = min(first_i + chunk_size - 1, n);
+        source_idx = indices(first_i:last_i);
+        target_idx = first_i:last_i;
+
+        used_fast_path = false;
+        try
+            raw = {records(source_idx).(field)};
+            converted = string(raw(:));
+            if numel(converted) == numel(source_idx)
+                values(target_idx) = converted;
+                used_fast_path = true;
+            end
+        catch
+            used_fast_path = false;
+        end
+
+        if ~used_fast_path
+            for j = 1:numel(source_idx)
+                value = unwrap_cell_scalar(records(source_idx(j)).(field));
+                if isempty(value)
+                    values(target_idx(j)) = missing;
+                else
+                    converted = string(value);
+                    if ~isscalar(converted)
+                        error('Field %s is not scalar-valued at struct record %d.', ...
+                            field, source_idx(j));
+                    end
+                    values(target_idx(j)) = converted;
+                end
+            end
+        end
+    end
+end
+
+function session_index = sort_session_index_struct(session_index)
+    n = numel(session_index);
+    if n <= 1
+        return;
+    end
+
+    idx = 1:n;
+    separator = string(char(31));
+    kernel_name = struct_field_string(session_index, idx, 'kernel_name', n);
+    reg_name = struct_field_string(session_index, idx, 'reg_name', n);
+    resting_dur = struct_field_numeric(session_index, idx, 'resting_dur_threshold', n);
+    injection = struct_field_string(session_index, idx, 'injection', n);
+    align_name = struct_field_string(session_index, idx, 'align', n);
+    animal_name = struct_field_string(session_index, idx, 'animal_name', n);
+    session_idx = struct_field_string(session_index, idx, 'session_idx', n);
+
+    sort_key = kernel_name + separator + reg_name + separator + ...
+        compose('%020.10g', resting_dur) + separator + injection + separator + ...
+        align_name + separator + animal_name + separator + session_idx;
+    [~, order] = sort(sort_key);
+    session_index = session_index(order);
+end
+
+function progress_log(stage, format_string, varargin)
+    timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+    message = sprintf(format_string, varargin{:});
+    fprintf('[%s][%s] %s\n', timestamp, stage, message);
+end
+
 
 function issue_log = empty_run_issue_log()
     issue_log = struct('hp_index', {}, 'hyperparam_title', {}, 'issue_type', {}, 'message', {});
@@ -339,13 +814,20 @@ function loaded_states = load_all_required_states(root, meta, kernel_indices)
     loaded_states = struct();
     preposts = {'Pre', 'Post'};
     states = {'RestOpen', 'RestClose'};
+    n_loads = numel(kernel_indices) * numel(preposts) * numel(states);
+    load_i = 0;
+    progress_log('LOAD', 'Loading %d state/kernel combinations for %s.', ...
+        n_loads, make_session_label(meta));
     for k_i = 1:numel(kernel_indices)
         kernel_idx = kernel_indices(k_i);
         for pp_i = 1:numel(preposts)
             for st_i = 1:numel(states)
+                load_i = load_i + 1;
                 pp = preposts{pp_i};
                 st = states{st_i};
                 key = state_key(pp, st, kernel_idx);
+                progress_log('LOAD', '[%d/%d] kernel=%d, prepost=%s, state=%s.', ...
+                    load_i, n_loads, kernel_idx, pp, st);
                 loaded_states.(key) = load_state_connectivity(root, meta, pp, st, kernel_idx);
             end
         end
@@ -467,8 +949,11 @@ function counts = make_transition_counts(x_code, y_code, n_cat)
     end
 end
 
-function render_pattern_transition_figure(root, cfg, pooled_one, params)
+function render_pattern_transition_figure(root, cfg, pooled_one, params) %#ok<INUSD>
+    render_tic = tic;
     f = figure('Color', 'w', 'Visible', params.figure_visible);
+    figure_cleanup = onCleanup(@() close_figure_if_valid(f)); %#ok<NASGU>
+
     tiledlayout(params.n_row, params.n_col, 'TileSpacing', 'Compact', 'Padding', 'Compact');
     tile_idx = @(row, col) rowcol_to_panel_index(row, col, params.n_col);
 
@@ -479,6 +964,7 @@ function render_pattern_transition_figure(root, cfg, pooled_one, params)
                        'count difference', 'normalized difference', 'O/E ratio', 'std residual'};
     value_modes = {'integer', 'fraction', 'fraction', 'signed', 'signed', 'ratio', 'signed'};
 
+    progress_log('RENDER', 'Building 14 panels for %s.', cfg.output_stub);
     for col_i = 1:numel(plot_modes)
         mode = plot_modes{col_i};
 
@@ -508,7 +994,6 @@ function render_pattern_transition_figure(root, cfg, pooled_one, params)
 
     figWidth = 28.0;  % inches.
     figHeight = 8.5;  % inches.
-    resolution = 300; % dpi.
 
     set(f, 'Units', 'inches');
     f.Position(3:4) = [figWidth, figHeight];
@@ -517,13 +1002,31 @@ function render_pattern_transition_figure(root, cfg, pooled_one, params)
     set(f, 'PaperPosition', [0, 0, figWidth, figHeight]);
     set(f, 'Color', 'w');
 
-    preview_filename = fullfile(save_folder, [cfg.output_stub, '_supp_preview.jpg']);
-    exportgraphics(f, preview_filename, 'ContentType', 'image', 'BackgroundColor', 'white', 'Resolution', resolution);
+    if params.export_jpg
+        jpg_filename = fullfile(save_folder, [cfg.output_stub, '_supp_preview.jpg']);
+        progress_log('EXPORT', 'Writing JPG: %s', jpg_filename);
+        exportgraphics(f, jpg_filename, 'ContentType', 'image', ...
+            'BackgroundColor', 'white', 'Resolution', params.export_resolution);
+    else
+        progress_log('EXPORT', 'JPG export disabled for %s.', cfg.output_stub);
+    end
 
-    % pdf_filename = fullfile(save_folder, [cfg.output_stub, '_supp.pdf']);
-    % exportgraphics(f, pdf_filename, 'ContentType', 'vector', 'BackgroundColor', 'white', 'Resolution', resolution);
+    if params.export_pdf
+        pdf_filename = fullfile(save_folder, [cfg.output_stub, '_supp.pdf']);
+        progress_log('EXPORT', 'Writing PDF: %s', pdf_filename);
+        exportgraphics(f, pdf_filename, 'ContentType', 'vector', ...
+            'BackgroundColor', 'white');
+    else
+        progress_log('EXPORT', 'PDF export disabled for %s.', cfg.output_stub);
+    end
 
-    close(f);
+    progress_log('RENDER', 'Completed %s in %.1f s.', cfg.output_stub, toc(render_tic));
+end
+
+function close_figure_if_valid(f)
+    if ~isempty(f) && isgraphics(f)
+        close(f);
+    end
 end
 
 function [agreement, kappa, n_valid] = summarize_counts(counts)
@@ -740,187 +1243,9 @@ function hp = fill_default_hyperparams(hp)
     end
 end
 
-function selected_rows = metadata_filter(mt, hp)
-    base_filter = true(height(mt), 1);
-
-    base_filter = base_filter & metadata_matches(mt, 'kernel_name', hp.kernel_name);
-    base_filter = base_filter & metadata_matches(mt, 'align', hp.align);
-    base_filter = base_filter & metadata_matches(mt, 'area', "Cortex");
-    base_filter = base_filter & metadata_matches(mt, 'injection', hp.injection);
-    base_filter = base_filter & metadata_matches(mt, 'epoch', 3000);
-    base_filter = base_filter & metadata_matches(mt, 'fold_idx', 0);
-    base_filter = base_filter & metadata_matches(mt, 'shuffle_idx', 0);
-    base_filter = base_filter & metadata_matches(mt, 'resting_dur_threshold', hp.resting_dur_threshold);
-
-    if ~is_empty_filter_value(hp.reg_name)
-        base_filter = base_filter & metadata_matches(mt, 'reg_name', hp.reg_name);
-    end
-
-    anchor_filter = base_filter & ...
-                    metadata_matches(mt, 'prepost', 'Pre') & ...
-                    metadata_matches(mt, 'state', 'RestOpen');
-
-    selected_rows = false(height(mt), 1);
-    anchor_idx = find(anchor_filter);
-
-    required_preposts = {'Pre', 'Pre', 'Post', 'Post'};
-    required_states   = {'RestOpen', 'RestClose', 'RestOpen', 'RestClose'};
-
-    match_fields = {'animal_name', 'injection', 'align', 'session_idx', ...
-                    'resting_dur_threshold', 'area', 'kernel_name', ...
-                    'reg_name', 'epoch', 'fold_idx', 'shuffle_idx'};
-
-    for k = 1:numel(anchor_idx)
-        idx = anchor_idx(k);
-
-        same_session = base_filter;
-
-        for f = 1:numel(match_fields)
-            field = match_fields{f};
-            if ~ismember(field, mt.Properties.VariableNames)
-                continue;
-            end
-
-            anchor_value = get_table_scalar(mt, field, idx);
-            same_session = same_session & metadata_matches(mt, field, anchor_value);
-        end
-
-        has_all_required = true;
-        for q = 1:numel(required_preposts)
-            has_this = any(same_session & ...
-                           metadata_matches(mt, 'prepost', required_preposts{q}) & ...
-                           metadata_matches(mt, 'state', required_states{q}));
-
-            if ~has_this
-                has_all_required = false;
-                anchor_name = get_optional_table_string(mt, 'file_name', idx, sprintf('row_%d', idx));
-                warning('Session %s is missing required Pre/Post x Open/Close combination: %s %s. Skipping this session.', ...
-                    anchor_name, required_preposts{q}, required_states{q});
-                break;
-            end
-        end
-
-        if has_all_required
-            selected_rows(idx) = true;
-        end
-    end
-
-    fprintf('Metadata filter selected %d/%d anchor rows for %s:\n', ...
-        sum(selected_rows), sum(base_filter), make_hyperparam_title(hp));
-    for k = 1:height(mt)
-        if selected_rows(k)
-            fprintf('  %s\n', get_optional_table_string(mt, 'file_name', k, sprintf('row_%d', k)));
-        end
-    end
-
-    if ~any(selected_rows)
-        warning('Metadata filter selected no complete Pre/Post x Open/Close sets for %s.', make_hyperparam_title(hp));
-    end
-end
-
-function mask = metadata_matches(mt, field, target)
-    if is_empty_filter_value(target)
-        mask = true(height(mt), 1);
-        return;
-    end
-
-    if ~ismember(field, mt.Properties.VariableNames)
-        error('Metadata table is missing required field: %s', field);
-    end
-
-    mask = false(height(mt), 1);
-    for idx = 1:height(mt)
-        value = get_table_scalar(mt, field, idx);
-        mask(idx) = metadata_scalar_matches(value, target);
-    end
-end
-
-function value = get_table_scalar(mt, field, idx)
-    col = mt.(field);
-    if iscell(col)
-        value = col{idx};
-    else
-        value = col(idx);
-    end
-end
-
-function out = get_optional_table_string(mt, field, idx, fallback)
-    if ~ismember(field, mt.Properties.VariableNames)
-        out = fallback;
-        return;
-    end
-    out = value_to_display_string(get_table_scalar(mt, field, idx), fallback);
-end
-
-function tf = metadata_scalar_matches(value, target)
-    if is_empty_filter_value(target)
-        tf = true;
-        return;
-    end
-
-    if iscell(target)
-        tf = false;
-        for i = 1:numel(target)
-            if metadata_scalar_matches(value, target{i})
-                tf = true;
-                return;
-            end
-        end
-        return;
-    end
-
-    if isstring(target) && numel(target) > 1
-        tf = false;
-        for i = 1:numel(target)
-            if metadata_scalar_matches(value, target(i))
-                tf = true;
-                return;
-            end
-        end
-        return;
-    end
-
-    if isnumeric(target) && numel(target) > 1
-        tf = false;
-        for i = 1:numel(target)
-            if metadata_scalar_matches(value, target(i))
-                tf = true;
-                return;
-            end
-        end
-        return;
-    end
-
-    value = unwrap_cell_scalar(value);
-    target = unwrap_cell_scalar(target);
-
-    if ischar(value) || isstring(value) || ischar(target) || isstring(target) || iscategorical_safe(value) || iscategorical_safe(target)
-        tf = strcmp(string(value), string(target));
-    elseif isnumeric(value) && isnumeric(target)
-        tf = isequal(value, target);
-    elseif islogical(value) && islogical(target)
-        tf = isequal(value, target);
-    else
-        tf = isequal(value, target);
-    end
-
-    if numel(tf) > 1
-        tf = any(tf(:));
-    end
-end
-
 function value = unwrap_cell_scalar(value)
     while iscell(value) && isscalar(value)
         value = value{1};
-    end
-end
-
-function tf = iscategorical_safe(value)
-    tf = false;
-    try
-        tf = iscategorical(value);
-    catch
-        tf = false;
     end
 end
 
@@ -1027,6 +1352,7 @@ function label = make_session_label(meta)
 end
 
 function state_struct = load_state_connectivity(root, meta, prepost, state, kernel_idx)
+    state_tic = tic;
     state_struct = struct();
     state_struct.prepost = prepost;
     state_struct.state = state;
@@ -1036,31 +1362,57 @@ function state_struct = load_state_connectivity(root, meta, prepost, state, kern
     meta.state = state;
 
     meta.filename = generate_filename('raster', meta);
-    raster_data = load(fullfile(root, 'Data', 'Working', 'raster', meta.filename));
-    fprintf('Loaded raster data for %s %s %s\n', meta.prepost, meta.state, meta.area);
-    fprintf('Trial_len: %d, N: %d\n', raster_data.meta.trial_len, raster_data.meta.N);
-    fprintf('Trial_num: %d\n', raster_data.meta.trial_num);
+    raster_filename = fullfile(root, 'Data', 'Working', 'raster', meta.filename);
+    progress_log('LOAD-RASTER', 'Loading: %s', raster_filename);
+    raster_data = load(raster_filename);
+    progress_log('LOAD-RASTER', 'Loaded %s %s %s; trial_len=%d, N=%d, trials=%d.', ...
+        meta.prepost, meta.state, meta.area, raster_data.meta.trial_len, ...
+        raster_data.meta.N, raster_data.meta.trial_num);
 
     cell_area = raster_data.data.cell_area;
     filter1 = ismember(cell_area, {'ACC'});
     filter2 = ismember(cell_area, {'VLPFC'});
 
     meta.filename = generate_filename('GLM', meta);
-    GLM_data = load(fullfile(root, 'Data', 'Working', 'GLM', meta.filename));
-    fprintf('Loaded GLM data for %s %s %s\n', meta.prepost, meta.state, meta.area);
+    glm_filename = fullfile(root, 'Data', 'Working', 'GLM', meta.filename);
+    progress_log('LOAD-GLM', 'Loading: %s', glm_filename);
+    GLM_data = load(glm_filename);
     N = GLM_data.meta.N;
-    J = GLM_data.data.model_par(:, ((2 + N * (kernel_idx - 1)) : (1 + N * kernel_idx)));
-    err = GLM_data.data.model_err.total(:, ((2 + N * (kernel_idx - 1)) : (1 + N * kernel_idx)));
+
+    if numel(cell_area) ~= N
+        error('Raster cell_area length (%d) does not match GLM N (%d): %s', ...
+            numel(cell_area), N, glm_filename);
+    end
+
+    col_start = 2 + N * (kernel_idx - 1);
+    col_end = 1 + N * kernel_idx;
+    if col_end > size(GLM_data.data.model_par, 2)
+        error('Kernel %d requires model_par columns %d:%d, but only %d columns exist.', ...
+            kernel_idx, col_start, col_end, size(GLM_data.data.model_par, 2));
+    end
+    if col_end > size(GLM_data.data.model_err.total, 2)
+        error('Kernel %d requires model_err.total columns %d:%d, but only %d columns exist.', ...
+            kernel_idx, col_start, col_end, size(GLM_data.data.model_err.total, 2));
+    end
+
+    J = GLM_data.data.model_par(:, col_start:col_end);
+    err = GLM_data.data.model_err.total(:, col_start:col_end);
+
+    if size(J, 1) ~= N || size(err, 1) ~= N || ~isequal(size(J), size(err))
+        error('GLM parameter/error matrix dimensions are inconsistent for %s.', glm_filename);
+    end
 
     state_struct.cell_area = cell_area;
     state_struct.filter1 = filter1;
     state_struct.filter2 = filter2;
-    state_struct.J = J;
-    state_struct.err = err;
     state_struct.J12 = J(filter1, filter2);
     state_struct.J21 = J(filter2, filter1);
     state_struct.err12 = err(filter1, filter2);
     state_struct.err21 = err(filter2, filter1);
+
+    progress_log('LOAD-GLM', ...
+        'Loaded %s %s kernel=%d; ACC=%d, VLPFC=%d, elapsed=%.1f s.', ...
+        meta.prepost, meta.state, kernel_idx, sum(filter1), sum(filter2), toc(state_tic));
 end
 
 function cat = classify_connections(J, err, err_multi)

@@ -370,8 +370,8 @@ function render_pattern_transition_figure(root, cfg, pooled_one, params)
     preview_filename = fullfile(save_folder, [cfg.output_stub, '_supp_preview.jpg']);
     exportgraphics(f, preview_filename, 'ContentType', 'image', 'BackgroundColor', 'white', 'Resolution', resolution);
 
-    pdf_filename = fullfile(save_folder, [cfg.output_stub, '_supp.pdf']);
-    exportgraphics(f, pdf_filename, 'ContentType', 'vector', 'BackgroundColor', 'white', 'Resolution', resolution);
+    % pdf_filename = fullfile(save_folder, [cfg.output_stub, '_supp.pdf']);
+    % exportgraphics(f, pdf_filename, 'ContentType', 'vector', 'BackgroundColor', 'white', 'Resolution', resolution);
 
     close(f);
 end
