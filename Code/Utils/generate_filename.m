@@ -143,6 +143,14 @@ function code = get_code(field_name, field_value)
                     code = 'Zeppelin';
                 case 'Emperor'
                     code = 'Emperor';
+                case 'SimFixed'
+                    code = 'SimFixed';
+                case 'SimSlayer'
+                    code = 'SimSlayer';
+                case 'SimZeppelin'
+                    code = 'SimZeppelin';
+                case 'SimEmperor'
+                    code = 'SimEmperor';
                 otherwise
                     error('Unknown animal name: %s', field_value);
             end
@@ -174,6 +182,12 @@ function code = get_code(field_name, field_value)
                     code = 'Open';
                 case 'RestClose'
                     code = 'Closed';
+                case 'FittedAsync'
+                    code = 'Async';
+                case 'FittedSync'
+                    code = 'Sync';
+                case 'FittedNoInput'
+                    code = 'NoInput';
                 otherwise
                     error('Unknown state type: %s', field_value);
             end
